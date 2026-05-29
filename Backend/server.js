@@ -291,7 +291,7 @@ app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
             treintaDias.setDate(treintaDias.getDate() + 30);
             await prisma.usuarios.update({
                 where: { id_usuario: parseInt(id_usuario) },
-                data: { id_plan: 2, estado_suscripcion: true, fecha_vencimiento_suscripcion: treintaDias }
+                data: { id_plan: 2, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: treintaDias }
             });
             res.json({ message: '¡Pago verificado exitosamente! Ya eres Premium.' });
         } else { res.status(400).json({ error: 'El pago no ha sido completado.' }); }
@@ -306,7 +306,7 @@ app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
     try {
         await prisma.usuarios.update({
             where: { id_usuario: parseInt(id_usuario) },
-            data: { id_plan: 1, es_premium: false, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: null }
+            data: { id_plan: 1, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: null }
         });
         res.json({ message: 'Suscripción cancelada exitosamente. Has vuelto al Plan Básico.' });
     } catch (error) {
