@@ -5,7 +5,6 @@ const express = require('express');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const cron = require('node-cron');
-const { Client } = require('pg');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
@@ -529,41 +528,7 @@ cron.schedule('0 8 * * 1', async () => {
 // Inicialización del Servidor
 // ==========================================
 
-async function inicializarBaseDeDatos() {
-    try {
-        const client = new Client({
-            user: process.env.DB_USER, host: process.env.DB_HOST,
-            password: process.env.DB_PASSWORD, port: process.env.DB_PORT,
-            database: 'postgres'
-        });
-        await client.connect();
-        const res = await client.query(`SELECT 1 FROM pg_database WHERE datname = '${process.env.DB_DATABASE}'`);
-        if (res.rowCount === 0) {
-            console.log(`[DB] La base de datos '${process.env.DB_DATABASE}' no existe. Creándola automáticamente...`);
-            await client.query(`CREATE DATABASE "${process.env.DB_DATABASE}"`);
-        }
-        await client.end();
-
-        let schemaPath = path.join(__dirname, 'Config/schema.sql');
-        if (!fs.existsSync(schemaPath)) {
-            schemaPath = path.join(__dirname, '../schema.sql');
-        }
-        
-        if (fs.existsSync(schemaPath)) {
-            const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-            await prisma.$executeRawUnsafe(schemaSql);
-            console.log('[DB] Tablas verificadas/creadas correctamente desde schema.sql.');
-        } else {
-            console.log('[DB] Archivo schema.sql no encontrado. Las tablas no se crearon.');
-        }
-    } catch (error) {
-        console.error('[DB] Error al inicializar la base de datos:', error);
-    }
-}
-
-server.listen(PORT, async () => {
-    await inicializarBaseDeDatos();
-    
+server.listen(PORT, () => {
     console.log(`Servidor de GroupWallet ejecutándose en http://localhost:${PORT}`);
     console.log(`Archivos estáticos servidos desde: ${__dirname}`);
 });
