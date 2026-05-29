@@ -86,13 +86,32 @@ app.use(express.static(path.join(__dirname, '../Frontend')));
 // ==========================================
 
 // 1. Endpoint GET: Estado de salud del servidor
-app.get('/api/status', (req, res) => {
-    res.json({ 
-        status: 'Online', 
-        version: '1.0.0', 
-        environment: 'development',
-        message: 'API de GroupWallet funcionando correctamente.'
-    });
+app.get('/api/status', async (req, res) => {
+    try {
+        // Verificar que la base de datos responde correctamente
+        await prisma.$queryRaw`SELECT 1`;
+        
+        const memory = process.memoryUsage();
+        
+        res.status(200).json({ 
+            status: 'Online',
+            database: 'Connected',
+            version: '1.0.0', 
+            environment: process.env.NODE_ENV || 'production',
+            uptime: `${Math.floor(process.uptime() / 60)} minutos`,
+            memoryUsage: {
+                rss: `${Math.round(memory.rss / 1024 / 1024)} MB`,
+                heapUsed: `${Math.round(memory.heapUsed / 1024 / 1024)} MB`
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: 'Degraded',
+            database: 'Disconnected',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // Endpoint para proveer configuración pública al frontend (Supabase, etc.)
