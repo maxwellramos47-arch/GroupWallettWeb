@@ -287,10 +287,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     shareWhatsapp.href = `https://api.whatsapp.com/send?text=${mensaje}`;
                     shareEmail.href = `mailto:?subject=Invitación a GroupWallet&body=${mensaje}`;
                     
-                    // Generar Código QR
+                    // Generar Código QR de forma local
                     const qrContainer = document.getElementById('qrcode');
                     if (qrContainer) {
-                        qrContainer.innerHTML = `<img src="https://quickchart.io/qr?size=150&text=${encodeURIComponent(data.enlace)}" alt="Código QR de Invitación" style="max-width: 100%; height: auto; border-radius: 8px;">`;
+                        qrContainer.innerHTML = ''; // Limpiar QR anterior
+                        new QRCode(qrContainer, {
+                            text: data.enlace,
+                            width: 150,
+                            height: 150,
+                            colorDark : "#000000",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.L // Low error correction to handle long JWTs better
+                        });
                     }
                     
                     showToast('Enlace generado. ¡Compártelo!', 'success');
