@@ -4,6 +4,7 @@ const UsuarioBLL = require('../BLL/usuario.bll');
 const { verificarToken } = require('../Middleware/auth.middleware');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
+const prisma = require('../Config/prisma');
 const { logError } = require('../Middleware/logger.util');
 
 const loginLimiter = rateLimit({
@@ -87,8 +88,10 @@ router.post('/reset-password', async (req, res) => {
         const { token, new_password } = req.body;
         await UsuarioBLL.restablecerPassword(token, new_password);
         
-        const pool = require('../Config/db');
-        await pool.query('UPDATE Usuarios SET reset_token = NULL, reset_token_expires = NULL WHERE reset_token = $1', [token]);
+        await prisma.usuarios.updateMany({
+            where: { reset_token: token },
+            data: { reset_token: null, reset_token_expires: null }
+        });
         res.json({ message: 'Contraseña actualizada. Ya puedes iniciar sesión.' });
     } catch (error) { res.status(error.message.includes('Token') ? 400 : 500).json({ error: error.message }); }
 });
@@ -98,8 +101,11 @@ router.post('/logout', verificarToken, async (req, res, next) => {
         const token = req.tokenActual;
         const expiracion = new Date(req.usuarioLogueado.exp * 1000);
         
-        const pool = require('../Config/db');
-        await pool.query('INSERT INTO Tokens_Revocados (token, fecha_expiracion) VALUES ($1, $2) ON CONFLICT DO NOTHING', [token, expiracion]);
+        await prisma.tokens_Revocados.upsert({
+            where: { token },
+            update: {},
+            create: { token, fecha_expiracion: expiracion }
+        });
         
         res.json({ message: 'Sesión cerrada en el servidor exitosamente.' });
     } catch (error) { next(error); }

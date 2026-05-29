@@ -12,8 +12,9 @@ const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Inicializar Stripe
+const { PrismaClient } = require('@prisma/client');
 
-const pool = require('./Config/db');
+const prisma = new PrismaClient();
 const { encriptarDatoSensible, desencriptarDatoSensible, generarFirmaHMAC, JWT_SECRET } = require('./Middleware/security.util');
 const { verificarToken } = require('./Middleware/auth.middleware');
 const usuarioRoutes = require('./Routes/usuario.routes');
@@ -106,7 +107,7 @@ app.get('/api/config', (req, res) => {
 app.get('/api/historial', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
     try {
-        const query = `
+        const result = await prisma.$queryRaw`
             SELECT 
                 th.id_transaccion, 
                 g.nombre_grupo,
@@ -119,11 +120,10 @@ app.get('/api/historial', verificarToken, async (req, res) => {
             JOIN Grupos g ON th.id_grupo = g.id_grupo
             JOIN Usuarios u ON th.id_usuario_pagador = u.id_usuario
             JOIN Miembros_Grupo mg ON th.id_grupo = mg.id_grupo
-            WHERE mg.id_usuario = $1
+            WHERE mg.id_usuario = ${parseInt(id_usuario)}
             ORDER BY th.fecha_archivado DESC
         `;
-        const result = await pool.query(query, [id_usuario]);
-        res.json(result.rows);
+        res.json(result);
     } catch (error) {
         console.error('Error al obtener historial:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -137,10 +137,12 @@ app.get('/api/historial/exportar/:id_grupo', verificarToken, async (req, res) =>
 
     try {
         // Seguridad: Verificar que el usuario pertenece al grupo
-        const checkGrupo = await pool.query('SELECT 1 FROM Miembros_Grupo WHERE id_grupo = $1 AND id_usuario = $2', [id_grupo, id_usuario]);
-        if (checkGrupo.rows.length === 0) return res.status(403).json({ error: 'Acceso denegado' });
+        const checkGrupo = await prisma.miembros_Grupo.findUnique({
+            where: { id_grupo_id_usuario: { id_grupo: parseInt(id_grupo), id_usuario: parseInt(id_usuario) } }
+        });
+        if (!checkGrupo) return res.status(403).json({ error: 'Acceso denegado' });
 
-        const query = `
+        const result = await prisma.$queryRaw`
             SELECT 
                 th.id_transaccion, 
                 TO_CHAR(th.fecha_gasto, 'DD/MM/YYYY') as fecha_gasto,
@@ -150,14 +152,13 @@ app.get('/api/historial/exportar/:id_grupo', verificarToken, async (req, res) =>
                 u.nombre as pagador_nombre
             FROM Transacciones_Historial th
             JOIN Usuarios u ON th.id_usuario_pagador = u.id_usuario
-            WHERE th.id_grupo = $1
+            WHERE th.id_grupo = ${parseInt(id_grupo)}
             ORDER BY th.fecha_archivado DESC
         `;
-        const result = await pool.query(query, [id_grupo]);
         
         // Construir el formato CSV
         let csv = 'ID Transaccion,Fecha de Gasto,Fecha de Archivado,Descripcion,Pagador,Monto Total\n';
-        result.rows.forEach(row => {
+        result.forEach(row => {
             csv += `${row.id_transaccion},${row.fecha_gasto},${row.fecha_archivado},"${row.descripcion}",${row.pagador_nombre},${row.monto}\n`;
         });
 
@@ -176,9 +177,12 @@ app.get('/api/finanzas/analisis', verificarToken, async (req, res) => {
 
     try {
         // Verificar si el usuario tiene el plan básico (id_plan = 1)
-        const checkPlan = await pool.query('SELECT id_plan FROM Usuarios WHERE id_usuario = $1', [id_usuario]);
+        const checkPlan = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_usuario) },
+            select: { id_plan: true }
+        });
         
-        if (checkPlan.rows[0].id_plan === 1) {
+        if (!checkPlan || checkPlan.id_plan === 1) {
             return res.status(403).json({ requires_upgrade: true, message: 'El análisis de finanzas es exclusivo del plan Premium.' });
         }
 
@@ -235,7 +239,12 @@ app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
     try {
         const session = await stripe.checkout.sessions.retrieve(session_id);
         if (session.payment_status === 'paid') {
-            await pool.query(`UPDATE Usuarios SET id_plan = 2, estado_suscripcion = 'activo', fecha_vencimiento_suscripcion = CURRENT_DATE + INTERVAL '30 days' WHERE id_usuario = $1`, [id_usuario]);
+            const treintaDias = new Date();
+            treintaDias.setDate(treintaDias.getDate() + 30);
+            await prisma.usuarios.update({
+                where: { id_usuario: parseInt(id_usuario) },
+                data: { id_plan: 2, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: treintaDias }
+            });
             res.json({ message: '¡Pago verificado exitosamente! Ya eres Premium.' });
         } else { res.status(400).json({ error: 'El pago no ha sido completado.' }); }
     } catch (error) {
@@ -247,10 +256,10 @@ app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
 app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
     try {
-        await pool.query(
-            `UPDATE Usuarios SET id_plan = 1, estado_suscripcion = 'activo', fecha_vencimiento_suscripcion = NULL WHERE id_usuario = $1`,
-            [id_usuario]
-        );
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_usuario) },
+            data: { id_plan: 1, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: null }
+        });
         res.json({ message: 'Suscripción cancelada exitosamente. Has vuelto al Plan Básico.' });
     } catch (error) {
         console.error('Error al cancelar suscripción:', error);
@@ -262,15 +271,18 @@ app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
 app.get('/api/admin/usuarios', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
     try {
-        const userCheck = await pool.query('SELECT estado_suscripcion FROM Usuarios WHERE id_usuario = $1', [id_usuario]);
-        if (userCheck.rows[0].estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
+        const userCheck = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_usuario) },
+            select: { estado_suscripcion: true }
+        });
+        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
 
-        const result = await pool.query(`
-            SELECT u.id_usuario, u.nombre, u.correo, u.id_plan, u.estado_suscripcion, TO_CHAR(u.fecha_registro, 'DD/MM/YYYY') as fecha 
-            FROM Usuarios u 
-            ORDER BY u.id_usuario ASC
-        `);
-        res.json(result.rows);
+        const result = await prisma.usuarios.findMany({
+            select: { id_usuario: true, nombre: true, correo: true, id_plan: true, estado_suscripcion: true, fecha_registro: true },
+            orderBy: { id_usuario: 'asc' }
+        });
+        const formattedResult = result.map(u => ({ ...u, fecha: u.fecha_registro ? u.fecha_registro.toLocaleDateString('es-ES') : null }));
+        res.json(formattedResult);
     } catch (error) {
         console.error('Error obteniendo usuarios:', error);
         res.status(500).json({ error: 'Error al obtener los usuarios.' });
@@ -284,25 +296,31 @@ app.put('/api/admin/usuarios/:id/rol', verificarToken, async (req, res) => {
     const { nuevo_rol } = req.body; // 'FREE', 'PREMIUM', 'GOD_MODE'
 
     try {
-        const userCheck = await pool.query('SELECT estado_suscripcion FROM Usuarios WHERE id_usuario = $1', [id_admin]);
-        if (userCheck.rows[0].estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
+        const userCheck = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_admin) },
+            select: { estado_suscripcion: true }
+        });
+        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
 
         let id_plan = 1;
         let estado_suscripcion = 'activo';
 
         if (nuevo_rol === 'PREMIUM') { id_plan = 2; } 
         else if (nuevo_rol === 'GOD_MODE') { 
-            const targetCheck = await pool.query('SELECT correo FROM Usuarios WHERE id_usuario = $1', [id_objetivo]);
-            if (targetCheck.rows.length === 0 || targetCheck.rows[0].correo !== 'maxwellramos47@gmail.com') {
+            const targetCheck = await prisma.usuarios.findUnique({
+                where: { id_usuario: parseInt(id_objetivo) },
+                select: { correo: true }
+            });
+            if (!targetCheck || targetCheck.correo !== 'maxwellramos47@gmail.com') {
                 return res.status(403).json({ error: 'Operación denegada de forma permanente. El rol Súper Admin está reservado estrictamente para maxwellramos47@gmail.com' });
             }
             id_plan = 2; estado_suscripcion = 'GOD_MODE'; 
         }
 
-        await pool.query(
-            `UPDATE Usuarios SET id_plan = $1, estado_suscripcion = $2 WHERE id_usuario = $3`,
-            [id_plan, estado_suscripcion, id_objetivo]
-        );
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_objetivo) },
+            data: { id_plan, estado_suscripcion }
+        });
         res.json({ message: 'Rol de usuario actualizado exitosamente.' });
     } catch (error) {
         console.error('Error actualizando rol:', error);
@@ -316,8 +334,11 @@ app.post('/api/admin/usuarios/:id/forzar-logout', verificarToken, async (req, re
     const id_objetivo = req.params.id;
 
     try {
-        const userCheck = await pool.query('SELECT estado_suscripcion FROM Usuarios WHERE id_usuario = $1', [id_admin]);
-        if (userCheck.rows[0].estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
+        const userCheck = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_admin) },
+            select: { estado_suscripcion: true }
+        });
+        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
 
         // Emitir evento por WebSockets para expulsar al usuario en tiempo real
         req.io.emit('forzar_logout', { id_usuario: parseInt(id_objetivo) });
@@ -353,14 +374,14 @@ app.use((err, req, res, next) => {
 cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Iniciando verificación de suscripciones vencidas...');
     try {
-        const query = `
-            UPDATE Usuarios 
-            SET estado_suscripcion = 'vencido', id_plan = 1 
-            WHERE fecha_vencimiento_suscripcion < CURRENT_DATE 
-            AND estado_suscripcion = 'activo'
-        `;
-        const result = await pool.query(query);
-        console.log(`[CRON] Verificación completada. Usuarios degradados a plan Básico: ${result.rowCount}`);
+        const result = await prisma.usuarios.updateMany({
+            where: {
+                fecha_vencimiento_suscripcion: { lt: new Date() },
+                estado_suscripcion: 'activo'
+            },
+            data: { estado_suscripcion: 'vencido', id_plan: 1 }
+        });
+        console.log(`[CRON] Verificación completada. Usuarios degradados a plan Básico: ${result.count}`);
     } catch (error) {
         console.error('[CRON] Error al verificar suscripciones:', error);
     }
@@ -368,7 +389,9 @@ cron.schedule('0 0 * * *', async () => {
 
 cron.schedule('0 * * * *', async () => {
     try {
-        await pool.query('DELETE FROM Tokens_Revocados WHERE fecha_expiracion < NOW()');
+        await prisma.tokens_Revocados.deleteMany({
+            where: { fecha_expiracion: { lt: new Date() } }
+        });
     } catch (error) {
         console.error('[CRON] Error limpiando tokens de la lista negra:', error);
     }
@@ -378,6 +401,9 @@ cron.schedule('50 23 * * *', async () => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
 
     if (tomorrow.getDate() === 1) {
         console.log('\n[CRON] Último día del mes detectado. Generando y enviando reportes de gastos...');
@@ -392,20 +418,22 @@ cron.schedule('50 23 * * *', async () => {
                 }
             });
 
-            const query = `
-                SELECT u.nombre, u.correo,
-                       COALESCE(SUM(t.monto), 0) as total_gastado,
-                       COALESCE(SUM(CASE WHEN t.monto <= 15 THEN t.monto ELSE 0 END), 0) as total_hormiga
-                FROM Usuarios u
-                LEFT JOIN Transacciones t ON t.id_usuario_pagador = u.id_usuario 
-                      AND EXTRACT(MONTH FROM t.fecha_gasto) = EXTRACT(MONTH FROM CURRENT_DATE)
-                      AND EXTRACT(YEAR FROM t.fecha_gasto) = EXTRACT(YEAR FROM CURRENT_DATE)
-                GROUP BY u.id_usuario, u.nombre, u.correo
-                HAVING SUM(t.monto) > 0
-            `;
-            const result = await pool.query(query);
+            const usuarios = await prisma.usuarios.findMany({
+                include: {
+                    transacciones_pagadas: {
+                        where: { fecha_gasto: { gte: startOfMonth, lt: startOfNextMonth } },
+                        select: { monto: true }
+                    }
+                }
+            });
             
-            for (const row of result.rows) {
+            const usuariosConGastos = usuarios.map(u => {
+                const total = u.transacciones_pagadas.reduce((sum, t) => sum + Number(t.monto), 0);
+                const hormiga = u.transacciones_pagadas.reduce((sum, t) => sum + (Number(t.monto) <= 15 ? Number(t.monto) : 0), 0);
+                return { nombre: u.nombre, correo: u.correo, total_gastado: total, total_hormiga: hormiga };
+            }).filter(u => u.total_gastado > 0);
+
+            for (const row of usuariosConGastos) {
                 const tip = row.total_hormiga > 50 
                     ? 'Estás perdiendo dinero en cosas pequeñas. ¡Considera ahorrarlo el próximo mes!' 
                     : '¡Buen control de tus gastos pequeños! Sigue así.';
@@ -423,7 +451,7 @@ cron.schedule('50 23 * * *', async () => {
                 await transporter.sendMail(mailOptions);
                 console.log(`[CRON] Email real enviado a: ${row.correo}`);
             }
-            console.log(`[CRON] Proceso de envíos reales completado (${result.rowCount} usuarios).`);
+            console.log(`[CRON] Proceso de envíos reales completado (${usuariosConGastos.length} usuarios).`);
         } catch (error) { console.error('[CRON] Error al generar reportes mensuales:', error); }
     }
 });
@@ -438,21 +466,31 @@ cron.schedule('0 8 * * 1', async () => {
             auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
         });
 
-        const query = `
-            SELECT 
-                u.nombre, u.correo,
-                SUM(t.monto / (SELECT COUNT(*) FROM Transaccion_Participantes WHERE id_transaccion = t.id_transaccion)) as deuda_total,
-                COUNT(tp.id_transaccion) as cantidad_cuotas
-            FROM Transaccion_Participantes tp
-            JOIN Usuarios u ON tp.id_usuario = u.id_usuario
-            JOIN Transacciones t ON tp.id_transaccion = t.id_transaccion
-            WHERE tp.estado_pago = 'Pendiente' AND tp.id_usuario != t.id_usuario_pagador
-            GROUP BY u.id_usuario, u.nombre, u.correo
-            HAVING COUNT(tp.id_transaccion) > 0
-        `;
-        const result = await pool.query(query);
+        const usuariosDeudores = await prisma.usuarios.findMany({
+            where: { transacciones_participa: { some: { estado_pago: 'Pendiente' } } },
+            select: {
+                id_usuario: true, nombre: true, correo: true,
+                transacciones_participa: {
+                    where: { estado_pago: 'Pendiente' },
+                    include: {
+                        transaccion: { select: { monto: true, id_usuario_pagador: true, _count: { select: { participantes: true } } } }
+                    }
+                }
+            }
+        });
+
+        const deudasPorUsuario = usuariosDeudores.map(u => {
+            let deuda_total = 0, cantidad_cuotas = 0;
+            u.transacciones_participa.forEach(tp => {
+                if (tp.transaccion.id_usuario_pagador !== u.id_usuario) {
+                    deuda_total += Number(tp.transaccion.monto) / tp.transaccion._count.participantes;
+                    cantidad_cuotas++;
+                }
+            });
+            return { nombre: u.nombre, correo: u.correo, deuda_total, cantidad_cuotas };
+        }).filter(u => u.cantidad_cuotas > 0);
         
-        for (const row of result.rows) {
+        for (const row of deudasPorUsuario) {
             const mailOptions = {
                 from: `"GroupWallet" <${process.env.SMTP_USER}>`,
                 to: row.correo,
@@ -464,7 +502,7 @@ cron.schedule('0 8 * * 1', async () => {
             };
             await transporter.sendMail(mailOptions);
         }
-        console.log(`[CRON] Se enviaron ${result.rowCount} recordatorios de deuda.`);
+        console.log(`[CRON] Se enviaron ${deudasPorUsuario.length} recordatorios de deuda.`);
     } catch (error) { console.error('[CRON] Error al enviar recordatorios semanales:', error); }
 });
 
@@ -494,7 +532,7 @@ async function inicializarBaseDeDatos() {
         
         if (fs.existsSync(schemaPath)) {
             const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-            await pool.query(schemaSql);
+            await prisma.$executeRawUnsafe(schemaSql);
             console.log('[DB] Tablas verificadas/creadas correctamente desde schema.sql.');
         } else {
             console.log('[DB] Archivo schema.sql no encontrado. Las tablas no se crearon.');

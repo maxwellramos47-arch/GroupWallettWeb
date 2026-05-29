@@ -1,10 +1,22 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+model Planes_Suscripcion {
+  id_plan       Int        @id @default(autoincrement())
+  nombre_plan   String     @db.VarChar(50)
+  precio        Decimal    @db.Decimal(10, 2)
+  limite_grupos Int
+  beneficios    String?    @db.Text
+  usuarios      Usuarios[]
+
+  @@map("planes_suscripcion")
 }
 
 model Usuarios {
@@ -24,7 +36,132 @@ model Usuarios {
   foto_url                      String?   @db.VarChar(500)
   push_subscription             String?   @db.Text
 
+  plan                          Planes_Suscripcion? @relation(fields: [id_plan], references: [id_plan])
+  grupos_creados                Grupos[]
+  membresias                    Miembros_Grupo[]
+  transacciones_pagadas         Transacciones[]
+  transacciones_participa       Transaccion_Participantes[]
+  metodos_pago                  Metodos_Pago[]
+  datos_bancarios               Datos_Bancarios?
+  pagos_inapp_emitidos          Pagos_InApp[] @relation("Pagador")
+  pagos_inapp_recibidos         Pagos_InApp[] @relation("Receptor")
+
   @@map("usuarios")
+}
+
+model Grupos {
+  id_grupo           Int       @id @default(autoincrement())
+  nombre_grupo       String    @db.VarChar(100)
+  id_usuario_creador Int
+  fecha_creacion     DateTime? @default(now()) @db.Timestamp()
+
+  creador            Usuarios  @relation(fields: [id_usuario_creador], references: [id_usuario])
+  miembros           Miembros_Grupo[]
+  transacciones      Transacciones[]
+
+  @@map("grupos")
+}
+
+model Miembros_Grupo {
+  id_grupo    Int
+  id_usuario  Int
+  rol         String?   @default("Miembro") @db.VarChar(20)
+  fecha_union DateTime? @default(now()) @db.Timestamp()
+
+  grupo       Grupos    @relation(fields: [id_grupo], references: [id_grupo], onDelete: Cascade)
+  usuario     Usuarios  @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@id([id_grupo, id_usuario])
+  @@map("miembros_grupo")
+}
+
+model Transacciones {
+  id_transaccion     Int       @id @default(autoincrement())
+  id_grupo           Int
+  id_usuario_pagador Int
+  monto              Decimal   @db.Decimal(12, 2)
+  descripcion        String    @db.VarChar(255)
+  categoria          String?   @default("General") @db.VarChar(100)
+  comprobante_url    String?   @db.VarChar(500)
+  fecha_gasto        DateTime? @default(now()) @db.Timestamp()
+  firma_hmac         String?   @db.VarChar(255)
+
+  grupo              Grupos    @relation(fields: [id_grupo], references: [id_grupo], onDelete: Cascade)
+  pagador            Usuarios  @relation(fields: [id_usuario_pagador], references: [id_usuario])
+  participantes      Transaccion_Participantes[]
+
+  @@map("transacciones")
+}
+
+model Transaccion_Participantes {
+  id_transaccion Int
+  id_usuario     Int
+  estado_pago    String? @default("Pendiente") @db.VarChar(20)
+
+  transaccion    Transacciones @relation(fields: [id_transaccion], references: [id_transaccion], onDelete: Cascade)
+  usuario        Usuarios      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@id([id_transaccion, id_usuario])
+  @@map("transaccion_participantes")
+}
+
+model Metodos_Pago {
+  id_metodo             Int       @id @default(autoincrement())
+  id_usuario            Int
+  tarjeta_encriptada    String    @db.Text
+  vector_inicializacion String    @db.Text
+  fecha_agregado        DateTime? @default(now()) @db.Timestamp()
+
+  usuario               Usuarios  @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@map("metodos_pago")
+}
+
+model Transacciones_Historial {
+  id_transaccion     Int       @id
+  id_grupo           Int
+  id_usuario_pagador Int
+  monto              Decimal   @db.Decimal(12, 2)
+  descripcion        String    @db.VarChar(255)
+  categoria          String?   @default("General") @db.VarChar(100)
+  comprobante_url    String?   @db.VarChar(500)
+  fecha_gasto        DateTime  @db.Timestamp()
+  firma_hmac         String?   @db.VarChar(255)
+  fecha_archivado    DateTime? @default(now()) @db.Timestamp()
+
+  @@map("transacciones_historial")
+}
+
+model Transaccion_Participantes_Historial {
+  id_transaccion Int
+  id_usuario     Int
+  estado_pago    String @db.VarChar(20)
+
+  @@id([id_transaccion, id_usuario])
+  @@map("transaccion_participantes_historial")
+}
+
+model Tokens_Revocados {
+  token            String   @id @db.VarChar(500)
+  fecha_expiracion DateTime @db.Timestamp()
+
+  @@map("tokens_revocados")
+}
+
+model Pagos_InApp {
+  id_pago             Int       @id @default(autoincrement())
+  id_transaccion      Int
+  id_usuario_pagador  Int
+  id_usuario_receptor Int
+  monto_original      Decimal   @db.Decimal(12, 2)
+  comision            Decimal   @db.Decimal(12, 2)
+  monto_final         Decimal   @db.Decimal(12, 2)
+  fecha_pago          DateTime? @default(now()) @db.Timestamp()
+
+  pagador             Usuarios  @relation("Pagador", fields: [id_usuario_pagador], references: [id_usuario])
+  receptor            Usuarios  @relation("Receptor", fields: [id_usuario_receptor], references: [id_usuario])
+
+  @@map("pagos_inapp")
 }
 
 model Datos_Bancarios {
@@ -35,6 +172,8 @@ model Datos_Bancarios {
   tipo_cuenta String? @db.VarChar(50)
   numero_cuenta String? @db.VarChar(50)
   correo     String? @db.VarChar(150)
+
+  usuario       Usuarios @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 
   @@map("datos_bancarios")
 }
