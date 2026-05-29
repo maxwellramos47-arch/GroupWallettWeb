@@ -243,13 +243,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const data = await response.json();
                 if (!response.ok) {
                     showToast(data.error, 'error'); 
-                    hideSpinner();
                 } else {
                     showToast('Grupo creado exitosamente', 'success');
                     formGrupo.reset();
                     await cargarGrupos(); // Actualizar la tabla inmediatamente
                 }
-            } catch (error) { console.error(error); hideSpinner(); }
+            } catch (error) { console.error(error); } finally { hideSpinner(); }
         });
     }
 
