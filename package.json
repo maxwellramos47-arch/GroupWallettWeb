@@ -29,7 +29,7 @@
   "scripts": {
     "start": "node Backend/server.js",
     "dev": "nodemon Backend/server.js",
-    "build": "prisma generate && prisma migrate deploy",
+    "build": "prisma generate && prisma db push",
     "postinstall": "prisma generate",
     "test": "jest",
     "test:coverage": "jest --coverage"
