@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista Mensual - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html">Panel</a></li>
+                <li><a href="mensual.html" class="active">Mensual</a></li>
+                <li><a href="historial.html">Historial</a></li>
+                <li><a href="grupos.html">Mis Grupos</a></li>
+                <li><a href="ajustes.html">Ajustes</a></li>
+                <li><a href="#" class="nav-profile">Hola, Usuario</a></li>
+                <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <div class="dashboard-grid">
+            <aside class="control-panel">
+                <article class="card">
+                    <h3>Agregar Gasto por Día</h3>
+                    <form id="form-gasto-mensual">
+                        <div class="form-group">
+                            <label for="fecha-gasto">Fecha del Gasto</label>
+                            <input type="date" id="fecha-gasto" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="grupo-gasto">Grupo</label>
+                            <select id="grupo-gasto" required><option value="" disabled selected>Cargando grupos...</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="desc-gasto">Descripción</label>
+                            <input type="text" id="desc-gasto" placeholder="Ej. Compras del mes" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="categoria-gasto-mensual">Categoría</label>
+                            <select id="categoria-gasto-mensual" required>
+                                <option value="" disabled selected>Cargando categorías...</option>
+                            </select>
+                            <input type="text" id="nueva-categoria-gasto-mensual" placeholder="Nueva categoría..." style="display: none; margin-top: 0.5rem; border-color: var(--secondary-emerald);">
+                        </div>
+                        <div class="form-group">
+                            <label for="monto-gasto">Monto ($)</label>
+                            <input type="number" id="monto-gasto" min="1" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="pagador-gasto">¿Quién pagó?</label>
+                            <select id="pagador-gasto" required><option value="" disabled selected>Selecciona un grupo primero...</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Participantes a dividir:</label>
+                            <div class="checkbox-group"><span style="color: var(--text-muted); font-size: 0.85rem;">Selecciona un grupo primero</span></div>
+                        </div>
+                        <button type="submit" class="btn-primary">Añadir Gasto</button>
+                    </form>
+                </article>
+            </aside>
+
+            <section class="data-panel">
+                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+                    <label for="filtro-grupo-mensual" style="font-weight: 500;">Filtrar por Grupo:</label>
+                    <select id="filtro-grupo-mensual" style="max-width: 300px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <option value="">Todos mis grupos mezclados</option>
+                    </select>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    <!-- NUEVA BARRA DE PRESUPUESTO -->
+                    <div class="card" style="margin: 0; padding: 1rem; grid-column: 1 / -1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <h3 style="font-size: 1rem; margin: 0; border: none;">📊 Progreso del Presupuesto</h3>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <label for="input-presupuesto" style="font-size: 0.85rem; color: var(--text-muted);">Definir límite ($):</label>
+                                <input type="number" id="input-presupuesto" placeholder="Ej. 1000" style="width: 100px; padding: 0.3rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                                <button id="btn-guardar-presupuesto" class="btn-primary" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.85rem;">Guardar</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                            <label for="select-moneda" style="font-size: 0.85rem; color: var(--text-muted);">Símbolo de moneda:</label>
+                            <select id="select-moneda" style="padding: 0.3rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                                <option value="$">$ (USD / Pesos)</option>
+                                <option value="€">€ (Euros)</option>
+                                <option value="£">£ (Libras)</option>
+                            </select>
+                        </div>
+                        <div style="background-color: var(--bg-light); height: 20px; border-radius: 10px; overflow: hidden; margin-bottom: 0.5rem; border: 1px solid var(--border-color);">
+                            <div id="barra-presupuesto" style="background-color: var(--secondary-emerald); width: 0%; height: 100%; transition: width 0.4s ease, background-color 0.4s ease;"></div>
+                        </div>
+                        <p style="font-size: 0.85rem; text-align: center; color: var(--text-muted); margin: 0;">
+                            Gastado: <strong id="lbl-gastado" style="color: var(--text-dark);">$0.00</strong> de <strong id="lbl-limite" style="color: var(--text-dark);">$0.00</strong> (<span id="lbl-porcentaje" style="font-weight: bold;">0</span>%)
+                        </p>
+                    </div>
+
+                    <div class="card" style="margin: 0; padding: 1rem;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none;">📈 Gasto Acumulado Mensual</h3>
+                        <canvas id="grafico-mensual" style="max-height: 200px;"></canvas>
+                    </div>
+                    <div class="card" style="margin: 0; padding: 1rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to bottom right, var(--card-bg), #fff5f5);">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Fugas de dinero silenciosas (menores a $15.00).</p>
+                        <h4 id="hormiga-total" style="font-size: 1.8rem; color: var(--danger-color); line-height: 1;">$0.00</h4>
+                        <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem;">0 transacciones</p>
+                        <p id="hormiga-tip" style="font-size: 0.8rem; color: var(--text-dark); background: var(--bg-light); padding: 0.5rem; border-radius: 4px;"></p>
+                    </div>
+                </div>
+
+                <article class="card">
+                    <div class="month-navigator">
+                        <button id="btn-prev-month" class="btn-primary" style="width: auto; padding: 0.5rem 1rem;">&lt; Anterior</button>
+                        <h3 id="label-mes-actual" style="margin: 0; border: none; padding: 0; text-transform: capitalize;">Mes Año</h3>
+                        <button id="btn-next-month" class="btn-primary" style="width: auto; padding: 0.5rem 1rem;">Siguiente &gt;</button>
+                    </div>
+                    <div class="table-responsive mt-2">
+                        <table class="gastos-table">
+                            <thead><tr><th>Día</th><th>Categoría</th><th>Descripción</th><th>Pagador</th><th>Monto</th><th>Acción</th></tr></thead>
+                            <tbody id="lista-gastos-mensual"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="toast.js"></script><script src="mensual.js"></script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Grupos - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos para el Skeleton Loader (Mover a styles.css) */
+        .skeleton-row td {
+            padding: 1rem 0.5rem;
+        }
+        .skeleton-row .skeleton {
+            background-color: #e9ecef;
+            border-radius: 4px;
+            height: 1.2rem;
+            animation: skeleton-loading 1.5s infinite ease-in-out;
+        }
+        .dark-mode .skeleton-row .skeleton {
+            background-color: #3a3a3a;
+        }
+        @keyframes skeleton-loading {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html">Panel</a></li>
+                <li><a href="historial.html">Historial</a></li>
+                <li><a href="grupos.html" class="active">Mis Grupos</a></li>
+                <li><a href="ajustes.html">Ajustes</a></li>
+                <li><a href="#" class="nav-profile">Hola, Usuario</a></li>
+                <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+            <article class="card">
+                <h3>Crear Nuevo Grupo</h3>
+                <form id="form-grupo">
+                    <div class="form-group">
+                        <label for="nombre-grupo">Nombre del Grupo</label>
+                        <input type="text" id="nombre-grupo" placeholder="Ej. Viaje a la playa" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Crear Grupo</button>
+                </form>
+            </article>
+            <article class="card">
+                <h3>Invitar Participante</h3>
+                <form id="form-participante">
+                    <div class="form-group">
+                        <label for="grupo-invitar">Selecciona el Grupo</label>
+                        <select id="grupo-invitar" required>
+                            <option value="" disabled selected>Cargando grupos...</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Generar Enlace</button>
+                </form>
+                <div id="invite-link-container" style="display: none; margin-top: 1rem;">
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="text" id="invite-link" readonly style="flex: 1; background-color: var(--bg-light); color: var(--text-muted); margin: 0;">
+                        <button type="button" id="btn-copiar-enlace" class="btn-primary" style="width: auto; padding: 0.5rem 1rem; background-color: var(--primary-slate);">Copiar</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <a href="#" id="share-whatsapp" target="_blank" class="btn-primary" style="background-color: #25D366; text-align: center; text-decoration: none; padding: 0.5rem;">WhatsApp</a>
+                        <a href="#" id="share-email" class="btn-primary" style="background-color: #3498db; text-align: center; text-decoration: none; padding: 0.5rem;">Correo</a>
+                    </div>
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">O escanea este código QR:</p>
+                        <div id="qrcode" style="display: flex; justify-content: center; padding: 1rem; background: white; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                    </div>
+                </div>
+            </article>
+            <article class="card">
+                <h3>Escanear Invitación</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Usa tu cámara para leer el código QR del teléfono de un amigo.</p>
+                <button id="btn-scan-qr" class="btn-primary" style="background-color: var(--secondary-emerald);">📷 Escanear QR</button>
+                <div id="qr-reader-container" style="display: none; margin-top: 1rem;">
+                    <div id="qr-reader" style="width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);"></div>
+                    <button id="btn-close-scanner" class="btn-primary" style="background-color: var(--danger-color); margin-top: 0.5rem;">Cancelar</button>
+                </div>
+            </article>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <h3 style="margin: 0; border: none;">Administración de Mis Grupos</h3>
+                <input type="text" id="buscar-grupo" placeholder="Buscar grupo por nombre o rol... (Ctrl+K)" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; min-width: 250px;">
+            </div>
+            <div class="table-responsive mt-2">
+                <table class="gastos-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre del Grupo</th>
+                            <th>Mi Rol</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-grupos">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="toast.js"></script>
+    <script src="grupos.js"></script>
+</body>
+</html>

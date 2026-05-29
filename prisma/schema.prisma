@@ -1,0 +1,40 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Usuarios {
+  id_usuario                    Int       @id @default(autoincrement())
+  nombre                        String    @db.VarChar(100)
+  correo                        String    @unique @db.VarChar(150)
+  telefono                      String?   @db.VarChar(20)
+  password_hash                 String    @db.VarChar(255)
+  fecha_registro                DateTime? @default(now())
+  id_plan                       Int?      @default(1)
+  estado_suscripcion            String?   @default("activo") @db.VarChar(20)
+  fecha_vencimiento_suscripcion DateTime? @db.Date
+  reset_token                   String?   @db.VarChar(255)
+  reset_token_expires           DateTime? @db.Timestamp()
+  intentos_fallidos             Int?      @default(0)
+  bloqueado_hasta               DateTime? @db.Timestamp()
+  foto_url                      String?   @db.VarChar(500)
+  push_subscription             String?   @db.Text
+
+  @@map("usuarios")
+}
+
+model Datos_Bancarios {
+  id_dato    Int     @id @default(autoincrement())
+  id_usuario Int     @unique
+  rut        String? @db.VarChar(20)
+  banco      String? @db.VarChar(100)
+  tipo_cuenta String? @db.VarChar(50)
+  numero_cuenta String? @db.VarChar(50)
+  correo     String? @db.VarChar(150)
+
+  @@map("datos_bancarios")
+}

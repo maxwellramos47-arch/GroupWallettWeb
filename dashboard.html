@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Cliente - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2ecc71">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html" class="active">Panel</a></li>
+                <li><a href="mensual.html">Mensual</a></li>
+                <li><a href="historial.html">Historial</a></li>
+                <li><a href="grupos.html">Mis Grupos</a></li>
+                <li><a href="ajustes.html">Ajustes</a></li>
+mi                <li><a href="#" class="nav-profile">Hola, Usuario</a></li>
+                <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <section class="upgrade-banner">
+            <div class="banner-content">
+                <h2>Plan Básico: 3 Grupos Gratis</h2>
+                <p>Desbloquea <strong>grupos ilimitados</strong> y nuestro potente <strong>Análisis de Finanzas</strong> por solo <strong>$5.00/mes</strong> con el Plan Premium.</p>
+            </div>
+            <div style="text-align: right;">
+                <button class="btn-upgrade" id="btn-show-payment">Mejorar Plan ahora</button>
+                <div id="payment-form-container" style="display: none; margin-top: 1rem; background: rgba(0,0,0,0.15); padding: 1rem; border-radius: 8px; text-align: left;">
+                    <form id="form-suscripcion">
+                        <label style="color: white; font-size: 0.9rem; display: block; margin-bottom: 0.2rem;">Número de Tarjeta</label>
+                        <div style="position: relative; margin-bottom: 0.5rem;">
+                            <input type="text" id="numero-tarjeta" placeholder="1234 5678 9101 1121" required style="padding-right: 3rem; margin: 0;">
+                            <span id="icono-tarjeta" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 1.5rem; line-height: 1;">💳</span>
+                        </div>
+                        
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                            <div style="flex: 1;">
+                                <label style="color: white; font-size: 0.9rem;">Exp.</label>
+                                <input type="text" id="fecha-exp" placeholder="MM/YY" required>
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="color: white; font-size: 0.9rem;">CVV</label>
+                                <input type="password" id="cvv" placeholder="123" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary" style="background-color: #f1c40f; color: var(--primary-slate);">Pagar Seguro ($5.00)</button>
+                    </form>
+                    <p style="font-size: 0.75rem; color: #bdc3c7; margin-top: 0.5rem; text-align: center;">🔒 Cifrado AES-256 Activo</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="dashboard-grid">
+            <aside class="control-panel">
+                <!-- Registrar Gasto -->
+                <article class="card">
+                    <h3>Registrar Gasto</h3>
+                    <form id="form-gasto">
+                        <div class="form-group">
+                            <label for="grupo-gasto">Grupo</label>
+                            <select id="grupo-gasto" required>
+                                <option value="" disabled selected>Cargando grupos...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="desc-gasto">Descripción</label>
+                            <input type="text" id="desc-gasto" placeholder="Ej. Cena del viernes" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="categoria-gasto">Categoría</label>
+                            <select id="categoria-gasto" required>
+                                <option value="" disabled selected>Cargando categorías...</option>
+                            </select>
+                            <input type="text" id="nueva-categoria-gasto" placeholder="Nombre de nueva categoría..." style="display: none; margin-top: 0.5rem; border-color: var(--secondary-emerald);">
+                        </div>
+                        <div class="form-group">
+                            <label for="comprobante-gasto">Comprobante / Factura (Opcional)</label>
+                            <input type="file" id="comprobante-gasto" accept="image/jpeg, image/png, application/pdf" style="padding: 0.4rem; background: var(--bg-light); border: 1px dashed var(--border-color); border-radius: 4px; width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label for="monto-gasto">Monto ($)</label>
+                            <input type="number" id="monto-gasto" min="1" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="pagador-gasto">¿Quién pagó?</label>
+                            <select id="pagador-gasto" required>
+                                <option value="" disabled selected>Selecciona un grupo primero...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Participantes a dividir:</label>
+                            <div class="checkbox-group">
+                                <span style="color: var(--text-muted); font-size: 0.85rem;">Selecciona un grupo primero</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Añadir Gasto</button>
+                    </form>
+                </article>
+            </aside>
+
+            <section class="data-panel">
+                <!-- NUEVO: Módulo de Análisis de Finanzas (Premium CTA) -->
+                <article class="card premium-lock-container">
+                    <h3>Análisis de Finanzas <span class="badge-premium">Premium</span></h3>
+                    <div id="analisis-content" class="locked-content">
+                        <div class="blur-overlay" id="blur-premium-cta">
+                            <p>Desbloquea gráficos interactivos e insights sobre tus hábitos de gasto por solo <strong>$5.00/mes</strong>.</p>
+                            <button class="btn-upgrade mt-2">Mejorar a Premium</button>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                            <span style="font-weight: 500; font-size: 0.9rem;">Distribución de Gastos</span>
+                            <select id="tipo-grafico" style="max-width: 150px; padding: 0.3rem; font-size: 0.8rem;">
+                                <option value="doughnut">Gráfico de Anillo</option>
+                                <option value="bar">Gráfico de Barras</option>
+                                <option value="pie">Gráfico Circular</option>
+                            </select>
+                        </div>
+                        <div class="fake-chart" id="chart-container">
+                            <canvas id="premiumChart" style="display: none; max-height: 200px; margin: 0 auto;"></canvas>
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; color: var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
+                            <p>Categoría principal: <strong id="cat-frecuente">???</strong></p>
+                            <p>Mayor gasto: <strong id="gasto-mayor">$???</strong></p>
+                            <p>Gasto Promedio: <strong id="gasto-promedio">$???</strong></p>
+                            <p>Total Mensual: <strong id="total-gastado">$???</strong></p>
+                            <p>Proyección de Ahorro: <strong id="ahorro-proyectado" style="color: var(--secondary-emerald);">$???</strong></p>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="card balance-card">
+                    <h3>Resumen de Saldos</h3>
+                    <div class="balance-stats">
+                        <div class="stat positive">
+                            <span>Te deben</span>
+                            <h4>$0.00</h4>
+                        </div>
+                        <div class="stat negative">
+                            <span>Debes</span>
+                            <h4>$0.00</h4>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- NUEVO: Estado de Cuotas (Juntada) -->
+                <article class="card mt-2">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <h3 style="margin: 0; border: none; padding: 0;">Estado de Cuotas (Juntada)</h3>
+                        <button id="btn-copiar-resumen" class="btn-primary" style="background-color: #25D366; width: auto; padding: 0.4rem 0.8rem; font-size: 0.85rem;">📱 Copiar para WhatsApp</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="gastos-table">
+                            <thead>
+                                <tr>
+                                    <th>Participante</th>
+                                    <th>Cuota Asignada</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-cuotas">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article class="card mt-2">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                        <h3 style="margin: 0; border: none; padding: 0;">Gastos Recientes</h3>
+                        <div style="display: flex; gap: 0.5rem; flex: 1; justify-content: flex-end;">
+                            <select id="filtro-categoria" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; max-width: 200px;">
+                                <option value="">Todas las categorías</option>
+                            </select>
+                            <input type="text" id="buscar-gasto" placeholder="Buscar por palabra o monto... (Ctrl+K)" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; max-width: 300px; flex: 1;">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="gastos-table" id="tabla-gastos">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="fecha" style="cursor: pointer; user-select: none;" title="Ordenar por Fecha">Fecha 🔽</th>
+                                    <th class="sortable" data-sort="categoria" style="cursor: pointer; user-select: none;" title="Ordenar por Categoría">Categoría ↕️</th>
+                                    <th class="sortable" data-sort="descripcion" style="cursor: pointer; user-select: none;" title="Ordenar por Descripción">Descripción ↕️</th>
+                                    <th class="sortable" data-sort="pagador_nombre" style="cursor: pointer; user-select: none;" title="Ordenar por Pagador">Pagador ↕️</th>
+                                    <th class="sortable" data-sort="monto" style="cursor: pointer; user-select: none;" title="Ordenar por Monto">Monto ↕️</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-gastos">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-container" style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;"></div>
+                </article>
+            </section>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <p>&copy; 2023 GroupWallet - Gestión Inteligente de Finanzas.</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="toast.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW Error:', err));
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-body">
+    <div class="login-container card">
+        <div class="logo text-center">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <h2 class="text-center mt-2">Iniciar Sesión</h2>
+        <form id="form-login" class="mt-2">
+            <div class="form-group">
+                <label for="correo" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Correo Electrónico</label>
+                <input type="email" id="correo" placeholder="tu@correo.com" required style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+            </div>
+            <div class="form-group">
+                <label for="password" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Contraseña</label>
+                <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                    <input type="password" id="password" placeholder="********" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary mt-2">Ingresar al Portal</button>
+        </form>
+        <p class="text-center mt-2" style="font-size: 0.9rem;">
+            ¿No tienes cuenta? <a href="registro.html" id="link-register" style="color: var(--secondary-emerald); font-weight: bold;">Regístrate</a>
+            <a href="#" id="link-forgot" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem; display: inline-block;">¿Olvidaste tu contraseña?</a>
+        </p>
+mii
+        <!-- Módulo de Recuperación de Contraseña -->
+        <div id="recovery-section" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+            <h3 class="text-center" style="font-size: 1.1rem; margin-bottom: 1rem;">Recuperar Contraseña</h3>
+            <form id="form-recovery">
+                <input type="email" id="recovery-correo" placeholder="Ingresa tu correo" required style="width: 100%; margin-bottom: 0.5rem; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                <button type="submit" class="btn-primary" style="background-color: var(--primary-slate);">Enviar Token</button>
+            </form>
+            <form id="form-reset" style="display: none; margin-top: 1rem;">
+                <p style="font-size: 0.8rem; color: var(--secondary-emerald); margin-bottom: 0.5rem;" id="token-msg"></p>
+                <input type="text" id="reset-token" placeholder="Pega el Token aquí" required style="width: 100%; margin-bottom: 0.5rem; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: stretch;">
+                    <input type="password" id="reset-password" placeholder="Nueva Contraseña" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                </div>
+                <button type="submit" class="btn-primary">Actualizar Contraseña</button>
+            </form>
+        </div>
+    </div>
+    <script src="toast.js"></script>
+    <script src="login.js"></script>
+</body>
+</html>

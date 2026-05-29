@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ajustes de Perfil - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html">Panel</a></li>
+                <li><a href="historial.html">Historial</a></li>
+                <li><a href="grupos.html">Mis Grupos</a></li>
+                <li><a href="ajustes.html" class="active">Ajustes</a></li>
+                <li><a href="#" class="nav-profile">Hola, Usuario</a></li>
+                <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 600px;">
+        <div class="card">
+            <h3>Ajustes de Perfil</h3>
+            <form id="form-perfil" class="mt-2">
+                <div class="form-group">
+                    <label>Nombre a Mostrar</label>
+                    <input type="text" id="perfil-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Teléfono (WhatsApp para notificaciones)</label>
+                    <input type="text" id="perfil-telefono" placeholder="Ej. +56912345678">
+                </div>
+                <div class="form-group">
+                    <label>Foto de Perfil</label>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <img id="perfil-foto-preview" src="https://via.placeholder.com/60" alt="Foto" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color);">
+                        <input type="file" id="perfil-foto" accept="image/jpeg, image/png, image/webp" style="flex: 1;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nueva Contraseña <span style="font-weight: normal; color: var(--text-muted);">(Opcional)</span></label>
+                <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                    <input type="password" id="perfil-password" placeholder="Deja en blanco para no cambiar" style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                </div>
+                </div>
+                <button type="submit" class="btn-primary mt-2">Guardar Cambios</button>
+            </form>
+        </div>
+
+        <div class="card mt-2">
+            <h3>Mis Datos Bancarios <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(Para recibir transferencias manuales)</span></h3>
+            <form id="form-banco" class="mt-2">
+                <div class="form-group">
+                    <label>Banco / Billetera Virtual</label>
+                    <input type="text" id="banco-nombre" placeholder="Ej. MercadoPago, Santander...">
+                </div>
+                <div class="form-group">
+                    <label>CBU / CVU</label>
+                    <input type="text" id="banco-cbu" placeholder="22 dígitos numéricos">
+                </div>
+                <div class="form-group">
+                    <label>Alias</label>
+                    <input type="text" id="banco-alias" placeholder="mi.alias.mp">
+                </div>
+                <div class="form-group">
+                    <label>Titular de la Cuenta</label>
+                    <input type="text" id="banco-titular" placeholder="Nombre completo">
+                </div>
+                <button type="submit" class="btn-primary mt-2">Guardar Datos Bancarios</button>
+            </form>
+        </div>
+        
+        <div class="card mt-2" id="suscripcion-container" style="display: none;">
+            <h3>Mi Suscripción</h3>
+            <div style="background-color: var(--bg-light); padding: 1rem; border-radius: 4px; border: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+                <div>
+                    <p style="margin-bottom: 0.2rem;"><strong>Plan Actual:</strong> <span class="badge-premium">Premium</span></p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Tienes acceso a grupos ilimitados y análisis de finanzas.</p>
+                </div>
+                <button id="btn-cancelar-suscripcion" class="btn-primary" style="width: auto; background-color: var(--danger-color); padding: 0.5rem 1rem;">Cancelar Suscripción</button>
+            </div>
+        </div>
+        
+        <!-- Botón Temporal God Mode (Bórralo antes de Producción) -->
+        <div class="card mt-2" id="god-mode-container" style="border-left: 4px solid purple;">
+            <h3 style="color: purple;">🛠️ Modo Desarrollador</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Otorga privilegios de administrador global y Premium gratis a esta cuenta.</p>
+            <button id="btn-god-mode" class="btn-primary" style="background-color: purple;">Activar God Mode</button>
+        </div>
+
+        <div class="card mt-2">
+            <h3>Métodos de Pago Guardados</h3>
+            <div class="table-responsive">
+                <table class="gastos-table">
+                    <thead>
+                        <tr>
+                            <th>Tarjeta</th>
+                            <th>Agregada El</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-tarjetas">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+    <script src="toast.js"></script>
+    <script src="ajustes.js"></script>
+</body>
+</html>

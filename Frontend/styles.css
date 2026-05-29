@@ -1,0 +1,473 @@
+/* ==========================================================================
+   Variables CSS y Reset Base
+   ========================================================================== */
+:root {
+    --primary-slate: #2c3e50;
+    --secondary-emerald: #2ecc71;
+    --emerald-hover: #27ae60;
+    --bg-light: #f4f7f6;
+    --card-bg: #ffffff;
+    --text-dark: #333333;
+    --text-muted: #7f8c8d;
+    --border-color: #e0e6ed;
+    --danger-color: #e74c3c;
+    --transition: all 0.3s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* ==========================================================================
+   Página de Login
+   ========================================================================== */
+.login-body {
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, var(--bg-light), #e0e6ed);
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 2.5rem;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* ==========================================================================
+   Header y Navegación
+   ========================================================================== */
+.main-header {
+    background-color: var(--primary-slate);
+    color: white;
+    padding: 1rem 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.logo h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.logo span {
+    color: var(--secondary-emerald);
+}
+
+.main-nav ul {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+}
+
+.main-nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.main-nav a:hover, .main-nav a.active {
+    color: var(--secondary-emerald);
+}
+
+/* ==========================================================================
+   Estructura Principal (Main & Grid)
+   ========================================================================== */
+.dashboard-container {
+    flex: 1;
+    width: 100%;
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.mt-2 {
+    margin-top: 1.5rem;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border: 1px solid var(--border-color);
+}
+
+.card h3 {
+    margin-bottom: 1rem;
+    color: var(--primary-slate);
+    border-bottom: 2px solid var(--bg-light);
+    padding-bottom: 0.5rem;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 2.5fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+/* ==========================================================================
+   Banner de Suscripción (Monetización SaaS)
+   ========================================================================== */
+.upgrade-banner {
+    background: linear-gradient(135deg, var(--primary-slate), #34495e);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 5px solid var(--secondary-emerald);
+}
+
+.banner-content h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.2rem;
+}
+
+.banner-content p {
+    font-size: 0.9rem;
+    color: #bdc3c7;
+}
+
+/* ==========================================================================
+   Formularios y Botones
+   ========================================================================== */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--secondary-emerald);
+    box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.2);
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+button {
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: var(--secondary-emerald);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--emerald-hover);
+}
+
+.btn-primary:disabled {
+    background-color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.btn-upgrade {
+    padding: 0.8rem 1.5rem;
+    background-color: var(--secondary-emerald);
+    color: white;
+    white-space: nowrap;
+}
+
+.btn-upgrade:hover {
+    background-color: white;
+    color: var(--secondary-emerald);
+}
+
+/* ==========================================================================
+   Tarjetas de Estadísticas y Tabla
+   ========================================================================== */
+.balance-stats {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.stat {
+    flex: 1;
+    padding: 1rem;
+    border-radius: 6px;
+    background-color: var(--bg-light);
+    text-align: center;
+}
+
+.stat.positive h4 { color: var(--secondary-emerald); font-size: 1.5rem; }
+.stat.negative h4 { color: var(--danger-color); font-size: 1.5rem; }
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.gastos-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+}
+
+.gastos-table th, .gastos-table td {
+    padding: 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.gastos-table th {
+    background-color: var(--bg-light);
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.gastos-table tbody tr:hover {
+    background-color: #f9fdfa;
+}
+
+/* ==========================================================================
+   Footer y Media Queries (Responsive)
+   ========================================================================== */
+.main-footer {
+    background-color: white;
+    text-align: center;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-top: auto;
+}
+
+.main-footer a {
+    color: var(--primary-slate);
+    text-decoration: none;
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .upgrade-banner {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .main-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .main-nav ul {
+        flex-wrap: wrap;
+        justify-content: center;
+            gap: 0.5rem;
+        }
+        .main-nav a {
+            padding: 0.5rem;
+        }
+        input[type="text"], input[type="number"], input[type="email"], input[type="password"], select {
+            font-size: 16px; /* Evita que los iPhones hagan zoom al tocar el input */
+            padding: 0.8rem;
+        }
+        .btn-primary, .btn-upgrade {
+            padding: 1rem; /* Botones más altos y fáciles de tocar */
+            font-size: 1rem;
+    }
+}
+
+/* ==========================================================================
+   Sección Premium (Analíticas)
+   ========================================================================== */
+.badge-premium {
+    background-color: #f1c40f;
+    color: var(--primary-slate);
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+}
+
+.premium-lock-container {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.locked-content {
+    position: relative;
+    padding-top: 1rem;
+}
+
+.blur-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    backdrop-filter: blur(5px);
+    background: rgba(255, 255, 255, 0.6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    text-align: center;
+}
+
+.fake-chart {
+    height: 100px;
+    background: repeating-linear-gradient(45deg, var(--border-color), var(--border-color) 10px, var(--bg-light) 10px, var(--bg-light) 20px);
+    margin-bottom: 1rem;
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   Toast Notifications
+   ========================================================================== */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    min-width: 250px;
+    padding: 1rem 1.5rem;
+    background-color: var(--primary-slate);
+    color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-weight: 500;
+    animation: slideInRight 0.3s ease forwards;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.toast-success { border-left: 5px solid var(--secondary-emerald); }
+.toast-error { border-left: 5px solid var(--danger-color); }
+.toast-fadeout { opacity: 0; }
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* ==========================================================================
+   Global Spinner Overlay
+   ========================================================================== */
+#global-spinner-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(2px);
+    z-index: 10000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.global-spinner {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--secondary-emerald);
+    animation: globalSpin 1s linear infinite;
+}
+
+@keyframes globalSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Modo Oscuro (Dark Mode)
+   ========================================================================== */
+body.dark-mode {
+    --primary-slate: #1a252f;
+    --bg-light: #121212;
+    --card-bg: #1e1e1e;
+    --text-dark: #e0e0e0;
+    --border-color: #333333;
+}
+
+body.dark-mode .gastos-table th {
+    background-color: #2c2c2c;
+    color: #e0e0e0;
+}
+
+body.dark-mode .gastos-table tbody tr:hover {
+    background-color: #2a2a2a;
+}
+
+body.dark-mode input[type="text"],
+body.dark-mode input[type="number"],
+body.dark-mode input[type="email"],
+body.dark-mode input[type="password"],
+body.dark-mode input[type="date"],
+body.dark-mode select {
+    background-color: #2c2c2c;
+    color: #e0e0e0;
+    border-color: #444;
+}
+
+body.dark-mode .stat {
+    background-color: #2c2c2c;
+}
+
+body.dark-mode .main-header {
+    background-color: #11181e;
+}
+
+body.dark-mode .main-footer {
+    background-color: #1e1e1e;
+    border-color: #333;
+}

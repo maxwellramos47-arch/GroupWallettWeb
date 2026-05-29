@@ -1,0 +1,21 @@
+{
+  "name": "GroupWallet",
+  "short_name": "GroupWallet",
+  "description": "Gestión Inteligente de Finanzas y Gastos Compartidos.",
+  "start_url": "/dashboard.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2ecc71",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

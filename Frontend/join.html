@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unirse al Grupo - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-body">
+    <div class="login-container card text-center">
+        <div class="logo">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <h2 class="mt-2" id="join-title">Procesando invitación...</h2>
+        <p id="join-message" style="color: var(--text-muted); margin-top: 1rem;">Por favor, espera un momento.</p>
+        
+        <div style="margin-top: 2rem; margin-bottom: 1rem;">
+            <!-- Spinner de Carga animado por CSS -->
+            <div class="fake-chart" style="width: 50px; height: 50px; border-radius: 50%; margin: 0 auto; animation: spin 1s linear infinite; border: 4px solid var(--border-color); border-top-color: var(--secondary-emerald); background: none;"></div>
+        </div>
+    </div>
+    
+    <script src="toast.js"></script>
+    <script src="join.js"></script>
+    <style>
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</body>
+</html>

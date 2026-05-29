@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <h1>Group<span>Wallet</span></h1>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html">Panel</a></li>
+                <li><a href="historial.html" class="active">Historial</a></li>
+                <li><a href="grupos.html">Mis Grupos</a></li>
+                <li><a href="ajustes.html">Ajustes</a></li>
+                <li><a href="#" class="nav-profile">Hola, Usuario</a></li>
+                <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <div class="card">
+            <h3>Historial de Gastos Archivados</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Aquí aparecen todos los gastos que ya fueron pagados al 100%.</p>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <select id="grupo-exportar" style="padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); max-width: 200px;">
+                        <option value="" disabled selected>Selecciona un grupo</option>
+                    </select>
+                    <button id="btn-exportar" class="btn-primary" style="background-color: var(--secondary-emerald); padding: 0.5rem 1rem; width: auto; white-space: nowrap;">📥 Exportar a Excel</button>
+                </div>
+            </div>
+            <div class="table-responsive" id="pdf-export-area">
+                <div style="margin-bottom: 2rem; display: none;" id="chart-historial-container">
+                    <h4 style="text-align: center; margin-bottom: 1rem; color: var(--primary-slate);">Distribución de Gastos por Pagador</h4>
+                    <canvas id="historialChart" style="max-height: 250px; margin: 0 auto;"></canvas>
+                </div>
+                <table class="gastos-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha de Gasto</th>
+                            <th>Archivado El</th>
+                            <th>Grupo</th>
+                            <th>Descripción</th>
+                            <th>Pagador</th>
+                            <th>Monto Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-historial">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="toast.js"></script>
+    <script src="historial.js"></script>
+</body>
+</html>

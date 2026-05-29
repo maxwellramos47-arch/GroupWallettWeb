@@ -1,0 +1,26 @@
+name: Escudo de Pruebas Unitarias (Jest)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  verificar-matematicas:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Descargar código fuente
+      uses: actions/checkout@v3
+
+    - name: Configurar Node.js 18.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        
+    - name: Instalar paquetes y ejecutar Jest
+      run: |
+        npm ci
+        npm run test:coverage
