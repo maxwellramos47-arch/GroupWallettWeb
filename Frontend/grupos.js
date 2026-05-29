@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Generar Código QR
                     const qrContainer = document.getElementById('qrcode');
                     if (qrContainer) {
-                        qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.enlace)}" alt="Código QR de Invitación" style="max-width: 100%; height: auto;">`;
+                        qrContainer.innerHTML = `<img src="https://quickchart.io/qr?size=150&text=${encodeURIComponent(data.enlace)}" alt="Código QR de Invitación" style="max-width: 100%; height: auto; border-radius: 8px;">`;
                     }
                     
                     showToast('Enlace generado. ¡Compártelo!', 'success');

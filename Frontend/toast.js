@@ -20,15 +20,7 @@ function showToast(message, type = 'success') {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Inyectar el botón de Modo Oscuro en la barra de navegación dinámicamente
-    const navUl = document.querySelector('.main-nav ul');
-    if (navUl && !document.getElementById('btn-dark-mode')) {
-        const li = document.createElement('li');
-        li.innerHTML = '<a href="#" id="btn-dark-mode" title="Alternar Modo Oscuro" style="font-size: 1.2rem;">🌙</a>';
-        navUl.insertBefore(li, navUl.lastElementChild); // Insertar antes del botón "Salir"
-    }
-
-    const btnDarkMode = document.getElementById('btn-dark-mode');
+    const btnDarkMode = document.getElementById('theme-toggle');
     const prefersDark = localStorage.getItem('darkMode') === 'true';
 
     if (prefersDark) {
