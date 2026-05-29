@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const res = await fetch('/api/usuarios/perfil', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.ok) {
                     const perfil = await res.json();
-                    if (perfil.id_plan === 1) {
+                    if (!perfil.estado_suscripcion) {
                         hideSpinner();
                         showToast('La exportación a PDF es exclusiva del Plan Premium. Redirigiendo...', 'error');
                         setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);

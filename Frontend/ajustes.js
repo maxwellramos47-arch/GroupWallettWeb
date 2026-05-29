@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('perfil-nombre').value = perfil.nombre;
             document.getElementById('perfil-telefono').value = perfil.telefono || '';
             
-            if (perfil.id_plan === 2) {
+            if (perfil.estado_suscripcion) {
                 const suscripcionContainer = document.getElementById('suscripcion-container');
                 if (suscripcionContainer) suscripcionContainer.style.display = 'block';
             }

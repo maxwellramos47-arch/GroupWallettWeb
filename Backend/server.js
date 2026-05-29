@@ -23,6 +23,7 @@ const uploadRoutes = require('./Routes/upload.routes');
 const { logError } = require('./Middleware/logger.util');
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -193,17 +194,16 @@ app.get('/api/finanzas/analisis', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
 
     try {
-        // Verificar si el usuario tiene el plan básico (id_plan = 1)
         const checkPlan = await prisma.usuarios.findUnique({
             where: { id_usuario: parseInt(id_usuario) },
-            select: { id_plan: true }
+            select: { es_premium: true }
         });
         
-        if (!checkPlan || checkPlan.id_plan === 1) {
+        if (!checkPlan || !checkPlan.es_premium) {
             return res.status(403).json({ requires_upgrade: true, message: 'El análisis de finanzas es exclusivo del plan Premium.' });
         }
 
-        // Si es Premium (id_plan > 1), devolver datos de negocio reales
+        // Si es Premium (es_premium == true), devolver datos de negocio reales
         res.json({
             categoria_frecuente: "Restaurantes",
             ahorro_proyectado: 125.50,
@@ -260,7 +260,7 @@ app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
             treintaDias.setDate(treintaDias.getDate() + 30);
             await prisma.usuarios.update({
                 where: { id_usuario: parseInt(id_usuario) },
-                data: { id_plan: 2, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: treintaDias }
+                data: { id_plan: 2, estado_suscripcion: true, fecha_vencimiento_suscripcion: treintaDias }
             });
             res.json({ message: '¡Pago verificado exitosamente! Ya eres Premium.' });
         } else { res.status(400).json({ error: 'El pago no ha sido completado.' }); }
@@ -275,7 +275,7 @@ app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
     try {
         await prisma.usuarios.update({
             where: { id_usuario: parseInt(id_usuario) },
-            data: { id_plan: 1, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: null }
+            data: { id_plan: 1, es_premium: false, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: null }
         });
         res.json({ message: 'Suscripción cancelada exitosamente. Has vuelto al Plan Básico.' });
     } catch (error) {

@@ -45,7 +45,7 @@ class UsuarioBLL {
     static async obtenerPerfil(id_usuario) {
         const usuario = await UsuarioDAL.findById(id_usuario);
         if (!usuario) throw new Error('Usuario no encontrado');
-        return { nombre: usuario.nombre, correo: usuario.correo, telefono: usuario.telefono, id_plan: usuario.id_plan, foto_url: usuario.foto_url };
+        return { nombre: usuario.nombre, correo: usuario.correo, telefono: usuario.telefono, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
     }
 
     static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password) {

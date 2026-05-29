@@ -18,7 +18,7 @@ CREATE TABLE "usuarios" (
     "password_hash" VARCHAR(255) NOT NULL,
     "fecha_registro" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "id_plan" INTEGER DEFAULT 1,
-    "estado_suscripcion" VARCHAR(20) DEFAULT 'activo',
+    "estado_suscripcion" BOOLEAN NOT NULL DEFAULT false,
     "fecha_vencimiento_suscripcion" DATE,
     "reset_token" VARCHAR(255),
     "reset_token_expires" TIMESTAMP,
@@ -186,3 +186,17 @@ ALTER TABLE "pagos_inapp" ADD CONSTRAINT "pagos_inapp_id_usuario_receptor_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "datos_bancarios" ADD CONSTRAINT "datos_bancarios_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "usuarios"("id_usuario") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Desactivar RLS por seguridad en entornos donde el usuario lo requiera explicitamente
+ALTER TABLE "planes_suscripcion" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "usuarios" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "grupos" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "miembros_grupo" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "transacciones" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "transaccion_participantes" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "metodos_pago" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "transacciones_historial" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "transaccion_participantes_historial" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "tokens_revocados" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "pagos_inapp" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "datos_bancarios" DISABLE ROW LEVEL SECURITY;

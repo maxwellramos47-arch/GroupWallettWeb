@@ -27,7 +27,7 @@ model Usuarios {
   password_hash                 String    @db.VarChar(255)
   fecha_registro                DateTime? @default(now())
   id_plan                       Int?      @default(1)
-  estado_suscripcion            String?   @default("activo") @db.VarChar(20)
+  estado_suscripcion            Boolean   @default(false)
   fecha_vencimiento_suscripcion DateTime? @db.Date
   reset_token                   String?   @db.VarChar(255)
   reset_token_expires           DateTime? @db.Timestamp()
