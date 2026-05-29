@@ -471,3 +471,22 @@ body.dark-mode .main-footer {
     background-color: #1e1e1e;
     border-color: #333;
 }
+
+/* ==========================================================================
+   PWA Offline Banner
+   ========================================================================== */
+#offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--danger-color);
+    color: white;
+    text-align: center;
+    padding: 0.5rem;
+    font-weight: bold;
+    font-size: 0.9rem;
+    z-index: 100000;
+    display: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}

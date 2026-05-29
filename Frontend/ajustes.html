@@ -61,16 +61,20 @@
                     <input type="text" id="banco-nombre" placeholder="Ej. MercadoPago, Santander...">
                 </div>
                 <div class="form-group">
-                    <label>CBU / CVU</label>
-                    <input type="text" id="banco-cbu" placeholder="22 dígitos numéricos">
+                    <label>Identificación (RUT / DNI)</label>
+                    <input type="text" id="banco-rut" placeholder="Ej. 12.345.678-9">
                 </div>
                 <div class="form-group">
-                    <label>Alias</label>
-                    <input type="text" id="banco-alias" placeholder="mi.alias.mp">
+                    <label>Tipo de Cuenta</label>
+                    <input type="text" id="banco-tipo" placeholder="Ej. Cuenta Corriente, Vista...">
                 </div>
                 <div class="form-group">
-                    <label>Titular de la Cuenta</label>
-                    <input type="text" id="banco-titular" placeholder="Nombre completo">
+                    <label>Número de Cuenta (CBU / CVU)</label>
+                    <input type="text" id="banco-numero" placeholder="Ej. 123456789">
+                </div>
+                <div class="form-group">
+                    <label>Correo de Notificación</label>
+                    <input type="email" id="banco-correo" placeholder="correo@ejemplo.com">
                 </div>
                 <button type="submit" class="btn-primary mt-2">Guardar Datos Bancarios</button>
             </form>
@@ -84,31 +88,6 @@
                     <p style="font-size: 0.85rem; color: var(--text-muted);">Tienes acceso a grupos ilimitados y análisis de finanzas.</p>
                 </div>
                 <button id="btn-cancelar-suscripcion" class="btn-primary" style="width: auto; background-color: var(--danger-color); padding: 0.5rem 1rem;">Cancelar Suscripción</button>
-            </div>
-        </div>
-        
-        <!-- Botón Temporal God Mode (Bórralo antes de Producción) -->
-        <div class="card mt-2" id="god-mode-container" style="border-left: 4px solid purple;">
-            <h3 style="color: purple;">🛠️ Modo Desarrollador</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Otorga privilegios de administrador global y Premium gratis a esta cuenta.</p>
-            <button id="btn-god-mode" class="btn-primary" style="background-color: purple;">Activar God Mode</button>
-        </div>
-
-        <div class="card mt-2">
-            <h3>Métodos de Pago Guardados</h3>
-            <div class="table-responsive">
-                <table class="gastos-table">
-                    <thead>
-                        <tr>
-                            <th>Tarjeta</th>
-                            <th>Agregada El</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-tarjetas">
-                        <!-- Dinámico -->
-                    </tbody>
-                </table>
             </div>
         </div>
     </main>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Súper Admin - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header" style="background-color: #8e44ad;">
+        <div class="logo">
+            <h1>Group<span>Wallet</span> <span style="font-size: 0.8rem; color: #ecf0f1;">ADMIN</span></h1>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html">Volver al Panel Normal</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 800px;">
+        <div class="card" style="border-left: 5px solid #8e44ad;">
+            <h3 style="color: #8e44ad; border-bottom-color: #f3e5f5;">Métricas Globales del Sistema (SaaS)</h3>
+            <div class="balance-stats" style="margin-top: 1.5rem;">
+                <div class="stat" style="background-color: #f8f9fa;">
+                    <span>Total de Usuarios Registrados</span>
+                    <h4 id="stat-usuarios" style="color: var(--primary-slate); font-size: 2rem;">0</h4>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa;">
+                    <span>Ingreso Mensual Estimado (MRR)</span>
+                    <h4 id="stat-ganancia" style="color: var(--secondary-emerald); font-size: 2rem;">$0.00</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">De <span id="stat-premium">0</span> usuarios Premium</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-2" style="border-left: 5px solid #3498db;">
+            <h3 style="color: #3498db; border-bottom-color: #eaf2f8;">Herramientas Administrativas</h3>
+            <div style="margin-top: 1rem;">
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Exporta la base de datos de usuarios registrados para campañas de email marketing o copias de seguridad.</p>
+                <button id="btn-exportar-correos" class="btn-primary" style="background-color: #3498db; width: auto; padding: 0.6rem 1.2rem;">📥 Descargar Correos (CSV)</button>
+            </div>
+        </div>
+
+        <div class="card mt-2" style="border-left: 5px solid #e67e22;">
+            <h3 style="color: #e67e22; border-bottom-color: #fdf2e9;">Gestión de Roles de Usuarios</h3>
+            <div class="table-responsive mt-2">
+                <table class="gastos-table" id="tabla-admin-usuarios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Correo</th>
+                            <th>Estado / Rol actual</th>
+                            <th>Cambiar a</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-admin-usuarios">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="toast.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

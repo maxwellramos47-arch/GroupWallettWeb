@@ -45,6 +45,55 @@ document.addEventListener('DOMContentLoaded', () => {
             btnDarkMode.textContent = isDark ? '☀️' : '🌙';
         });
     }
+
+    // --- PWA Offline Indicator ---
+    let offlineBanner = document.getElementById('offline-banner');
+    if (!offlineBanner) {
+        offlineBanner = document.createElement('div');
+        offlineBanner.id = 'offline-banner';
+        offlineBanner.innerHTML = '⚠️ Estás navegando sin conexión a Internet. Varias acciones fallarán hasta que te reconectes.';
+        document.body.appendChild(offlineBanner);
+    }
+
+    const updateOnlineStatus = () => {
+        offlineBanner.style.display = navigator.onLine ? 'none' : 'block';
+    };
+
+    // Escuchar cambios de red en tiempo real
+    window.addEventListener('online', async () => { 
+        updateOnlineStatus(); 
+        showToast('Conexión restablecida.', 'success'); 
+        
+        // --- Procesamiento de la Cola (Background Sync) ---
+        const colaGastos = JSON.parse(localStorage.getItem('colaGastosOffline') || '[]');
+        if (colaGastos.length > 0) {
+            showToast(`Sincronizando ${colaGastos.length} gasto(s) pendiente(s)...`, 'info');
+            const token = localStorage.getItem('usuarioToken');
+            if (!token) return;
+            
+            let sincronizados = 0;
+            for (const gasto of colaGastos) {
+                try {
+                    const response = await fetch('/api/gastos', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(gasto)
+                    });
+                    if (response.ok) sincronizados++;
+                } catch (err) { console.error('Error sincronizando offline:', err); }
+            }
+            
+            localStorage.removeItem('colaGastosOffline');
+            if (sincronizados > 0) {
+                showToast(`✅ ${sincronizados} gasto(s) sincronizado(s) exitosamente.`, 'success');
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        }
+    });
+    window.addEventListener('offline', () => { updateOnlineStatus(); showToast('Has perdido la conexión a internet.', 'error'); });
+    
+    // Verificación inicial al cargar la página
+    updateOnlineStatus();
 });
 
 function showSpinner() {

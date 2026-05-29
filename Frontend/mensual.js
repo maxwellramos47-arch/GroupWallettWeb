@@ -110,8 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         filtradas.forEach(t => {
             const tr = document.createElement('tr');
-            const isGod = localStorage.getItem('isGodMode') === 'true';
-            const miRol = isGod ? 'Administrador' : misRolesEnGrupos[t.id_grupo];
+            const miRol = misRolesEnGrupos[t.id_grupo];
             let botones = '-';
             if (miRol === 'Administrador' || miIdUsuario === t.pagador) {
                 botones = `<button class="btn-eliminar" data-id="${t.id_transaccion}" style="background-color: var(--danger-color); color: white; border: none; padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer;">X</button>`;
@@ -275,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Manejo de Eventos: Guardar Gasto con Fecha ---
     document.getElementById('form-gasto-mensual').addEventListener('submit', async (e) => {
         e.preventDefault();
+
         const id_grupo = parseInt(document.getElementById('grupo-gasto').value);
         const descripcion = document.getElementById('desc-gasto').value;
         const selectCategoria = document.getElementById('categoria-gasto-mensual');
@@ -290,6 +290,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let comprobante_url = null;
         const fileInput = document.getElementById('comprobante-gasto-mensual');
+
+        // --- Lógica de Sincronización (Background Sync) ---
+        if (!navigator.onLine) {
+            if (fileInput && fileInput.files.length > 0) {
+                showToast('Aviso: Los comprobantes no se pueden subir sin red. El gasto se guardará sin imagen.', 'error');
+            }
+            const nuevoGasto = { id_grupo, descripcion, categoria, monto, pagador, participantes, fecha, comprobante_url: null };
+            const colaGastos = JSON.parse(localStorage.getItem('colaGastosOffline') || '[]');
+            colaGastos.push(nuevoGasto);
+            localStorage.setItem('colaGastosOffline', JSON.stringify(colaGastos));
+            
+            showToast('Estás offline. El gasto se ha guardado localmente y se sincronizará al reconectar.', 'info');
+            document.getElementById('form-gasto-mensual').reset();
+            return;
+        }
+
         if (fileInput && fileInput.files.length > 0) {
             comprobante_url = await window.subirArchivoDirecto(fileInput.files[0]);
         }

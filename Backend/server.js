@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Inicializar Stripe
 
 const pool = require('./Config/db');
 const { encriptarDatoSensible, desencriptarDatoSensible, generarFirmaHMAC, JWT_SECRET } = require('./Middleware/security.util');
@@ -49,11 +50,11 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://unpkg.com"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            // Permitimos imágenes locales, Base64 (data:), Wikipedia (Tus logos de tarjetas) y el Bucket de Storage:
-            imgSrc: ["'self'", "data:", "https://upload.wikimedia.org", "https://tu-bucket.s3.amazonaws.com"],
-            connectSrc: ["'self'", "https://tu-bucket.s3.amazonaws.com"], // Necesario para subir archivos directo al Bucket
+            // Permitimos imágenes locales, Base64, Wikipedia, S3 y Supabase
+            imgSrc: ["'self'", "data:", "https://upload.wikimedia.org", "*.s3.amazonaws.com", "*.supabase.co"],
+            connectSrc: ["'self'", "*.s3.amazonaws.com", "*.supabase.co"], // Permite subir a S3 y conectar con Supabase
             fontSrc: ["'self'"],
             objectSrc: ["'self'"],
             mediaSrc: ["'self'"],
@@ -90,6 +91,14 @@ app.get('/api/status', (req, res) => {
         version: '1.0.0', 
         environment: 'development',
         message: 'API de GroupWallet funcionando correctamente.'
+    });
+});
+
+// Endpoint para proveer configuración pública al frontend (Supabase, etc.)
+app.get('/api/config', (req, res) => {
+    res.json({
+        supabaseUrl: process.env.VITE_SUPABASE_URL,
+        supabaseKey: process.env.VITE_SUPABASE_PUBLISHABLE_KEY
     });
 });
 
@@ -191,43 +200,46 @@ app.get('/api/finanzas/analisis', verificarToken, async (req, res) => {
     }
 });
 
-// 3. Endpoint POST: Procesar Pago y Suscripción Premium
-app.post('/api/suscripciones', verificarToken, async (req, res) => {
-    const { numero_tarjeta, fecha_exp, cvv } = req.body;
+// 3. Endpoint POST: Generar Enlace de Pago Seguro (Stripe Checkout)
+app.post('/api/suscripciones/checkout', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
 
-    if (!numero_tarjeta || !fecha_exp || !cvv) {
-        return res.status(400).json({ error: 'Faltan datos de pago requeridos.' });
-    }
-
-    const tarjetaLimpia = numero_tarjeta.replace(/\s/g, '');
-    if (!/^\d{15,16}$/.test(tarjetaLimpia)) {
-        return res.status(400).json({ error: 'El número de tarjeta es inválido. Debe contener 15 o 16 dígitos numéricos.' });
-    }
-
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-
-        const { iv, data: tarjetaEncriptada } = encriptarDatoSensible(tarjetaLimpia);
-        
-        const insertPagoQuery = `
-            INSERT INTO Metodos_Pago (id_usuario, tarjeta_encriptada, vector_inicializacion) 
-            VALUES ($1, $2, $3)
-        `;
-        await client.query(insertPagoQuery, [id_usuario, tarjetaEncriptada, iv]);
-
-        const upgradeQuery = `UPDATE Usuarios SET id_plan = 2, estado_suscripcion = 'activo', fecha_vencimiento_suscripcion = CURRENT_DATE + INTERVAL '30 days' WHERE id_usuario = $1`;
-        await client.query(upgradeQuery, [id_usuario]);
-
-        await client.query('COMMIT');
-        res.status(200).json({ message: '¡Pago exitoso! Ahora eres un usuario Premium.' });
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: { name: 'Plan Premium GroupWallet', description: 'Grupos ilimitados y análisis avanzado.' },
+                    unit_amount: 500, // $5.00 USD
+                    recurring: { interval: 'month' }
+                },
+                quantity: 1,
+            }],
+            mode: 'subscription',
+            success_url: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=canceled`,
+            client_reference_id: id_usuario.toString()
+        });
+        res.json({ url: session.url });
     } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error en pasarela de pago:', error);
-        res.status(500).json({ error: 'Error al procesar el pago de la suscripción.' });
-    } finally {
-        client.release();
+        console.error('Error de Stripe:', error);
+        res.status(500).json({ error: 'Error al conectar con la pasarela de pagos.' });
+    }
+});
+
+// 3.1 Endpoint POST: Confirmar Pago Exitoso
+app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
+    const { session_id } = req.body;
+    const id_usuario = req.usuarioLogueado.id_usuario;
+    try {
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+        if (session.payment_status === 'paid') {
+            await pool.query(`UPDATE Usuarios SET id_plan = 2, estado_suscripcion = 'activo', fecha_vencimiento_suscripcion = CURRENT_DATE + INTERVAL '30 days' WHERE id_usuario = $1`, [id_usuario]);
+            res.json({ message: '¡Pago verificado exitosamente! Ya eres Premium.' });
+        } else { res.status(400).json({ error: 'El pago no ha sido completado.' }); }
+    } catch (error) {
+        res.status(500).json({ error: 'Error verificando la transacción en Stripe.' });
     }
 });
 
@@ -246,6 +258,76 @@ app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
     }
 });
 
+// 3.9 NUEVO Endpoint GET: Obtener lista de usuarios para gestión (Súper Admin)
+app.get('/api/admin/usuarios', verificarToken, async (req, res) => {
+    const id_usuario = req.usuarioLogueado.id_usuario;
+    try {
+        const userCheck = await pool.query('SELECT estado_suscripcion FROM Usuarios WHERE id_usuario = $1', [id_usuario]);
+        if (userCheck.rows[0].estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
+
+        const result = await pool.query(`
+            SELECT u.id_usuario, u.nombre, u.correo, u.id_plan, u.estado_suscripcion, TO_CHAR(u.fecha_registro, 'DD/MM/YYYY') as fecha 
+            FROM Usuarios u 
+            ORDER BY u.id_usuario ASC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo usuarios:', error);
+        res.status(500).json({ error: 'Error al obtener los usuarios.' });
+    }
+});
+
+// 3.10 NUEVO Endpoint PUT: Cambiar rol/plan de un usuario (Súper Admin)
+app.put('/api/admin/usuarios/:id/rol', verificarToken, async (req, res) => {
+    const id_admin = req.usuarioLogueado.id_usuario;
+    const id_objetivo = req.params.id;
+    const { nuevo_rol } = req.body; // 'FREE', 'PREMIUM', 'GOD_MODE'
+
+    try {
+        const userCheck = await pool.query('SELECT estado_suscripcion FROM Usuarios WHERE id_usuario = $1', [id_admin]);
+        if (userCheck.rows[0].estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
+
+        let id_plan = 1;
+        let estado_suscripcion = 'activo';
+
+        if (nuevo_rol === 'PREMIUM') { id_plan = 2; } 
+        else if (nuevo_rol === 'GOD_MODE') { 
+            const targetCheck = await pool.query('SELECT correo FROM Usuarios WHERE id_usuario = $1', [id_objetivo]);
+            if (targetCheck.rows.length === 0 || targetCheck.rows[0].correo !== 'maxwellramos47@gmail.com') {
+                return res.status(403).json({ error: 'Operación denegada de forma permanente. El rol Súper Admin está reservado estrictamente para maxwellramos47@gmail.com' });
+            }
+            id_plan = 2; estado_suscripcion = 'GOD_MODE'; 
+        }
+
+        await pool.query(
+            `UPDATE Usuarios SET id_plan = $1, estado_suscripcion = $2 WHERE id_usuario = $3`,
+            [id_plan, estado_suscripcion, id_objetivo]
+        );
+        res.json({ message: 'Rol de usuario actualizado exitosamente.' });
+    } catch (error) {
+        console.error('Error actualizando rol:', error);
+        res.status(500).json({ error: 'Error al actualizar el rol del usuario.' });
+    }
+});
+
+// 3.11 NUEVO Endpoint POST: Forzar Cierre de Sesión (Súper Admin)
+app.post('/api/admin/usuarios/:id/forzar-logout', verificarToken, async (req, res) => {
+    const id_admin = req.usuarioLogueado.id_usuario;
+    const id_objetivo = req.params.id;
+
+    try {
+        const userCheck = await pool.query('SELECT estado_suscripcion FROM Usuarios WHERE id_usuario = $1', [id_admin]);
+        if (userCheck.rows[0].estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
+
+        // Emitir evento por WebSockets para expulsar al usuario en tiempo real
+        req.io.emit('forzar_logout', { id_usuario: parseInt(id_objetivo) });
+        
+        res.json({ message: 'Orden de cierre de sesión enviada exitosamente.' });
+    } catch (error) {
+        console.error('Error forzando logout:', error);
+        res.status(500).json({ error: 'Error al intentar forzar el cierre de sesión.' });
+    }
+});
 
 // ==========================================
 // Endpoints Integrados (Arquitectura N-Tier)
@@ -255,71 +337,6 @@ app.use('/api/grupos', grupoRoutes);
 app.use('/api/gastos', gastoRoutes);
 app.use('/api/cuotas', cuotaRoutes);
 app.use('/api/upload', uploadRoutes);
-
-// 5. NUEVO: Endpoint para guardar Tarjeta (Encriptación AES-256)
-app.post('/api/metodos-pago', async (req, res) => {
-    const { id_usuario, numero_tarjeta } = req.body;
-    
-    try {
-        const { iv, data: tarjetaEncriptada } = encriptarDatoSensible(numero_tarjeta);
-        
-        const query = `
-            INSERT INTO Metodos_Pago (id_usuario, tarjeta_encriptada, vector_inicializacion) 
-            VALUES ($1, $2, $3)
-        `;
-        await pool.query(query, [id_usuario, tarjetaEncriptada, iv]);
-        
-        res.status(201).json({ 
-            message: 'Método de pago guardado. Los datos sensibles están protegidos.',
-            demostracion: { texto_original: 'Oculto', encriptado: tarjetaEncriptada }
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error al asegurar el método de pago' });
-    }
-});
-
-// 5.5 NUEVO: Endpoint para listar Tarjetas Guardadas (Enmascaradas)
-app.get('/api/metodos-pago', verificarToken, async (req, res) => {
-    const id_usuario = req.usuarioLogueado.id_usuario;
-    try {
-        const query = `
-            SELECT id_metodo, tarjeta_encriptada, vector_inicializacion, TO_CHAR(fecha_agregado, 'DD/MM/YYYY') as fecha 
-            FROM Metodos_Pago 
-            WHERE id_usuario = $1 
-            ORDER BY fecha_agregado DESC
-        `;
-        const result = await pool.query(query, [id_usuario]);
-        
-        const tarjetasEnmascaradas = result.rows.map(row => {
-            const numeroReal = desencriptarDatoSensible(row.tarjeta_encriptada, row.vector_inicializacion);
-            const ultimos4 = numeroReal.slice(-4);
-            return { id_metodo: row.id_metodo, fecha: row.fecha, enmascarada: `**** **** **** ${ultimos4}` };
-        });
-        res.json(tarjetasEnmascaradas);
-    } catch (error) {
-        console.error('Error al obtener métodos de pago:', error);
-        res.status(500).json({ error: 'Error al obtener tarjetas guardadas' });
-    }
-});
-
-// 5.6 NUEVO: Endpoint DELETE para eliminar Tarjeta Guardada
-app.delete('/api/metodos-pago/:id', verificarToken, async (req, res) => {
-    const id_metodo = req.params.id;
-    const id_usuario = req.usuarioLogueado.id_usuario;
-    
-    try {
-        const query = `DELETE FROM Metodos_Pago WHERE id_metodo = $1 AND id_usuario = $2 RETURNING id_metodo`;
-        const result = await pool.query(query, [id_metodo, id_usuario]);
-        
-        if (result.rowCount === 0) return res.status(404).json({ error: 'Método de pago no encontrado.' });
-        
-        res.json({ message: 'Método de pago eliminado exitosamente.' });
-    } catch (error) {
-        console.error('Error al eliminar método de pago:', error);
-        res.status(500).json({ error: 'Error interno al intentar eliminar la tarjeta.' });
-    }
-});
 
 // ==========================================
 // Middleware Global de Manejo de Errores

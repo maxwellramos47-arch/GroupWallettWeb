@@ -103,6 +103,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 calcularSaldos();
             }
         });
+
+        // Escuchar orden de cierre de sesión forzado (Desde Panel de Súper Admin)
+        socket.on('forzar_logout', (data) => {
+            const tokenActual = localStorage.getItem('usuarioToken');
+            if (tokenActual) {
+                const payload = JSON.parse(atob(tokenActual.split('.')[1]));
+                if (payload.id_usuario == data.id_usuario) {
+                    localStorage.removeItem('usuarioToken');
+                    localStorage.removeItem('usuarioNombre');
+                    window.location.href = 'index.html'; // Expulsado al login instantáneamente
+                }
+            }
+        });
     }
 
     // --- Evento de Búsqueda ---
@@ -193,11 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let botonesHtml = '-';
         if (estado === 'Pendiente') {
             if (soyAcreedor) {
-                botonesHtml = `<button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${idUsuarioOtro}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem;">Marcar Pagado</button>`;
+                botonesHtml = `<button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${idUsuarioOtro}" data-monto="${monto}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem;">Marcar Pagado</button>`;
             } else {
                 botonesHtml = `
-                    <button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${miIdUsuario}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; background-color: var(--primary-slate);">Pago Manual</button>
-                    <button class="btn-primary btn-pagar-inapp" data-transaccion="${idTransaccion}" data-monto="${monto}" style="background-color: #f1c40f; color: var(--primary-slate); padding: 0.3rem 0.5rem; font-size: 0.8rem;">Pagar vía App</button>
+                    <button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${miIdUsuario}" data-monto="${monto}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; background-color: var(--primary-slate);">Marcar Pagado (Manual)</button>
                 `;
             }
         }
@@ -246,8 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('usuarioToken');
         const payload = JSON.parse(atob(token.split('.')[1]));
         const miIdUsuario = payload.id_usuario.toString();
-        const isGod = localStorage.getItem('isGodMode') === 'true';
-        const miRol = isGod ? 'Administrador' : misRolesEnGrupos[idGrupoSeleccionado];
+        const miRol = misRolesEnGrupos[idGrupoSeleccionado];
         // --- 2.1. Lógica para poblar listaCuotas (Se calcula sobre TODAS las transacciones) ---
         transaccionesFiltradas.forEach(t => {
             if (listaCuotas && t.participantes_detalle) {
@@ -384,121 +395,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2.8. Flujo de Suscripción Premium ---
     const btnShowPayment = document.getElementById('btn-show-payment');
-    const paymentFormContainer = document.getElementById('payment-form-container');
-    const formSuscripcion = document.getElementById('form-suscripcion');
-    const fechaExpInput = document.getElementById('fecha-exp');
-    const numeroTarjetaInput = document.getElementById('numero-tarjeta');
-    const cvvInput = document.getElementById('cvv');
-
-    if (btnShowPayment && paymentFormContainer) {
-        btnShowPayment.addEventListener('click', () => {
-            paymentFormContainer.style.display = 'block';
-            btnShowPayment.style.display = 'none'; // Ocultar el botón
-        });
-    }
-
-    // Formatear campo de Fecha de Expiración (MM/YY)
-    if (fechaExpInput) {
-        fechaExpInput.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/\D/g, ''); // Eliminar todo lo que no sea número
-            
-            if (value.length >= 2) {
-                // Validar que el mes sea válido (01-12)
-                let month = parseInt(value.substring(0, 2));
-                if (month > 12) value = '12' + value.substring(2);
-                if (month === 0) value = '01' + value.substring(2);
-                
-                value = value.substring(0, 2) + '/' + value.substring(2, 4);
-            }
-            e.target.value = value;
-        });
-    }
-
-    // Formatear campo de Tarjeta de Crédito (Visa/MC: 4-4-4-4, Amex: 4-6-5)
-    const iconoTarjeta = document.getElementById('icono-tarjeta');
-    if (numeroTarjetaInput) {
-        numeroTarjetaInput.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/\D/g, ''); // Eliminar todo lo que no sea número
-            const isAmex = value.startsWith('34') || value.startsWith('37');
-            const maxLength = isAmex ? 15 : 16;
-            
-            value = value.substring(0, maxLength); // Limitar dígitos
-            
-            // Formateo visual
-            if (isAmex) {
-                let formatted = value.substring(0, 4);
-                if (value.length > 4) formatted += ' ' + value.substring(4, 10);
-                if (value.length > 10) formatted += ' ' + value.substring(10, 15);
-                e.target.value = formatted;
-            } else {
-                e.target.value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
-            }
-            
-            // Actualizar el logotipo dinámicamente según el primer dígito
-            if (iconoTarjeta) {
-                if (value.startsWith('4')) {
-                    iconoTarjeta.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg" alt="Visa" style="height: 1rem; vertical-align: middle;">';
-                } else if (value.startsWith('5')) {
-                    iconoTarjeta.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" style="height: 1.2rem; vertical-align: middle;">';
-                } else if (isAmex) {
-                    iconoTarjeta.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/American_Express_logo_%282018%29.svg" alt="Amex" style="height: 1.2rem; vertical-align: middle;">';
-                } else {
-                    iconoTarjeta.innerHTML = '💳';
-                }
-            }
-        });
-    }
-
-    // Formatear campo CVV (Solo números, máximo 4 dígitos)
-    if (cvvInput) {
-        cvvInput.addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
-        });
-    }
-
-    if (formSuscripcion) {
-        formSuscripcion.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const numero_tarjeta = document.getElementById('numero-tarjeta').value;
-            const fecha_exp = document.getElementById('fecha-exp').value;
-            const cvv = document.getElementById('cvv').value;
-            const token = localStorage.getItem('usuarioToken');
-
-            // Validación de longitud y formato para la Tarjeta y el CVV
-            const tarjetaLimpia = numero_tarjeta.replace(/\s/g, '');
-            const isAmex = tarjetaLimpia.startsWith('34') || tarjetaLimpia.startsWith('37');
-            
-            if (isNaN(tarjetaLimpia) || (isAmex && tarjetaLimpia.length !== 15) || (!isAmex && tarjetaLimpia.length !== 16)) {
-                showToast(`La tarjeta de crédito debe tener exactamente ${isAmex ? '15' : '16'} dígitos.`, 'error');
-                return;
-            }
-            
-            const cvvRegex = isAmex ? /^\d{4}$/ : /^\d{3}$/;
-            if (!cvvRegex.test(cvv)) {
-                showToast(`El CVV debe tener exactamente ${isAmex ? '4' : '3'} dígitos numéricos.`, 'error');
-                return;
-            }
-
+    if (btnShowPayment) {
+        btnShowPayment.addEventListener('click', async () => {
             showSpinner();
+            const token = localStorage.getItem('usuarioToken');
             try {
-                const response = await fetch('/api/suscripciones', {
+                const response = await fetch('/api/suscripciones/checkout', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ numero_tarjeta, fecha_exp, cvv })
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
                 const data = await response.json();
-                if (response.ok) {
-                    showToast(data.message, 'success');
-                    setTimeout(() => window.location.reload(), 1500); // Recargar para aplicar los cambios Premium en la UI
+                if (response.ok && data.url) {
+                    window.location.href = data.url; // Redirigir a Stripe
                 } else {
-                    showToast(data.error, 'error');
+                    showToast(data.error || 'Error conectando a Stripe.', 'error');
                     hideSpinner();
                 }
-            } catch (error) { console.error('Error en el pago:', error); hideSpinner(); }
+            } catch (error) { showToast('Problema de conexión.', 'error'); hideSpinner(); }
         });
     }
 
@@ -537,6 +450,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let comprobante_url = null;
         const fileInput = document.getElementById('comprobante-gasto');
+
+        // --- Lógica de Sincronización (Background Sync) ---
+        if (!navigator.onLine) {
+            if (fileInput && fileInput.files.length > 0) {
+                showToast('Aviso: Los comprobantes no se pueden subir sin red. El gasto se guardará sin imagen.', 'error');
+            }
+            const nuevoGasto = { id_grupo, descripcion, categoria, monto, pagador, participantes, comprobante_url: null };
+            const colaGastos = JSON.parse(localStorage.getItem('colaGastosOffline') || '[]');
+            colaGastos.push(nuevoGasto);
+            localStorage.setItem('colaGastosOffline', JSON.stringify(colaGastos));
+            
+            showToast('Estás offline. El gasto se ha guardado localmente y se sincronizará al reconectar.', 'info');
+            formGasto.reset();
+            document.querySelectorAll('.checkbox-group input[type="checkbox"]').forEach(cb => cb.checked = true);
+            return;
+        }
+
         if (fileInput && fileInput.files.length > 0) {
             comprobante_url = await window.subirArchivoDirecto(fileInput.files[0]);
         }
@@ -591,6 +521,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (listaGastos) {
         listaGastos.addEventListener('click', async (e) => {
             if (e.target.classList.contains('btn-eliminar')) {
+                if (!navigator.onLine) {
+                    showToast('Acción bloqueada: Verifica tu conexión a internet.', 'error');
+                    return;
+                }
+
                 if (!confirm('¿Estás seguro de que deseas eliminar este gasto de forma permanente?')) return;
 
                 const btn = e.target;
@@ -617,6 +552,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // --- Lógica para Editar Gasto ---
             if (e.target.classList.contains('btn-editar')) {
+                if (!navigator.onLine) {
+                    showToast('Acción bloqueada: Verifica tu conexión a internet.', 'error');
+                    return;
+                }
+
                 const btn = e.target;
                 const idTransaccion = btn.getAttribute('data-id');
                 const gastoActual = transacciones.find(t => t.id_transaccion == idTransaccion);
@@ -897,86 +837,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const btn = e.target;
                 const idTransaccion = btn.getAttribute('data-transaccion');
                 const idUsuario = btn.getAttribute('data-usuario');
+                const montoEsperado = btn.getAttribute('data-monto');
 
-                showSpinner();
-                try {
-                    const token = localStorage.getItem('usuarioToken'); // Obtener el token guardado
-                    const response = await fetch('/api/cuotas/pagar', {
-                        method: 'PUT',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}` // Adjuntar token JWT
-                        },
-                        body: JSON.stringify({ id_transaccion: idTransaccion, id_usuario: idUsuario })
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        // Actualizar la interfaz de usuario (DOM) si la BD se actualizó bien
-                        const fila = btn.closest('tr');
-                        const celdaEstado = fila.querySelector('td:nth-child(3)');
-                        celdaEstado.innerHTML = '<span style="color: var(--secondary-emerald); font-weight: bold;">Pagado</span>';
-                        btn.parentElement.innerHTML = '-'; // Reemplazar botón con guión
-
-                        if (data.archivado) {
-                            showToast('¡Gasto completado y archivado en el historial!', 'success');
-                            transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
-                            renderizarTabla();
-                            calcularSaldos();
-                        }
-                    } else {
-                        const data = await response.json();
-                        showToast(data.error || 'Error al procesar el pago.', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    showToast('Problema de conexión con el servidor.', 'error');
-                } finally {
-                    hideSpinner();
+                // En lugar de pagar directamente, abrimos el modal para pedir comprobante
+                const modalPago = document.getElementById('modal-pago-overlay');
+                if (modalPago) {
+                    document.getElementById('pago-id-transaccion').value = idTransaccion;
+                    document.getElementById('pago-id-usuario').value = idUsuario;
+                    document.getElementById('pago-monto-esperado').value = montoEsperado;
+                    const lblMonto = document.getElementById('monto-esperado-label');
+                    if(lblMonto) lblMonto.textContent = `${moneda}${parseFloat(montoEsperado).toFixed(2)}`;
+                    modalPago.style.display = 'flex';
                 }
-            }
-            
-            // Verificar si el elemento clickeado es un pago in-app (Con comisión)
-            if (e.target.classList.contains('btn-pagar-inapp')) {
-                const btn = e.target;
-                const idTransaccion = btn.getAttribute('data-transaccion');
-                const montoBase = parseFloat(btn.getAttribute('data-monto'));
-                
-                const comision = montoBase * 0.0089; // 0.89%
-                const total = montoBase + comision;
-                
-                const mensajeConfirmacion = `Detalle del Pago In-App:\n\n` +
-                                            `- Cuota Base: ${moneda}${montoBase.toFixed(2)}\n` +
-                                            `- Comisión GroupWallet (0.89%): ${moneda}${comision.toFixed(2)}\n` +
-                                            `- Total a Debitar: ${moneda}${total.toFixed(2)}\n\n` +
-                                            `¿Aceptas procesar el pago usando tu método guardado?`;
-                                            
-                if (!confirm(mensajeConfirmacion)) return;
-
-                showSpinner();
-                try {
-                    const token = localStorage.getItem('usuarioToken');
-                    const response = await fetch('/api/cuotas/pago-inapp', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify({ id_transaccion: idTransaccion })
-                    });
-
-                    const data = await response.json();
-                    if (response.ok) {
-                        const fila = btn.closest('tr');
-                        fila.querySelector('td:nth-child(3)').innerHTML = '<span style="color: var(--secondary-emerald); font-weight: bold;">Pagado</span>';
-                        btn.parentElement.innerHTML = '-'; // Quitar botones
-
-                        showToast(data.message, 'success');
-                        
-                        if (data.detalle && data.detalle.archivado) {
-                            transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
-                            renderizarTabla();
-                            calcularSaldos();
-                        }
-                    } else showToast(data.error || 'Error al procesar el pago In-App.', 'error');
-                } catch (error) { console.error(error); showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
             }
         });
     }
@@ -1077,6 +949,94 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                 } else showToast(data.error, 'error');
             } catch (err) { showToast('Error al calcular liquidación.', 'error'); } finally { hideSpinner(); }
+        });
+    }
+
+    // --- 7.8. Lógica del Modal de Confirmación de Pago ---
+    const formConfirmarPago = document.getElementById('form-confirmar-pago');
+    if (formConfirmarPago) {
+        formConfirmarPago.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!navigator.onLine) {
+                showToast('Acción bloqueada: Verifica tu conexión a internet.', 'error');
+                return;
+            }
+
+            const idTransaccion = document.getElementById('pago-id-transaccion').value;
+            const idUsuario = document.getElementById('pago-id-usuario').value;
+            const montoEsperado = parseFloat(document.getElementById('pago-monto-esperado').value);
+            const fileInput = document.getElementById('pago-comprobante');
+            
+            let comprobante_url = null;
+            if (fileInput && fileInput.files.length > 0) {
+                comprobante_url = await window.subirArchivoDirecto(fileInput.files[0]);
+                
+                if (comprobante_url) {
+                    showToast('Analizando comprobante con Google Vision AI...', 'info');
+                    try {
+                        const ocrRes = await fetch('/api/finanzas/ocr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('usuarioToken')}` },
+                            body: JSON.stringify({ imageUrl: comprobante_url })
+                        });
+                        if (ocrRes.ok) {
+                            const dataOCR = await ocrRes.json();
+                            if (dataOCR.monto && Math.abs(dataOCR.monto - montoEsperado) < 0.01) {
+                                showToast(`✅ Validación exitosa. Banco: ${dataOCR.banco} | El monto coincide exactamente.`, 'success');
+                            } else if (dataOCR.monto) {
+                                showToast(`⚠️ El monto detectado ($${dataOCR.monto}) no coincide con la cuota esperada ($${montoEsperado}).`, 'error');
+                                if (!confirm(`El comprobante indica un pago de $${dataOCR.monto}, pero se esperaban $${montoEsperado}. ¿Deseas continuar y registrar el pago de todas formas?`)) {
+                                    hideSpinner();
+                                    return;
+                                }
+                            } else {
+                                showToast(`✅ Banco validado: ${dataOCR.banco}. Monto no detectado de forma clara.`, 'success');
+                            }
+                        } else {
+                            showToast('⚠️ No pudimos leer los datos automáticamente, pero tu comprobante se subió.', 'error');
+                        }
+                    } catch (e) { console.error('OCR Error', e); }
+                }
+            }
+
+            showSpinner();
+            try {
+                const token = localStorage.getItem('usuarioToken');
+                const response = await fetch('/api/cuotas/pagar', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ id_transaccion: idTransaccion, id_usuario: idUsuario, comprobante_url })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('modal-pago-overlay').style.display = 'none';
+                    formConfirmarPago.reset();
+                    
+                    // Actualizar la UI
+                    const btn = document.querySelector(`.btn-pagar[data-transaccion="${idTransaccion}"][data-usuario="${idUsuario}"]`);
+                    if (btn) {
+                        const fila = btn.closest('tr');
+                        const celdaEstado = fila.querySelector('td:nth-child(3)');
+                        celdaEstado.innerHTML = '<span style="color: var(--secondary-emerald); font-weight: bold;">Pagado</span>';
+                        if (comprobante_url) celdaEstado.innerHTML += ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${comprobante_url}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>`;
+                        btn.parentElement.innerHTML = '-'; 
+                    }
+
+                    if (data.archivado) {
+                        showToast('¡Gasto completado y archivado en el historial!', 'success');
+                        transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
+                        renderizarTabla();
+                        calcularSaldos();
+                    } else showToast('Pago confirmado con éxito.', 'success');
+                } else showToast((await response.json()).error, 'error');
+            } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
+        });
+
+        document.getElementById('btn-cerrar-modal-pago').addEventListener('click', () => {
+            document.getElementById('modal-pago-overlay').style.display = 'none';
+            formConfirmarPago.reset();
         });
     }
 

@@ -145,6 +145,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
+                // Agregar dinámicamente los Términos y Condiciones si no existen
+                if (!document.getElementById('registro-tos')) {
+                    const confirmWrapper = document.getElementById('registro-password-confirm') ? document.getElementById('registro-password-confirm').parentNode.parentNode : null;
+                    if (confirmWrapper) {
+                        const wrapperTos = document.createElement('div');
+                        wrapperTos.style.marginTop = '1rem';
+                        wrapperTos.style.marginBottom = '1rem';
+                        wrapperTos.style.display = 'flex';
+                        wrapperTos.style.alignItems = 'center';
+                        wrapperTos.style.gap = '0.5rem';
+                        wrapperTos.innerHTML = `
+                            <input type="checkbox" id="registro-tos" required style="width: auto; padding: 0; margin: 0; transform: scale(1.1); cursor: pointer;">
+                            <label for="registro-tos" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">
+                                Acepto los <a href="#" onclick="event.preventDefault(); alert('Términos y Condiciones:\\n\\nAl usar GroupWallet te comprometes a proporcionar datos veraces y a no usar la plataforma para fines ilícitos o lavado de activos. Nos reservamos el derecho de suspender cuentas sospechosas.')" style="color: var(--secondary-emerald); text-decoration: underline;">Términos y Condiciones</a> y la <a href="#" onclick="event.preventDefault(); alert('Política de Privacidad:\\n\\nTus datos de acceso están encriptados con AES-256 y contraseñas hasheadas. No compartiremos ni venderemos tu información personal o financiera a terceros.')" style="color: var(--secondary-emerald); text-decoration: underline;">Política de Privacidad</a>.
+                            </label>
+                        `;
+                        confirmWrapper.parentNode.insertBefore(wrapperTos, confirmWrapper.nextSibling);
+                    }
+                }
+
+                // Agregar dinámicamente el CAPTCHA si no existe
+                if (!document.getElementById('captcha-container')) {
+                    const btnSubmit = formRegister.querySelector('button[type="submit"]');
+                    if (btnSubmit) {
+                        const num1 = Math.floor(Math.random() * 10) + 1;
+                        const num2 = Math.floor(Math.random() * 10) + 1;
+                        window.captchaAnswer = num1 + num2;
+
+                        const captchaDiv = document.createElement('div');
+                        captchaDiv.id = 'captcha-container';
+                        captchaDiv.style.marginBottom = '1rem';
+                        captchaDiv.innerHTML = `
+                            <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ¿Cuánto es ${num1} + ${num2}?</label>
+                            <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                        `;
+                        btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
+                    }
+                }
+
                 const btnSubmit = formRegister.querySelector('button[type="submit"]');
                 if (btnSubmit) btnSubmit.textContent = 'Registrarse';
             }, 1000); // 1000 ms = 1 segundo de carga simulada
@@ -168,6 +207,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const correo = document.getElementById('registro-correo').value;
             const password = document.getElementById('registro-password').value;
             const confirmPassword = document.getElementById('registro-password-confirm') ? document.getElementById('registro-password-confirm').value : null;
+            const tosCheckbox = document.getElementById('registro-tos');
+            const captchaInput = document.getElementById('registro-captcha');
+
+            // Validar CAPTCHA
+            if (captchaInput && parseInt(captchaInput.value) !== window.captchaAnswer) {
+                showToast('La respuesta de seguridad es incorrecta. Inténtalo de nuevo.', 'error');
+                return;
+            }
+
+            // Validar que aceptó los Términos
+            if (tosCheckbox && !tosCheckbox.checked) {
+                showToast('Debes aceptar los Términos y Condiciones y la Política de Privacidad.', 'error');
+                return;
+            }
 
             // Validar que las contraseñas coincidan
             if (confirmPassword !== null && password !== confirmPassword) {

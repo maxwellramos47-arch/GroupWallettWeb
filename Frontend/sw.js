@@ -17,6 +17,11 @@ self.addEventListener('install', (event) => {
 
 // Intercepción de peticiones: Servir desde caché si está disponible
 self.addEventListener('fetch', (event) => {
+    // Excluir peticiones dinámicas (API, Storage en la nube) del caché estático
+    if (event.request.url.includes('/api/') || event.request.url.includes('supabase.co') || event.request.url.includes('s3.amazonaws.com')) {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request).then((response) => response || fetch(event.request))
     );

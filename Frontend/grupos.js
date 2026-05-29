@@ -221,6 +221,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (formGrupo) {
         formGrupo.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            if (!navigator.onLine) {
+                showToast('Acción bloqueada: Verifica tu conexión a internet e intenta nuevamente.', 'error');
+                return;
+            }
+
             const nombre_grupo = document.getElementById('nombre-grupo').value;
 
             showSpinner();
@@ -258,6 +264,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (formParticipante) {
         formParticipante.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            if (!navigator.onLine) {
+                showToast('Acción bloqueada: Verifica tu conexión a internet.', 'error');
+                return;
+            }
+
             const idGrupo = document.getElementById('grupo-invitar').value;
             if (!idGrupo) return;
 
