@@ -11,9 +11,8 @@ const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Inicializar Stripe
-const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = require('./Config/prisma'); // Importar el Singleton de Prisma
 const { encriptarDatoSensible, desencriptarDatoSensible, generarFirmaHMAC, JWT_SECRET } = require('./Middleware/security.util');
 const { verificarToken } = require('./Middleware/auth.middleware');
 const usuarioRoutes = require('./Routes/usuario.routes');

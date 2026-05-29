@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('./security.util');
-const prisma = require('../Config/prisma');
+const prisma = require('../../prisma');
 
 async function verificarToken(req, res, next) {
     const authHeader = req.headers['authorization'];
