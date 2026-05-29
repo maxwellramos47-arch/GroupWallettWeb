@@ -528,7 +528,27 @@ cron.schedule('0 8 * * 1', async () => {
 // Inicialización del Servidor
 // ==========================================
 
-server.listen(PORT, () => {
-    console.log(`Servidor de GroupWallet ejecutándose en http://localhost:${PORT}`);
-    console.log(`Archivos estáticos servidos desde: ${__dirname}`);
+async function inicializarDatosBase() {
+    try {
+        const count = await prisma.planes_Suscripcion.count();
+        if (count === 0) {
+            console.log('[DB] Insertando planes de suscripción iniciales...');
+            await prisma.planes_Suscripcion.createMany({
+                data: [
+                    { id_plan: 1, nombre_plan: 'Básico', precio: 0.00, limite_grupos: 3, beneficios: 'Acceso a 3 grupos gratis.' },
+                    { id_plan: 2, nombre_plan: 'Premium', precio: 5.00, limite_grupos: 999, beneficios: 'Grupos ilimitados y análisis de finanzas.' }
+                ]
+            });
+            console.log('[DB] Planes creados con éxito.');
+        }
+    } catch (error) {
+        console.error('[DB] Error inicializando datos base:', error);
+    }
+}
+
+inicializarDatosBase().then(() => {
+    server.listen(PORT, () => {
+        console.log(`Servidor de GroupWallet ejecutándose en http://localhost:${PORT}`);
+        console.log(`Archivos estáticos servidos desde: ${__dirname}`);
+    });
 });
