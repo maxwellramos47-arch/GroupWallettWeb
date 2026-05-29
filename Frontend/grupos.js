@@ -299,6 +299,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                             colorLight : "#ffffff",
                             correctLevel : QRCode.CorrectLevel.L // Low error correction to handle long JWTs better
                         });
+
+                        // Abrir QR en nueva pestaña para mejor visibilidad
+                        setTimeout(() => {
+                            const canvas = qrContainer.querySelector('canvas');
+                            if(canvas) {
+                                const dataUrl = canvas.toDataURL();
+                                const win = window.open('', '_blank');
+                                if (win) {
+                                    win.document.write(`<html><head><title>QR de Invitación - GroupWallet</title><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background-color:#f4f7f6;"><div style="background:white; padding:2rem; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1); text-align:center; max-width: 90%;"><h2 style="font-family:sans-serif; color:#2c3e50; margin-bottom:1.5rem;">Escanea para unirte</h2><img src="${dataUrl}" style="max-width:100%; height:auto;"/><p style="font-family:sans-serif; color:#7f8c8d; margin-top:1.5rem;">Código válido por 7 días</p></div></body></html>`);
+                                    win.document.close();
+                                } else {
+                                    showToast('El bloqueador de ventanas emergentes impidió abrir el QR en grande.', 'info');
+                                }
+                            }
+                        }, 500);
                     }
                     
                     showToast('Enlace generado. ¡Compártelo!', 'success');
@@ -357,7 +372,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
                     showToast('Código QR detectado. Uniendo al grupo...', 'success');
-                    setTimeout(() => window.location.href = decodedText, 2000);
+                    
+                    // Asegurarnos de que el link redirija correctamente extrayendo la URL si es necesario
+                    try {
+                        const urlObj = new URL(decodedText);
+                        setTimeout(() => window.location.href = urlObj.href, 2000);
+                    } catch (e) {
+                        setTimeout(() => window.location.href = decodedText, 2000);
+                    }
                 } else {
                     showToast('Este código QR no es de GroupWallet.', 'error');
                 }

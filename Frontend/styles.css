@@ -302,23 +302,35 @@ button {
     .main-header {
         flex-direction: column;
         gap: 1rem;
+        padding: 1rem;
     }
     
     .main-nav ul {
         flex-wrap: wrap;
         justify-content: center;
-            gap: 0.5rem;
-        }
-        .main-nav a {
-            padding: 0.5rem;
-        }
-        input[type="text"], input[type="number"], input[type="email"], input[type="password"], select {
-            font-size: 16px; /* Evita que los iPhones hagan zoom al tocar el input */
-            padding: 0.8rem;
-        }
-        .btn-primary, .btn-upgrade {
-            padding: 1rem; /* Botones más altos y fáciles de tocar */
-            font-size: 1rem;
+        gap: 0.8rem;
+    }
+    
+    .main-nav a {
+        padding: 0.6rem 0.8rem;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        font-size: 0.95rem;
+        display: block;
+        text-align: center;
+    }
+    
+    .main-nav a.active {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    input[type="text"], input[type="number"], input[type="email"], input[type="password"], select {
+        font-size: 16px; /* Evita que los iPhones hagan zoom al tocar el input */
+        padding: 0.8rem;
+    }
+    .btn-primary, .btn-upgrade {
+        padding: 1rem; /* Botones más altos y fáciles de tocar */
+        font-size: 1rem;
     }
 }
 
