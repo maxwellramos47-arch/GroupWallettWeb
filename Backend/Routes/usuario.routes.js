@@ -37,9 +37,10 @@ router.post('/login', loginLimiter, async (req, res) => {
         
         const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000; // 30 días o 2 horas
 
+        const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
         res.cookie('usuarioToken', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isSecure, // Detecta dinámicamente HTTP local o HTTPS en Render
             sameSite: 'Strict',
             maxAge: cookieMaxAge
         });

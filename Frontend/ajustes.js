@@ -15,7 +15,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
-        const response = await originalFetch(...args);
+        let [resource, config] = args;
+        if (!config) config = {};
+        config.credentials = 'same-origin'; // Fuerza el envío de cookies HttpOnly siempre
+
+        const response = await originalFetch(resource, config);
         if (response.status === 401) {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');

@@ -10,7 +10,7 @@ class UsuarioBLL {
         return await UsuarioDAL.create(nombre, correo, passwordHash);
     }
 
-    static async login(correo, password) {
+    static async login(correo, password, rememberMe = false) {
         const usuario = await UsuarioDAL.findByEmail(correo);
         if (!usuario) throw new Error('Usuario no encontrado o credenciales inválidas.');
 
@@ -33,10 +33,11 @@ class UsuarioBLL {
         // Si el login es exitoso, reiniciar el contador de fallos
         await UsuarioDAL.resetFailedAttempts(usuario.id_usuario);
 
+        const expiresIn = rememberMe ? '30d' : '2h';
         const token = jwt.sign(
             { id_usuario: usuario.id_usuario, correo: usuario.correo },
             JWT_SECRET,
-            { expiresIn: '2h' }
+            { expiresIn }
         );
 
         return { token, usuario };

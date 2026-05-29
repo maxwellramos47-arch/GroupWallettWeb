@@ -30,7 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 0.5. Interceptor Global de Fetch ---
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
-        const response = await originalFetch(...args);
+        let [resource, config] = args;
+        if (!config) config = {};
+        config.credentials = 'same-origin'; // Fuerza el envío de cookies HttpOnly siempre
+
+        const response = await originalFetch(resource, config);
         
         // Si el backend responde con un 401 (Token inválido o expirado)
         if (response.status === 401) {
