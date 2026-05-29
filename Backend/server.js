@@ -66,10 +66,26 @@ app.use(helmet({
 }));
 
 // ==========================================
+// Lista de Dominios Permitidos (Seguridad)
+// ==========================================
+const dominiosPermitidos = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+    'https://groupwallettweb.onrender.com' // Tu dominio activo en Render
+].filter(Boolean); // Filtra valores vacíos
+
+// ==========================================
 // Configuración de CORS y Cookies HttpOnly
 // ==========================================
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: function (origin, callback) {
+        // Permitir si no hay origen (ej. Postman) o si el origen está en la lista blanca
+        if (!origin || dominiosPermitidos.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Bloqueado por política CORS'));
+        }
+    },
     credentials: true // Vital para aceptar envío automático de cookies
 }));
 app.use(cookieParser());
@@ -80,8 +96,9 @@ app.use(cookieParser());
 app.use((req, res, next) => {
     if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
         const origin = req.headers.origin || req.headers.referer;
-        const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
-        if (!origin || !origin.startsWith(allowedOrigin)) {
+        
+        const origenValido = origin && dominiosPermitidos.some(d => origin.startsWith(d));
+        if (!origenValido) {
             return res.status(403).json({ error: 'Bloqueo de seguridad (CSRF): Origen de petición no confiable.' });
         }
     }
