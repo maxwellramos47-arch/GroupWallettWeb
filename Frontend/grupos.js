@@ -300,18 +300,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                             correctLevel : QRCode.CorrectLevel.L // Low error correction to handle long JWTs better
                         });
 
-                        // Abrir QR en nueva pestaña para mejor visibilidad
+                        // Mostrar QR en un modal emergente dentro de la misma página
                         setTimeout(() => {
                             const canvas = qrContainer.querySelector('canvas');
                             if(canvas) {
                                 const dataUrl = canvas.toDataURL();
-                                const win = window.open('', '_blank');
-                                if (win) {
-                                    win.document.write(`<html><head><title>QR de Invitación - GroupWallet</title><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background-color:#f4f7f6;"><div style="background:white; padding:2rem; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1); text-align:center; max-width: 90%;"><h2 style="font-family:sans-serif; color:#2c3e50; margin-bottom:1.5rem;">Escanea para unirte</h2><img src="${dataUrl}" style="max-width:100%; height:auto;"/><p style="font-family:sans-serif; color:#7f8c8d; margin-top:1.5rem;">Código válido por 7 días</p></div></body></html>`);
-                                    win.document.close();
-                                } else {
-                                    showToast('El bloqueador de ventanas emergentes impidió abrir el QR en grande.', 'info');
-                                }
+                                
+                                const modalOverlay = document.createElement('div');
+                                modalOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10000; padding: 1rem;";
+                                
+                                const modalBox = document.createElement('div');
+                                modalBox.style = "background: white; padding: 2rem; border-radius: 12px; text-align: center; max-width: 90%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);";
+                                
+                                modalBox.innerHTML = `
+                                    <button id="btn-cerrar-qr-modal" style="position: absolute; top: 10px; right: 10px; background: var(--danger-color); color: white; border: none; font-size: 1.5rem; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; line-height: 1;">&times;</button>
+                                    <h2 style="color: var(--primary-slate); margin-bottom: 1rem;">Escanea para unirte</h2>
+                                    <img src="${dataUrl}" style="max-width: 100%; height: auto; border-radius: 8px;" />
+                                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Código válido por 7 días</p>
+                                `;
+                                
+                                modalOverlay.appendChild(modalBox);
+                                document.body.appendChild(modalOverlay);
+
+                                document.getElementById('btn-cerrar-qr-modal').addEventListener('click', () => {
+                                    document.body.removeChild(modalOverlay);
+                                    // Limpiar invitación generada
+                                    inviteContainer.style.display = 'none';
+                                    if (formParticipante) formParticipante.reset();
+                                });
                             }
                         }, 500);
                     }
@@ -355,12 +371,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 false // No imprimir logs verbosos en consola
             );
 
+            let hasRedirected = false;
+
             html5QrcodeScanner.render((decodedText, decodedResult) => {
-                // Pausar el escáner para evitar múltiples lecturas
-                html5QrcodeScanner.pause(true);
+                if (hasRedirected) return;
 
                 // Validar que el QR sea de nuestra aplicación
                 if (decodedText.includes('token=')) {
+                    hasRedirected = true; // Evitar múltiples lecturas seguidas
+                    
                     // Disparar animación de confeti
                     if (typeof confetti === 'function') {
                         confetti({
@@ -371,27 +390,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     showToast('Código QR detectado. Uniendo al grupo...', 'success');
                     
-                    html5QrcodeScanner.clear().then(() => {
-                        qrReaderContainer.style.display = 'none';
-                        btnScanQr.style.display = 'block';
-                        
-                        // Asegurarnos de que el link redirija correctamente extrayendo la URL si es necesario
+                    // Navegar de inmediato, manejando la limpieza de forma segura
+                    try {
+                        html5QrcodeScanner.clear().catch(() => {});
+                    } catch (err) {}
+                    
+                    qrReaderContainer.style.display = 'none';
+                    btnScanQr.style.display = 'block';
+                    
+                    setTimeout(() => {
                         try {
                             const urlObj = new URL(decodedText);
-                            setTimeout(() => window.location.href = urlObj.href, 1500);
+                            window.location.href = urlObj.href;
                         } catch (e) {
-                            setTimeout(() => window.location.href = decodedText, 1500);
+                            window.location.href = decodedText;
                         }
-                    }).catch(err => {
-                        console.error('Error al limpiar el escáner', err);
-                        setTimeout(() => window.location.href = decodedText, 1500);
-                    });
+                    }, 1500);
 
                 } else {
+                    hasRedirected = true;
                     showToast('Este código QR no es de GroupWallet.', 'error');
                     setTimeout(() => {
-                        html5QrcodeScanner.resume();
-                    }, 2000);
+                        hasRedirected = false; // Permitir intentar de nuevo tras 3 segundos
+                    }, 3000);
                 }
             }, (errorMessage) => {
                 // Se ejecuta cuadro por cuadro mientras no encuentre QR (Lo ignoramos silenciosamente)
