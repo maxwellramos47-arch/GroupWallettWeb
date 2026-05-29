@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (response.ok) {
-                localStorage.setItem('usuarioToken', data.token);
+                localStorage.setItem('usuarioId', data.id_usuario); // Guardamos ID en lugar del Token vulnerable
                 localStorage.setItem('usuarioNombre', data.nombre);
                 
                 if (data.estado_suscripcion === 'vencido') {

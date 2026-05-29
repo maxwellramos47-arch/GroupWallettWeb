@@ -2,6 +2,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('usuarioToken');
     if (!token) { window.location.href = 'index.html'; return; }
 
+    // --- Verificación Proactiva de Expiración del Token ---
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioNombre');
+            window.location.href = 'index.html';
+            return;
+        }
+    } catch (e) {
+        localStorage.removeItem('usuarioToken');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    // --- Interceptor Global de Fetch ---
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        if (response.status === 401) {
+            localStorage.removeItem('usuarioToken');
+            if (typeof showToast === 'function') {
+                showToast('Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.', 'error');
+            }
+            setTimeout(() => window.location.href = 'index.html', 2000);
+            return Promise.reject(new Error('Sesión expirada'));
+        }
+        return response;
+    };
+
     let currentDate = new Date();
     let transacciones = [];
     let misRolesEnGrupos = {};

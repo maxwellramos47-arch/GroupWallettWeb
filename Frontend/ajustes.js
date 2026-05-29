@@ -1,10 +1,11 @@
 // ajustes.js
 document.addEventListener('DOMContentLoaded', async () => {
-    const token = localStorage.getItem('usuarioToken');
-    if (!token) {
+    const usuarioId = localStorage.getItem('usuarioId');
+    if (!usuarioId) {
         window.location.href = 'index.html';
         return; 
     }
+    const token = 'http-only-cookie'; // Mantiene compatibilidad
 
     // --- Mostrar el nombre del usuario ---
     const nombreUsuario = localStorage.getItem('usuarioNombre');
@@ -16,7 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.fetch = async (...args) => {
         const response = await originalFetch(...args);
         if (response.status === 401) {
-            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioId');
+            localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad.', 'error');
             setTimeout(() => window.location.href = 'index.html', 2000);
             return Promise.reject(new Error('Sesión expirada'));
@@ -150,10 +152,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Cargar Datos Bancarios ---
     const cargarDatosBancarios = async () => {
         try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const idUsuario = payload.id_usuario;
             
-            const res = await fetch(`/api/usuarios/${idUsuario}/banco`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`/api/usuarios/${usuarioId}/banco`); // La cookie se adjunta sola gracias a credentials (ver server.js)
             if (res.ok) {
                 const datos = await res.json();
                 document.getElementById('banco-rut').value = datos.rut || '';

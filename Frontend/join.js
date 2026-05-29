@@ -22,6 +22,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    // --- Verificación Proactiva de Expiración del Token ---
+    try {
+        const payload = JSON.parse(atob(usuarioToken.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioNombre');
+            localStorage.setItem('pendingJoinToken', tokenInvitacion);
+            if (typeof showToast === 'function') {
+                showToast('Tu sesión ha expirado. Inicia sesión para unirte al grupo.', 'error');
+            }
+            setTimeout(() => window.location.href = 'index.html', 2000);
+            return;
+        }
+    } catch (e) {
+        localStorage.removeItem('usuarioToken');
+        window.location.href = 'index.html';
+        return;
+    }
+
     // Ya limpiamos cualquier intento pendiente para que no se quede atascado a futuro
     localStorage.removeItem('pendingJoinToken');
 

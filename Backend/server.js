@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 const cron = require('node-cron');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
@@ -14,7 +16,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Inicializar 
 
 const prisma = require('./Config/prisma'); // Importar el Singleton de Prisma
 const { encriptarDatoSensible, desencriptarDatoSensible, generarFirmaHMAC, JWT_SECRET } = require('./Middleware/security.util');
-const { verificarToken } = require('./Middleware/auth.middleware');
+const { verificarToken, verificarSuperAdmin, verificarPremium } = require('./Middleware/auth.middleware');
 const usuarioRoutes = require('./Routes/usuario.routes');
 const grupoRoutes = require('./Routes/grupo.routes');
 const gastoRoutes = require('./Routes/gasto.routes');
@@ -62,6 +64,15 @@ app.use(helmet({
         },
     }
 }));
+
+// ==========================================
+// Configuración de CORS y Cookies HttpOnly
+// ==========================================
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true // Vital para aceptar envío automático de cookies
+}));
+app.use(cookieParser());
 
 // ==========================================
 // Limitador de Peticiones (Rate Limiting) contra DDoS
@@ -190,19 +201,8 @@ app.get('/api/historial/exportar/:id_grupo', verificarToken, async (req, res) =>
 });
 
 // 1.8 NUEVO Endpoint GET: Obtener Análisis de Finanzas (Requiere Premium)
-app.get('/api/finanzas/analisis', verificarToken, async (req, res) => {
-    const id_usuario = req.usuarioLogueado.id_usuario;
-
+app.get('/api/finanzas/analisis', verificarToken, verificarPremium, async (req, res) => {
     try {
-        const checkPlan = await prisma.usuarios.findUnique({
-            where: { id_usuario: parseInt(id_usuario) },
-            select: { es_premium: true }
-        });
-        
-        if (!checkPlan || !checkPlan.es_premium) {
-            return res.status(403).json({ requires_upgrade: true, message: 'El análisis de finanzas es exclusivo del plan Premium.' });
-        }
-
         // Si es Premium (es_premium == true), devolver datos de negocio reales
         res.json({
             categoria_frecuente: "Restaurantes",
@@ -285,15 +285,8 @@ app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
 });
 
 // 3.9 NUEVO Endpoint GET: Obtener lista de usuarios para gestión (Súper Admin)
-app.get('/api/admin/usuarios', verificarToken, async (req, res) => {
-    const id_usuario = req.usuarioLogueado.id_usuario;
+app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, async (req, res) => {
     try {
-        const userCheck = await prisma.usuarios.findUnique({
-            where: { id_usuario: parseInt(id_usuario) },
-            select: { estado_suscripcion: true }
-        });
-        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
-
         const result = await prisma.usuarios.findMany({
             select: { id_usuario: true, nombre: true, correo: true, id_plan: true, estado_suscripcion: true, fecha_registro: true },
             orderBy: { id_usuario: 'asc' }
@@ -307,18 +300,11 @@ app.get('/api/admin/usuarios', verificarToken, async (req, res) => {
 });
 
 // 3.10 NUEVO Endpoint PUT: Cambiar rol/plan de un usuario (Súper Admin)
-app.put('/api/admin/usuarios/:id/rol', verificarToken, async (req, res) => {
-    const id_admin = req.usuarioLogueado.id_usuario;
+app.put('/api/admin/usuarios/:id/rol', verificarToken, verificarSuperAdmin, async (req, res) => {
     const id_objetivo = req.params.id;
     const { nuevo_rol } = req.body; // 'FREE', 'PREMIUM', 'GOD_MODE'
 
     try {
-        const userCheck = await prisma.usuarios.findUnique({
-            where: { id_usuario: parseInt(id_admin) },
-            select: { estado_suscripcion: true }
-        });
-        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
-
         let id_plan = 1;
         let estado_suscripcion = 'activo';
 
@@ -346,17 +332,10 @@ app.put('/api/admin/usuarios/:id/rol', verificarToken, async (req, res) => {
 });
 
 // 3.11 NUEVO Endpoint POST: Forzar Cierre de Sesión (Súper Admin)
-app.post('/api/admin/usuarios/:id/forzar-logout', verificarToken, async (req, res) => {
-    const id_admin = req.usuarioLogueado.id_usuario;
+app.post('/api/admin/usuarios/:id/forzar-logout', verificarToken, verificarSuperAdmin, async (req, res) => {
     const id_objetivo = req.params.id;
 
     try {
-        const userCheck = await prisma.usuarios.findUnique({
-            where: { id_usuario: parseInt(id_admin) },
-            select: { estado_suscripcion: true }
-        });
-        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') return res.status(403).json({ error: 'Acceso denegado.' });
-
         // Emitir evento por WebSockets para expulsar al usuario en tiempo real
         req.io.emit('forzar_logout', { id_usuario: parseInt(id_objetivo) });
         

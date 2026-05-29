@@ -7,6 +7,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; 
     }
 
+    // --- Verificación Proactiva de Expiración del Token ---
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioNombre');
+            window.location.href = 'index.html';
+            return;
+        }
+    } catch (e) {
+        localStorage.removeItem('usuarioToken');
+        window.location.href = 'index.html';
+        return;
+    }
+
     // --- Mostrar el nombre del usuario ---
     const nombreUsuario = localStorage.getItem('usuarioNombre');
     if (nombreUsuario) {
@@ -254,11 +269,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 4. Invitar Participante ---
     const formParticipante = document.getElementById('form-participante');
-    const inviteContainer = document.getElementById('invite-link-container');
-    const inviteLinkInput = document.getElementById('invite-link');
-    const shareWhatsapp = document.getElementById('share-whatsapp');
-    const shareEmail = document.getElementById('share-email');
-    const btnCopiar = document.getElementById('btn-copiar-enlace');
 
     if (formParticipante) {
         formParticipante.addEventListener('submit', async (e) => {
@@ -280,71 +290,78 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    inviteLinkInput.value = data.enlace;
-                    inviteContainer.style.display = 'block';
-
                     const mensaje = encodeURIComponent(`¡Hola! Únete a mi grupo de finanzas en GroupWallet aquí: ${data.enlace}`);
-                    shareWhatsapp.href = `https://api.whatsapp.com/send?text=${mensaje}`;
-                    shareEmail.href = `mailto:?subject=Invitación a GroupWallet&body=${mensaje}`;
+                    const waLink = `https://api.whatsapp.com/send?text=${mensaje}`;
+                    const emailLink = `mailto:?subject=Invitación a GroupWallet&body=${mensaje}`;
                     
-                    // Generar Código QR de forma local
-                    const qrContainer = document.getElementById('qrcode');
-                    if (qrContainer) {
-                        qrContainer.innerHTML = ''; // Limpiar QR anterior
-                        new QRCode(qrContainer, {
-                            text: data.enlace,
-                            width: 150,
-                            height: 150,
-                            colorDark : "#000000",
-                            colorLight : "#ffffff",
-                            correctLevel : QRCode.CorrectLevel.L // Low error correction to handle long JWTs better
-                        });
+                    // Generar Código QR de forma local (en memoria)
+                    const qrContainer = document.createElement('div');
+                    new QRCode(qrContainer, {
+                        text: data.enlace,
+                        width: 300,
+                        height: 300,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.M
+                    });
 
-                        // Mostrar QR en un modal emergente dentro de la misma página
-                        setTimeout(() => {
-                            const canvas = qrContainer.querySelector('canvas');
-                            if(canvas) {
-                                const dataUrl = canvas.toDataURL();
+                    // Mostrar todo en un modal enriquecido
+                    setTimeout(() => {
+                        const canvas = qrContainer.querySelector('canvas');
+                        if(canvas) {
+                            const dataUrl = canvas.toDataURL();
+                            
+                            const modalOverlay = document.createElement('div');
+                            modalOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10000; padding: 1rem;";
+                            
+                            const modalBox = document.createElement('div');
+                            modalBox.style = "background: white; padding: 2rem; border-radius: 12px; text-align: center; max-width: 90%; width: 400px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);";
+                            
+                            modalBox.innerHTML = `
+                                <button id="btn-cerrar-qr-modal" style="position: absolute; top: 10px; right: 10px; background: var(--danger-color); color: white; border: none; font-size: 1.5rem; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; line-height: 1;">&times;</button>
+                                <h2 style="color: var(--primary-slate); margin-bottom: 1rem; margin-top: 0;">Invitar a unirte</h2>
+                                <img src="${dataUrl}" style="max-width: 250px; width: 100%; height: auto; border-radius: 8px; margin: 0 auto 1.5rem auto; display: block; border: 1px solid var(--border-color); padding: 0.5rem;" />
                                 
-                                const modalOverlay = document.createElement('div');
-                                modalOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10000; padding: 1rem;";
-                                
-                                const modalBox = document.createElement('div');
-                                modalBox.style = "background: white; padding: 2rem; border-radius: 12px; text-align: center; max-width: 90%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);";
-                                
-                                modalBox.innerHTML = `
-                                    <button id="btn-cerrar-qr-modal" style="position: absolute; top: 10px; right: 10px; background: var(--danger-color); color: white; border: none; font-size: 1.5rem; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; line-height: 1;">&times;</button>
-                                    <h2 style="color: var(--primary-slate); margin-bottom: 1rem;">Escanea para unirte</h2>
-                                    <img src="${dataUrl}" style="max-width: 100%; height: auto; border-radius: 8px;" />
-                                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Código válido por 7 días</p>
-                                `;
-                                
-                                modalOverlay.appendChild(modalBox);
-                                document.body.appendChild(modalOverlay);
+                                <div style="margin-bottom: 1.5rem; text-align: left;">
+                                    <label style="font-weight: bold; font-size: 0.9rem; color: var(--text-muted);">Enlace de Invitación:</label>
+                                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                                        <input type="text" readonly value="${data.enlace}" id="modal-invite-link" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: var(--bg-light); color: var(--text-color);">
+                                        <button id="btn-modal-copiar" style="background: var(--secondary-emerald); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: bold;">Copiar</button>
+                                    </div>
+                                </div>
 
-                                document.getElementById('btn-cerrar-qr-modal').addEventListener('click', () => {
-                                    document.body.removeChild(modalOverlay);
-                                    // Limpiar invitación generada
-                                    inviteContainer.style.display = 'none';
-                                    if (formParticipante) formParticipante.reset();
-                                });
-                            }
-                        }, 500);
-                    }
+                                <div style="display: flex; gap: 0.8rem; justify-content: center;">
+                                    <a href="${waLink}" target="_blank" style="flex: 1; background-color: #25D366; color: white; padding: 0.6rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem; font-weight: bold;">📱 WhatsApp</a>
+                                    <a href="${emailLink}" target="_blank" style="flex: 1; background-color: var(--primary-slate); color: white; padding: 0.6rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem; font-weight: bold;">✉️ Correo</a>
+                                </div>
+                                
+                                <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1.5rem; margin-bottom: 0;">El enlace es válido por 7 días</p>
+                            `;
+                            
+                            modalOverlay.appendChild(modalBox);
+                            document.body.appendChild(modalOverlay);
+
+                            document.getElementById('btn-cerrar-qr-modal').addEventListener('click', () => {
+                                document.body.removeChild(modalOverlay);
+                                if (formParticipante) formParticipante.reset();
+                            });
+
+                            document.getElementById('btn-modal-copiar').addEventListener('click', async () => {
+                                try {
+                                    const linkInput = document.getElementById('modal-invite-link');
+                                    await navigator.clipboard.writeText(linkInput.value);
+                                    linkInput.select();
+                                    showToast('Enlace copiado al portapapeles.', 'success');
+                                } catch (err) {
+                                    showToast('No se pudo copiar el enlace.', 'error');
+                                }
+                            });
+                        }
+                    }, 500);
                     
-                    showToast('Enlace generado. ¡Compártelo!', 'success');
+                    showToast('Invitación generada exitosamente.', 'success');
                 } else showToast(data.error, 'error');
             } catch (error) { console.error(error); showToast('Error al generar enlace.', 'error'); } finally { hideSpinner(); }
-        });
-    }
-    if (btnCopiar) {
-        btnCopiar.addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(inviteLinkInput.value);
-                showToast('Enlace copiado al portapapeles.', 'success');
-            } catch (err) {
-                showToast('No se pudo copiar el enlace.', 'error');
-            }
         });
     }
 
@@ -360,7 +377,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             qrReaderContainer.style.display = 'block';
 
             // Inicializar el lector pidiéndole permisos de cámara al usuario
-            const scannerConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+            const scannerConfig = { 
+                fps: 10, 
+                qrbox: function(videoWidth, videoHeight) {
+                    const minEdgeSize = Math.min(videoWidth, videoHeight);
+                    return {
+                        width: Math.floor(minEdgeSize * 0.8),
+                        height: Math.floor(minEdgeSize * 0.8)
+                    };
+                }
+            };
             if (typeof Html5QrcodeScanType !== 'undefined') {
                 scannerConfig.supportedScanTypes = [Html5QrcodeScanType.SCAN_TYPE_CAMERA]; // Desactiva pestaña de subir imagen
             }

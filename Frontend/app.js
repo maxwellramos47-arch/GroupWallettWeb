@@ -1,16 +1,15 @@
 // app.js
 document.addEventListener('DOMContentLoaded', () => {
     // --- 0. Protección de Ruta (Autenticación Front-end) ---
-    const token = localStorage.getItem('usuarioToken');
-    if (!token) {
-        // Si no hay token guardado, redirigir al login y detener la ejecución
+    const usuarioId = localStorage.getItem('usuarioId');
+    if (!usuarioId) {
         window.location.href = 'index.html';
         return; 
     }
+    const token = 'http-only-cookie'; // Dummy token temporal para no romper código fetch heredado
 
     // --- Extraer configuración de moneda ---
-    const payloadGlobal = JSON.parse(atob(token.split('.')[1]));
-    const miIdUsuarioGlobal = payloadGlobal.id_usuario.toString();
+    const miIdUsuarioGlobal = usuarioId.toString();
     const moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
     
     const labelMontoGasto = document.querySelector('label[for="monto-gasto"]');
@@ -35,9 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Si el backend responde con un 401 (Token inválido o expirado)
         if (response.status === 401) {
-            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioId');
+            localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.', 'error');
-            setTimeout(() => window.location.href = 'login.html', 2000);
+            setTimeout(() => window.location.href = 'index.html', 2000);
             return Promise.reject(new Error('Sesión expirada')); // Detiene la ejecución del fetch local
         }
         
@@ -255,9 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
             transaccionesFiltradas = transaccionesFiltradas.filter(t => t.categoria === idCategoriaSeleccionada);
         }
 
-        const token = localStorage.getItem('usuarioToken');
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const miIdUsuario = payload.id_usuario.toString();
+        const miIdUsuario = usuarioId.toString();
         const miRol = misRolesEnGrupos[idGrupoSeleccionado];
         // --- 2.1. Lógica para poblar listaCuotas (Se calcula sobre TODAS las transacciones) ---
         transaccionesFiltradas.forEach(t => {
@@ -364,13 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? transacciones.filter(t => t.id_grupo == idGrupoSeleccionado)
             : transacciones;
 
-        // Obtener el ID del usuario actual desencriptando el JWT de forma segura
-        const token = localStorage.getItem('usuarioToken');
-        let miIdUsuario = "1"; // Fallback por defecto
-        if (token) {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            miIdUsuario = payload.id_usuario.toString();
-        }
+        let miIdUsuario = usuarioId || "1";
 
         transaccionesFiltradas.forEach(t => {
             if (t.pagador === miIdUsuario) {
@@ -783,14 +775,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnLogout) {
         btnLogout.addEventListener('click', async (e) => {
             e.preventDefault();
-            const tokenToRevoke = localStorage.getItem('usuarioToken');
-            if (tokenToRevoke) {
-                try {
-                    await fetch('/api/usuarios/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${tokenToRevoke}` } });
-                } catch (err) { console.error('Error cerrando sesión remota', err); }
-            }
+            try {
+                await fetch('/api/usuarios/logout', { method: 'POST' }); // La cookie se envía solita
+            } catch (err) { console.error('Error cerrando sesión remota', err); }
 
-            localStorage.removeItem('usuarioToken'); // Eliminar el rastro de sesión local
+            localStorage.removeItem('usuarioId'); // Eliminar el rastro de sesión local
             localStorage.removeItem('usuarioNombre');
             window.location.href = 'login.html'; // Volver a la pantalla de Login
         });
