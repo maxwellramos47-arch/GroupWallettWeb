@@ -1,26 +1,12 @@
 // grupos.js
 document.addEventListener('DOMContentLoaded', async () => {
     // --- 0. Protección de Ruta ---
-    const token = localStorage.getItem('usuarioToken');
-    if (!token) {
+    const usuarioId = localStorage.getItem('usuarioId');
+    if (!usuarioId) {
         window.location.href = 'index.html';
         return; 
     }
-
-    // --- Verificación Proactiva de Expiración del Token ---
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-            localStorage.removeItem('usuarioToken');
-            localStorage.removeItem('usuarioNombre');
-            window.location.href = 'index.html';
-            return;
-        }
-    } catch (e) {
-        localStorage.removeItem('usuarioToken');
-        window.location.href = 'index.html';
-        return;
-    }
+    const token = 'http-only-cookie'; // Mantiene compatibilidad
 
     // --- Mostrar el nombre del usuario ---
     const nombreUsuario = localStorage.getItem('usuarioNombre');
@@ -32,7 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.fetch = async (...args) => {
         const response = await originalFetch(...args);
         if (response.status === 401) {
-            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioId');
+            localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad.', 'error');
             setTimeout(() => window.location.href = 'index.html', 2000);
             return Promise.reject(new Error('Sesión expirada'));
@@ -44,13 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnLogout) {
         btnLogout.addEventListener('click', async (e) => {
             e.preventDefault();
-            const tokenToRevoke = localStorage.getItem('usuarioToken');
-            if (tokenToRevoke) {
-                try {
-                    await fetch('/api/usuarios/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${tokenToRevoke}` } });
-                } catch (err) {}
-            }
-            localStorage.removeItem('usuarioToken');
+            try {
+                await fetch('/api/usuarios/logout', { method: 'POST' }); // La cookie se envía solita
+            } catch (err) { console.error('Error cerrando sesión', err); }
+            
+            localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             window.location.href = 'index.html';
         });
@@ -171,8 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const miembros = await reqMiembros.json();
                         const miGrupo = gruposData.find(g => g.id_grupo == idGrupo);
                         const miRol = miGrupo ? miGrupo.rol : 'Miembro';
-                        const payload = JSON.parse(atob(token.split('.')[1]));
-                        const miId = payload.id_usuario;
+                        const miId = usuarioId;
 
                         let htmlMiembros = '<ul style="list-style: none; padding: 0; margin: 0;">';
                         miembros.forEach(m => {

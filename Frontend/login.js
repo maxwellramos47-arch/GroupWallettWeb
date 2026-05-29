@@ -20,13 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const correo = document.getElementById('correo').value;
         const password = document.getElementById('password').value;
+        const rememberMe = document.getElementById('remember-me')?.checked || false;
 
         showSpinner();
         try {
             const response = await fetch('/api/usuarios/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ correo, password })
+                body: JSON.stringify({ correo, password, rememberMe })
             });
 
             const data = await response.json();

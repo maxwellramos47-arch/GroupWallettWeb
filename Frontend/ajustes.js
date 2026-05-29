@@ -30,13 +30,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnLogout) {
         btnLogout.addEventListener('click', async (e) => {
             e.preventDefault();
-            const tokenToRevoke = localStorage.getItem('usuarioToken');
-            if (tokenToRevoke) {
-                try {
-                    await fetch('/api/usuarios/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${tokenToRevoke}` } });
-                } catch (err) {}
-            }
-            localStorage.removeItem('usuarioToken');
+            try {
+                await fetch('/api/usuarios/logout', { method: 'POST' }); // La cookie se envía solita
+            } catch (err) { console.error('Error cerrando sesión', err) }
+            
+            localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             window.location.href = 'index.html';
         });
@@ -232,5 +230,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // --- Cerrar Sesión en Todos los Dispositivos ---
+    const btnLogoutAll = document.getElementById('btn-logout-all');
+    if (btnLogoutAll) {
+        btnLogoutAll.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro? Esto cerrará tu sesión actual y la de cualquier otro dispositivo donde estés conectado.')) return;
+            
+            showSpinner();
+            try {
+                const response = await fetch('/api/usuarios/logout-all', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    localStorage.removeItem('usuarioId');
+                    localStorage.removeItem('usuarioNombre');
+                    window.location.href = 'index.html';
+                } else showToast((await response.json()).error, 'error');
+            } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
+        });
+    }
+
+    // --- Cargar Sesiones Activas (Dispositivos Conectados) ---
+    const cargarSesionesActivas = async () => {
+        const listaSesiones = document.getElementById('lista-sesiones');
+        if (!listaSesiones) return;
+
+        try {
+            const response = await fetch('/api/usuarios/sesiones');
+            if (response.ok) {
+                const sesiones = await response.json();
+                listaSesiones.innerHTML = '';
+                
+                sesiones.forEach(s => {
+                    const tr = document.createElement('tr');
+                    const isActual = s.es_actual ? '<span style="background: var(--secondary-emerald); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-left: 0.5rem;">Actual</span>' : '';
+                    const fechaAcceso = new Date(s.ultimo_acceso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+
+                    tr.innerHTML = `
+                        <td><strong style="color: var(--primary-slate);">${s.dispositivo}</strong> ${isActual}</td>
+                        <td>${s.ip}</td>
+                        <td>${fechaAcceso}</td>
+                        <td>
+                            ${!s.es_actual ? `<button class="btn-primary btn-cerrar-sesion" data-id="${s.id_sesion}" style="background-color: var(--danger-color); padding: 0.3rem 0.6rem; font-size: 0.75rem; width: auto; margin: 0;">Desconectar</button>` : '-'}
+                        </td>
+                    `;
+                    listaSesiones.appendChild(tr);
+                });
+            }
+        } catch (error) { console.error('Error al cargar sesiones:', error); }
+    };
+
+    // Manejar el evento de Desconectar dispositivo específico
+    document.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('btn-cerrar-sesion')) {
+            const idSesion = e.target.getAttribute('data-id');
+            if (!confirm('¿Estás seguro de desconectar este dispositivo? Su sesión se cerrará inmediatamente.')) return;
+            
+            showSpinner();
+            try {
+                const res = await fetch(`/api/usuarios/sesiones/${idSesion}`, { method: 'DELETE' });
+                if (res.ok) { showToast('Dispositivo desconectado.', 'success'); cargarSesionesActivas(); }
+                else { showToast((await res.json()).error, 'error'); }
+            } catch (err) { showToast('Error de red', 'error'); } finally { hideSpinner(); }
+        }
+    });
+
     cargarDatosBancarios();
+    cargarSesionesActivas();
 });

@@ -3,31 +3,54 @@ const { JWT_SECRET } = require('./security.util');
 const prisma = require('../Config/prisma');
 
 async function verificarToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    if (!authHeader) return res.status(403).json({ error: 'Token no proporcionado. Acceso denegado.' });
+    // Buscar el token en las cookies HttpOnly (Método primario)
+    let token = req.cookies.usuarioToken;
+    
+    // Fallback por si la petición viene de Postman o una App Móvil
+    if (!token && req.headers['authorization']) {
+        token = req.headers['authorization'].split(' ')[1];
+    }
+    
+    // Ignorar el token de reemplazo del Frontend
+    if (token === 'http-only-cookie') token = req.cookies.usuarioToken;
 
-    const token = authHeader.split(' ')[1]; // Formato esperado: "Bearer <token>"
-    if (!token) return res.status(403).json({ error: 'Formato de token inválido.' });
+    if (!token) return res.status(401).json({ error: 'Sesión expirada o no proporcionada.' });
 
     try {
-        // Verificar si el token ha sido revocado (Ej: Cierre de sesión manual)
         const checkRevocado = await prisma.tokens_Revocados.findUnique({
             where: { token }
         });
-        if (checkRevocado) return res.status(401).json({ error: 'Sesión cerrada o token revocado.' });
+        if (checkRevocado) {
+            res.clearCookie('usuarioToken');
+            return res.status(401).json({ error: 'Sesión cerrada o token revocado.' });
+        }
 
-        jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err) return res.status(401).json({ error: 'Token inválido o expirado.' });
-            req.usuarioLogueado = decoded; // Guardamos el payload del token en la request
-            req.tokenActual = token; // Guardamos el token exacto por si queremos revocarlo en la ruta
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            
+            // Validar si la sesión fue revocada globalmente (Cerrar sesión en todos los dispositivos)
+            const user = await prisma.usuarios.findUnique({ 
+                where: { id_usuario: parseInt(decoded.id_usuario) }, 
+                select: { fecha_revocacion_sesiones: true } 
+            });
+            
+            if (user && user.fecha_revocacion_sesiones && (decoded.iat * 1000 < user.fecha_revocacion_sesiones.getTime())) {
+                res.clearCookie('usuarioToken');
+                return res.status(401).json({ error: 'La sesión fue revocada globalmente en otro dispositivo.' });
+            }
+
+            req.usuarioLogueado = decoded;
+            req.tokenActual = token;
             next();
-        });
+        } catch (err) {
+            res.clearCookie('usuarioToken');
+            return res.status(401).json({ error: 'Token inválido o expirado.' });
+        }
     } catch (error) {
         res.status(500).json({ error: 'Error interno durante la autenticación.' });
     }
 }
 
-// Middleware para proteger rutas de Súper Administrador
 const verificarSuperAdmin = async (req, res, next) => {
     try {
         const id_usuario = req.usuarioLogueado?.id_usuario;
@@ -52,7 +75,6 @@ const verificarSuperAdmin = async (req, res, next) => {
     }
 };
 
-// Middleware para proteger rutas exclusivas de usuarios Premium
 const verificarPremium = async (req, res, next) => {
     try {
         const id_usuario = req.usuarioLogueado?.id_usuario;
@@ -66,7 +88,6 @@ const verificarPremium = async (req, res, next) => {
             select: { id_plan: true, estado_suscripcion: true }
         });
 
-        // Permitir si es plan 2 (Premium) o si tiene GOD_MODE
         if (!checkPlan || (checkPlan.id_plan !== 2 && checkPlan.estado_suscripcion !== 'GOD_MODE')) {
             return res.status(403).json({ requires_upgrade: true, message: 'Esta función es exclusiva del plan Premium. Mejora tu plan para acceder.' });
         }

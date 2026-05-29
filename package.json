@@ -2,10 +2,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.0.0",
-    "@google-cloud/vision": "^4.3.0",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^2.4.3",
-    "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^7.1.5",
@@ -14,11 +12,13 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.9",
     "pg": "^8.21.0",
-    "prisma": "^6.19.3",
     "socket.io": "^4.8.3",
-    "stripe": "^14.19.0",
+    "web-push": "^3.6.7",
     "twilio": "^5.0.0",
-    "web-push": "^3.6.7"
+    "stripe": "^14.19.0",
+    "@google-cloud/vision": "^4.3.0",
+    "ua-parser-js": "^1.0.38",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "jest": "^30.4.2",

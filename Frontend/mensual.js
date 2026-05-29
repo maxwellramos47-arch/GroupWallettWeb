@@ -1,28 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('usuarioToken');
-    if (!token) { window.location.href = 'index.html'; return; }
-
-    // --- Verificación Proactiva de Expiración del Token ---
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-            localStorage.removeItem('usuarioToken');
-            localStorage.removeItem('usuarioNombre');
-            window.location.href = 'index.html';
-            return;
-        }
-    } catch (e) {
-        localStorage.removeItem('usuarioToken');
+    const usuarioId = localStorage.getItem('usuarioId');
+    if (!usuarioId) {
         window.location.href = 'index.html';
-        return;
+        return; 
     }
+    const token = 'http-only-cookie'; // Mantiene compatibilidad con fetch
 
     // --- Interceptor Global de Fetch ---
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
         const response = await originalFetch(...args);
         if (response.status === 401) {
-            localStorage.removeItem('usuarioToken');
+            localStorage.removeItem('usuarioId');
+            localStorage.removeItem('usuarioNombre');
             if (typeof showToast === 'function') {
                 showToast('Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.', 'error');
             }
@@ -36,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let transacciones = [];
     let misRolesEnGrupos = {};
     let chartMensualInstance = null;
-    const miIdUsuario = JSON.parse(atob(token.split('.')[1])).id_usuario.toString();
+    const miIdUsuario = usuarioId.toString();
     
     let sortColumn = 'dia';
     let sortAsc = true;

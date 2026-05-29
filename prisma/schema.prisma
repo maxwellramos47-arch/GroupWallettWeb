@@ -45,6 +45,7 @@ model Usuarios {
   datos_bancarios               Datos_Bancarios?
   pagos_inapp_emitidos          Pagos_InApp[] @relation("Pagador")
   pagos_inapp_recibidos         Pagos_InApp[] @relation("Receptor")
+  sesiones_activas              Sesiones_Activas[]
 
   @@map("usuarios")
 }
@@ -176,4 +177,18 @@ model Datos_Bancarios {
   usuario       Usuarios @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 
   @@map("datos_bancarios")
+}
+
+model Sesiones_Activas {
+  id_sesion       Int       @id @default(autoincrement())
+  id_usuario      Int
+  token           String    @unique @db.VarChar(500)
+  dispositivo     String?   @db.VarChar(255) // Ej: "Chrome en Windows 11"
+  ip              String?   @db.VarChar(50)
+  ultimo_acceso   DateTime  @default(now()) @db.Timestamp()
+  creado_en       DateTime  @default(now()) @db.Timestamp()
+
+  usuario         Usuarios  @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@map("sesiones_activas")
 }

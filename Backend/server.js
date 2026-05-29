@@ -75,6 +75,20 @@ app.use(cors({
 app.use(cookieParser());
 
 // ==========================================
+// Prevención CSRF: Validación Estricta de Origen
+// ==========================================
+app.use((req, res, next) => {
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        const origin = req.headers.origin || req.headers.referer;
+        const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+        if (!origin || !origin.startsWith(allowedOrigin)) {
+            return res.status(403).json({ error: 'Bloqueo de seguridad (CSRF): Origen de petición no confiable.' });
+        }
+    }
+    next();
+});
+
+// ==========================================
 // Limitador de Peticiones (Rate Limiting) contra DDoS
 // ==========================================
 const apiLimiter = rateLimit({

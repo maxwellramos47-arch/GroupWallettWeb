@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
 const { logError } = require('../Middleware/logger.util');
+const UAParser = require('ua-parser-js');
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -31,9 +32,38 @@ router.post('/registro', async (req, res) => {
 
 router.post('/login', loginLimiter, async (req, res) => {
     try {
-        const { correo, password } = req.body;
-        const { token, usuario } = await UsuarioBLL.login(correo, password);
-        res.json({ message: 'Login exitoso', token, id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion });
+        const { correo, password, rememberMe } = req.body;
+        const { token, usuario } = await UsuarioBLL.login(correo, password, rememberMe); // Pasamos el parámetro a la BLL
+        
+        const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000; // 30 días o 2 horas
+
+        res.cookie('usuarioToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: cookieMaxAge
+        });
+
+        // --- Capturar y Guardar Dispositivo e IP ---
+        try {
+            const parser = new UAParser(req.headers['user-agent']);
+            const result = parser.getResult();
+            const browser = result.browser.name ? `${result.browser.name}` : 'Navegador desconocido';
+            const os = result.os.name ? `${result.os.name}` : 'SO desconocido';
+            
+            const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'IP desconocida';
+
+            await prisma.sesiones_Activas.create({
+                data: {
+                    id_usuario: usuario.id_usuario,
+                    token: token,
+                    dispositivo: `${browser} en ${os}`,
+                    ip: ip
+                }
+            });
+        } catch (err) { console.error('Error al registrar la sesión:', err); }
+
+        res.json({ message: 'Login exitoso', id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion });
     } catch (error) {
         const status = error.message.includes('encontrado') || error.message.includes('incorrecta') || error.message.includes('bloqueada') || error.message.includes('intento') ? 401 : 500;
         res.status(status).json({ error: error.message || 'Error en el servidor al intentar iniciar sesión' });
@@ -107,8 +137,82 @@ router.post('/logout', verificarToken, async (req, res, next) => {
             create: { token, fecha_expiracion: expiracion }
         });
         
+        // Limpiar la sesión actual de la lista de dispositivos
+        await prisma.sesiones_Activas.deleteMany({ where: { token } });
+
+        res.clearCookie('usuarioToken');
         res.json({ message: 'Sesión cerrada en el servidor exitosamente.' });
     } catch (error) { next(error); }
+});
+
+// --- Cerrar Sesión en Todos los Dispositivos ---
+router.post('/logout-all', verificarToken, async (req, res, next) => {
+    try {
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) },
+            data: { fecha_revocacion_sesiones: new Date() } // Cualquier JWT anterior a "ahora" morirá
+        });
+        
+        // Limpiar absolutamente todas las sesiones de la tabla
+        await prisma.sesiones_Activas.deleteMany({
+            where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) }
+        });
+
+        res.clearCookie('usuarioToken');
+        res.json({ message: 'Se ha cerrado sesión en todos los dispositivos exitosamente.' });
+    } catch (error) { next(error); }
+});
+
+// --- Obtener Lista de Sesiones Activas ---
+router.get('/sesiones', verificarToken, async (req, res) => {
+    try {
+        const sesiones = await prisma.sesiones_Activas.findMany({
+            where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) },
+            orderBy: { ultimo_acceso: 'desc' }
+        });
+        
+        // Mapear el resultado para identificar cuál es la sesión en uso actualmente
+        const tokenActual = req.tokenActual;
+        const resultado = sesiones.map(s => ({
+            id_sesion: s.id_sesion,
+            dispositivo: s.dispositivo,
+            ip: s.ip,
+            ultimo_acceso: s.ultimo_acceso,
+            es_actual: s.token === tokenActual
+        }));
+
+        res.json(resultado);
+    } catch (error) {
+        console.error('Error al obtener sesiones:', error);
+        res.status(500).json({ error: 'Error al obtener los dispositivos conectados.' });
+    }
+});
+
+// --- Desconectar un Dispositivo Específico ---
+router.delete('/sesiones/:id_sesion', verificarToken, async (req, res) => {
+    try {
+        const id_sesion = parseInt(req.params.id_sesion);
+        const id_usuario = parseInt(req.usuarioLogueado.id_usuario);
+
+        const sesion = await prisma.sesiones_Activas.findUnique({ where: { id_sesion } });
+
+        if (!sesion || sesion.id_usuario !== id_usuario) {
+            return res.status(403).json({ error: 'No tienes permiso para cerrar esta sesión o no existe.' });
+        }
+
+        // Enviar el token a la lista negra (tokens revocados) para que Node.js lo rechace si intenta hacer requests
+        await prisma.tokens_Revocados.upsert({
+            where: { token: sesion.token },
+            update: {},
+            create: { token: sesion.token, fecha_expiracion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+        });
+
+        await prisma.sesiones_Activas.delete({ where: { id_sesion } });
+        res.json({ message: 'El dispositivo ha sido desconectado exitosamente.' });
+    } catch (error) {
+        console.error('Error al cerrar sesión específica:', error);
+        res.status(500).json({ error: 'Error interno al intentar desconectar el dispositivo.' });
+    }
 });
 
 // --- Rutas de Datos Bancarios ---
