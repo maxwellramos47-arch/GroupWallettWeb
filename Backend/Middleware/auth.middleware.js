@@ -27,4 +27,59 @@ async function verificarToken(req, res, next) {
     }
 }
 
-module.exports = { verificarToken };
+// Middleware para proteger rutas de Súper Administrador
+const verificarSuperAdmin = async (req, res, next) => {
+    try {
+        const id_usuario = req.usuarioLogueado?.id_usuario;
+        
+        if (!id_usuario) {
+            return res.status(401).json({ error: 'No se pudo identificar al usuario.' });
+        }
+
+        const userCheck = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_usuario) },
+            select: { estado_suscripcion: true }
+        });
+
+        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') {
+            return res.status(403).json({ error: 'Acceso denegado. Esta acción requiere privilegios de Súper Administrador.' });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Error en middleware verificarSuperAdmin:', error);
+        res.status(500).json({ error: 'Error interno al validar los permisos del usuario.' });
+    }
+};
+
+// Middleware para proteger rutas exclusivas de usuarios Premium
+const verificarPremium = async (req, res, next) => {
+    try {
+        const id_usuario = req.usuarioLogueado?.id_usuario;
+        
+        if (!id_usuario) {
+            return res.status(401).json({ error: 'No se pudo identificar al usuario.' });
+        }
+
+        const checkPlan = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_usuario) },
+            select: { id_plan: true, estado_suscripcion: true }
+        });
+
+        // Permitir si es plan 2 (Premium) o si tiene GOD_MODE
+        if (!checkPlan || (checkPlan.id_plan !== 2 && checkPlan.estado_suscripcion !== 'GOD_MODE')) {
+            return res.status(403).json({ requires_upgrade: true, message: 'Esta función es exclusiva del plan Premium. Mejora tu plan para acceder.' });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Error en middleware verificarPremium:', error);
+        res.status(500).json({ error: 'Error interno al validar los permisos Premium.' });
+    }
+};
+
+module.exports = { 
+    verificarToken, 
+    verificarSuperAdmin, 
+    verificarPremium 
+};

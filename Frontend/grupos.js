@@ -406,6 +406,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (decodedText.includes('token=')) {
                     hasRedirected = true; // Evitar múltiples lecturas seguidas
                     
+                    // Reproducir sonido de "Bip" de confirmación
+                    try {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContext) {
+                            const ctx = new AudioContext();
+                            const osc = ctx.createOscillator();
+                            const gainNode = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(880, ctx.currentTime); // Tono alto y claro (880Hz)
+                            gainNode.gain.setValueAtTime(0.1, ctx.currentTime); // Volumen suave al 10%
+                            osc.connect(gainNode);
+                            gainNode.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.15); // Bip corto de 150 milisegundos
+                        }
+                    } catch (e) { console.log('El navegador no soporta el sonido de Bip'); }
+
                     // Disparar animación de confeti
                     if (typeof confetti === 'function') {
                         confetti({
