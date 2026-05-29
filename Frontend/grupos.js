@@ -356,13 +356,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
 
             html5QrcodeScanner.render((decodedText, decodedResult) => {
-                // Si encuentra un código QR válido, apagar la cámara
-                html5QrcodeScanner.clear();
-                qrReaderContainer.style.display = 'none';
-                btnScanQr.style.display = 'block';
+                // Pausar el escáner para evitar múltiples lecturas
+                html5QrcodeScanner.pause(true);
 
                 // Validar que el QR sea de nuestra aplicación
-                if (decodedText.includes('join.html?token=')) {
+                if (decodedText.includes('token=')) {
                     // Disparar animación de confeti
                     if (typeof confetti === 'function') {
                         confetti({
@@ -373,15 +371,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     showToast('Código QR detectado. Uniendo al grupo...', 'success');
                     
-                    // Asegurarnos de que el link redirija correctamente extrayendo la URL si es necesario
-                    try {
-                        const urlObj = new URL(decodedText);
-                        setTimeout(() => window.location.href = urlObj.href, 2000);
-                    } catch (e) {
-                        setTimeout(() => window.location.href = decodedText, 2000);
-                    }
+                    html5QrcodeScanner.clear().then(() => {
+                        qrReaderContainer.style.display = 'none';
+                        btnScanQr.style.display = 'block';
+                        
+                        // Asegurarnos de que el link redirija correctamente extrayendo la URL si es necesario
+                        try {
+                            const urlObj = new URL(decodedText);
+                            setTimeout(() => window.location.href = urlObj.href, 1500);
+                        } catch (e) {
+                            setTimeout(() => window.location.href = decodedText, 1500);
+                        }
+                    }).catch(err => {
+                        console.error('Error al limpiar el escáner', err);
+                        setTimeout(() => window.location.href = decodedText, 1500);
+                    });
+
                 } else {
                     showToast('Este código QR no es de GroupWallet.', 'error');
+                    setTimeout(() => {
+                        html5QrcodeScanner.resume();
+                    }, 2000);
                 }
             }, (errorMessage) => {
                 // Se ejecuta cuadro por cuadro mientras no encuentre QR (Lo ignoramos silenciosamente)
