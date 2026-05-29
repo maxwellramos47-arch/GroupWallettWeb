@@ -1,26 +1,89 @@
-# Dependencias de Node
+# =========================================================================
+# GroupWallet - Ecosistema de Exclusión de Control de Versiones (Producción)
+# =========================================================================
+
+# 1. Dependencias de Node.js y Ecosistemas de Paquetes
+# -------------------------------------------------------------------------
 node_modules/
+jspm_packages/
+web_modules/
+.npm/
+.eslintcache
+.stylelintcache
+
+# 2. Archivos de Registro de Ejecución y Diagnóstico (Logs)
+# -------------------------------------------------------------------------
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Archivos de entorno y secretos
+# 3. Archivos de Entorno, Variables de Configuración y Secretos Criptográficos
+# -------------------------------------------------------------------------
 .env
 .env.local
 .env.development
 .env.test
 .env.production
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.pfx
+*.crt
 
-# Archivos de sistema operativo (Mac/Windows)
-.DS_Store
-Thumbs.db
-
-# Carpetas de builds y testing
+# 4. Artefactos de Compilación, Distribución y Builds (Frontend/Backend)
+# -------------------------------------------------------------------------
 dist/
 build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# 5. Reportes de Pruebas Unitarias, Integración y Cobertura (Testing)
+# -------------------------------------------------------------------------
 coverage/
 .nyc_output/
+*.lcov
+.jest/
+Chromium/
+.playwright/
 
-# Archivos de editores e IDEs
+# 6. Diagnósticos del Entorno de Ejecución (Node.js Core Dumps)
+# -------------------------------------------------------------------------
+core
+core.*
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+
+# 7. Metadatos de Editores de Código e IDEs (Entornos de Desarrollo)
+# -------------------------------------------------------------------------
 .vscode/
+!.vscode/extensions.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.project
+.classpath
+.settings/
+
+# 8. Archivos Basura del Sistema Operativo (Persistencia Local)
+# -------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V10
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
