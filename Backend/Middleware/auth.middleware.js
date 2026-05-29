@@ -43,6 +43,7 @@ async function verificarToken(req, res, next) {
             req.tokenActual = token;
             next();
         } catch (err) {
+            console.error('Error en verificación de token o Base de Datos:', err.message);
             res.clearCookie('usuarioToken');
             return res.status(401).json({ error: 'Token inválido o expirado.' });
         }

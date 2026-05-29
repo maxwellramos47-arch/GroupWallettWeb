@@ -35,6 +35,7 @@ model Usuarios {
   bloqueado_hasta               DateTime? @db.Timestamp()
   foto_url                      String?   @db.VarChar(500)
   push_subscription             String?   @db.Text
+  fecha_revocacion_sesiones     DateTime? @db.Timestamp()
 
   plan                          Planes_Suscripcion? @relation(fields: [id_plan], references: [id_plan])
   grupos_creados                Grupos[]
