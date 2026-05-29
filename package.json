@@ -16,12 +16,12 @@
     "web-push": "^3.6.7",
     "twilio": "^5.0.0",
     "stripe": "^14.19.0",
-    "@google-cloud/vision": "^4.3.0"
+    "@google-cloud/vision": "^4.3.0",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "jest": "^30.4.2",
-    "nodemon": "^3.1.14",
-    "prisma": "^6.19.3"
+    "nodemon": "^3.1.14"
   },
   "scripts": {
     "start": "node Backend/server.js",
