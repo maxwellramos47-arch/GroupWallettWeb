@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response.status === 401) {
             localStorage.removeItem('usuarioToken');
             showToast('Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.', 'error');
-            setTimeout(() => window.location.href = 'index.html', 2000);
+            setTimeout(() => window.location.href = 'login.html', 2000);
             return Promise.reject(new Error('Sesión expirada')); // Detiene la ejecución del fetch local
         }
         
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (payload.id_usuario == data.id_usuario) {
                     localStorage.removeItem('usuarioToken');
                     localStorage.removeItem('usuarioNombre');
-                    window.location.href = 'index.html'; // Expulsado al login instantáneamente
+                    window.location.href = 'login.html'; // Expulsado al login instantáneamente
                 }
             }
         });
@@ -792,7 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             localStorage.removeItem('usuarioToken'); // Eliminar el rastro de sesión local
             localStorage.removeItem('usuarioNombre');
-            window.location.href = 'index.html'; // Volver a la pantalla de Login
+            window.location.href = 'login.html'; // Volver a la pantalla de Login
         });
     }
 

@@ -3,53 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - GroupWallet</title>
+    <title>GroupWallet - Gestión Inteligente de Finanzas Compartidas</title>
+    <meta name="description" content="Divide gastos sin perder amigos. Crea grupos, registra transacciones y calcula quién debe a quién de la forma más eficiente.">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="login-body">
-    <div class="login-container card">
-        <div class="logo text-center">
+<body>
+    <header class="main-header">
+        <div class="logo">
             <h1>Group<span>Wallet</span></h1>
         </div>
-        <h2 class="text-center mt-2">Iniciar Sesión</h2>
-        <form id="form-login" class="mt-2">
-            <div class="form-group">
-                <label for="correo" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Correo Electrónico</label>
-                <input type="email" id="correo" placeholder="tu@correo.com" required style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+        <nav class="main-nav">
+            <ul style="align-items: center;">
+                <li><a href="login.html" style="color: white; font-weight: 600;">Iniciar Sesión</a></li>
+                <li><a href="registro.html" class="btn-primary" style="padding: 0.6rem 1.2rem; width: auto; background-color: var(--secondary-emerald); color: white; border-radius: 6px;">Regístrate Gratis</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main style="text-align: center; padding: 4rem 1rem; max-width: 1200px; margin: 0 auto; flex: 1;">
+        <h2 style="font-size: 2.8rem; color: var(--primary-slate); margin-bottom: 1rem; line-height: 1.2;">Divide gastos sin perder amigos</h2>
+        <p style="font-size: 1.2rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 2.5rem auto;">Crea grupos, registra transacciones y deja que nuestro algoritmo calcule quién le debe a quién de la forma más eficiente.</p>
+        <a href="registro.html" class="btn-primary" style="font-size: 1.2rem; padding: 1rem 2.5rem; width: auto; display: inline-block; margin-bottom: 4rem; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);">Comenzar Ahora</a>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; text-align: left;">
+            <div class="card" style="border-top: 4px solid var(--secondary-emerald);">
+                <h3 style="border-bottom: none; font-size: 2rem; margin-bottom: 0;">📊</h3>
+                <h4 style="margin: 0.5rem 0; color: var(--primary-slate); font-size: 1.2rem;">Cálculos Automáticos</h4>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">Se acabaron las matemáticas complejas. Añade el gasto y nosotros te decimos quién debe qué.</p>
             </div>
-            <div class="form-group">
-                <label for="password" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Contraseña</label>
-                <div style="display: flex; gap: 0.5rem; align-items: stretch;">
-                    <input type="password" id="password" placeholder="********" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                    <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
-                </div>
+            <div class="card" style="border-top: 4px solid #3498db;">
+                <h3 style="border-bottom: none; font-size: 2rem; margin-bottom: 0;">📸</h3>
+                <h4 style="margin: 0.5rem 0; color: var(--primary-slate); font-size: 1.2rem;">Lectura de Recibos IA</h4>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">Sube tus comprobantes y nuestra Inteligencia Artificial validará los montos pagados por ti.</p>
             </div>
-            <button type="submit" class="btn-primary mt-2">Ingresar al Portal</button>
-        </form>
-        <p class="text-center mt-2" style="font-size: 0.9rem;">
-            ¿No tienes cuenta? <a href="registro.html" id="link-register" style="color: var(--secondary-emerald); font-weight: bold;">Regístrate</a>
-            <a href="#" id="link-forgot" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem; display: inline-block;">¿Olvidaste tu contraseña?</a>
-        </p>
-mii
-        <!-- Módulo de Recuperación de Contraseña -->
-        <div id="recovery-section" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
-            <h3 class="text-center" style="font-size: 1.1rem; margin-bottom: 1rem;">Recuperar Contraseña</h3>
-            <form id="form-recovery">
-                <input type="email" id="recovery-correo" placeholder="Ingresa tu correo" required style="width: 100%; margin-bottom: 0.5rem; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                <button type="submit" class="btn-primary" style="background-color: var(--primary-slate);">Enviar Token</button>
-            </form>
-            <form id="form-reset" style="display: none; margin-top: 1rem;">
-                <p style="font-size: 0.8rem; color: var(--secondary-emerald); margin-bottom: 0.5rem;" id="token-msg"></p>
-                <input type="text" id="reset-token" placeholder="Pega el Token aquí" required style="width: 100%; margin-bottom: 0.5rem; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: stretch;">
-                    <input type="password" id="reset-password" placeholder="Nueva Contraseña" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                    <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
-                </div>
-                <button type="submit" class="btn-primary">Actualizar Contraseña</button>
-            </form>
+            <div class="card" style="border-top: 4px solid #f1c40f;">
+                <h3 style="border-bottom: none; font-size: 2rem; margin-bottom: 0;">🚀</h3>
+                <h4 style="margin: 0.5rem 0; color: var(--primary-slate); font-size: 1.2rem;">Liquidación en 1 Clic</h4>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">Calculamos la ruta más corta para saldar todas las deudas y lo enviamos directo por WhatsApp.</p>
+            </div>
         </div>
-    </div>
-    <script src="toast.js"></script>
-    <script src="login.js"></script>
+    </main>
+
+    <footer class="main-footer" style="margin-top: 2rem;">
+        <p style="font-size: 0.85rem;">&copy; 2024 GroupWallet. Todos los derechos reservados.</p>
+    </footer>
 </body>
 </html>

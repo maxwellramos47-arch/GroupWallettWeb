@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('./security.util');
-const pool = require('../Config/db');
+const prisma = require('../Config/prisma');
 
 async function verificarToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -11,8 +11,10 @@ async function verificarToken(req, res, next) {
 
     try {
         // Verificar si el token ha sido revocado (Ej: Cierre de sesión manual)
-        const checkRevocado = await pool.query('SELECT 1 FROM Tokens_Revocados WHERE token = $1', [token]);
-        if (checkRevocado.rows.length > 0) return res.status(401).json({ error: 'Sesión cerrada o token revocado.' });
+        const checkRevocado = await prisma.tokens_Revocados.findUnique({
+            where: { token }
+        });
+        if (checkRevocado) return res.status(401).json({ error: 'Sesión cerrada o token revocado.' });
 
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
             if (err) return res.status(401).json({ error: 'Token inválido o expirado.' });

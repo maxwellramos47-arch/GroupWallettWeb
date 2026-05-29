@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /login.html
+Allow: /registro.html
+Disallow: /dashboard.html
+Disallow: /mensual.html
+Disallow: /historial.html
+Disallow: /grupos.html
+Disallow: /ajustes.html
+Disallow: /admin.html
+
+Sitemap: https://groupwallettweb.onrender.com/sitemap.xml

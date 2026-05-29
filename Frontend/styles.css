@@ -437,6 +437,7 @@ body.dark-mode {
     --card-bg: #1e1e1e;
     --text-dark: #e0e0e0;
     --border-color: #333333;
+    --text-muted: #95a5a6;
 }
 
 body.dark-mode .gastos-table th {
@@ -470,6 +471,32 @@ body.dark-mode .main-header {
 body.dark-mode .main-footer {
     background-color: #1e1e1e;
     border-color: #333;
+}
+
+/* ==========================================================================
+   Forzar Textos Legibles en Modo Oscuro
+   ========================================================================== */
+body.dark-mode h1, 
+body.dark-mode h2, 
+body.dark-mode h3, 
+body.dark-mode h4, 
+body.dark-mode h5, 
+body.dark-mode h6,
+body.dark-mode strong {
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode span[style*="color: var(--primary-slate)"],
+body.dark-mode p[style*="color: var(--primary-slate)"],
+body.dark-mode div[style*="color: var(--primary-slate)"],
+body.dark-mode label[style*="color: var(--primary-slate)"] {
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode span[style*="color: var(--text-dark)"],
+body.dark-mode p[style*="color: var(--text-dark)"],
+body.dark-mode label[style*="color: var(--text-dark)"] {
+    color: #e0e0e0 !important;
 }
 
 /* ==========================================================================

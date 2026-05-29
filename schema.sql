@@ -1,7 +1,3 @@
--- ==========================================
--- Fase 5: Esquema de Base de Datos - GroupWallet
--- ==========================================
-
 -- 1. Tabla de Planes de Suscripción (Modelo de Negocio SaaS)
 CREATE TABLE IF NOT EXISTS Planes_Suscripcion (
     id_plan SERIAL PRIMARY KEY,

@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (res.ok) {
                     showToast('Registro exitoso. Redirigiendo...', 'success');
-                    setTimeout(() => window.location.href = 'index.html', 1500); // Lo manda al login automáticamente tras registrar
+                    setTimeout(() => window.location.href = 'login.html', 1500); // Lo manda al login automáticamente tras registrar
                 } else {
                     showToast(data.error || 'Error al registrar', 'error');
                 }

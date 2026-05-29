@@ -322,9 +322,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             qrReaderContainer.style.display = 'block';
 
             // Inicializar el lector pidiéndole permisos de cámara al usuario
+            const scannerConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+            if (typeof Html5QrcodeScanType !== 'undefined') {
+                scannerConfig.supportedScanTypes = [Html5QrcodeScanType.SCAN_TYPE_CAMERA]; // Desactiva pestaña de subir imagen
+            }
+            
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "qr-reader",
-                { fps: 10, qrbox: { width: 250, height: 250 } },
+                scannerConfig,
                 false // No imprimir logs verbosos en consola
             );
 
