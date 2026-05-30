@@ -2,6 +2,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     const formRegister = document.getElementById('form-register');
     let captchaTokenActual = '';
+    let pendingRegistrationData = null;
+    let currentVerificationToken = null;
 
     const cargarCaptcha = async () => {
         try {
@@ -22,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (captchaDiv) {
                     captchaDiv.innerHTML = `
-                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ${data.question}</label>
+                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">CAPTCHA: ${data.question}</label>
                         <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
                     `;
                 }

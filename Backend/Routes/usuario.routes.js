@@ -30,9 +30,27 @@ router.get('/captcha', (req, res) => {
     res.json({ question: `¿Cuánto es ${num1} + ${num2}?`, token });
 });
 
+const smsLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 3,
+    message: { error: 'Has solicitado demasiados códigos. Intenta de nuevo en 10 minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+router.post('/enviar-codigo-registro', smsLimiter, async (req, res) => {
+    try {
+        const { telefono } = req.body;
+        if (!telefono) return res.status(400).json({ error: 'Falta el número de teléfono.' });
+        
+        const { token } = await UsuarioBLL.generarTokenVerificacion(telefono);
+        res.json({ message: 'Código SMS enviado exitosamente.', verificationToken: token });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 router.post('/registro', async (req, res) => {
     try {
-        const { nombre, correo, telefono, password, captchaAnswer, captchaToken } = req.body;
+        const { nombre, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoSms } = req.body;
         
         // --- Validación Estricta de CAPTCHA en Backend ---
         if (!captchaToken || !captchaAnswer) return res.status(400).json({ error: 'Falta la verificación de seguridad (CAPTCHA).' });
@@ -43,7 +61,7 @@ router.post('/registro', async (req, res) => {
             }
         } catch (err) { return res.status(400).json({ error: 'El CAPTCHA expiró o es inválido. Por favor, recarga la página.' }); }
 
-        const { id_usuario, necesitaVerificacion } = await UsuarioBLL.registrar(nombre, correo, telefono, password);
+        const { id_usuario } = await UsuarioBLL.registrar(nombre, correo, telefono, password, verificationToken, codigoSms);
         
         // --- Enviar correo de bienvenida (Background Task) ---
         try {
@@ -67,37 +85,13 @@ router.post('/registro', async (req, res) => {
             transporter.sendMail(mailOptions).catch(err => console.error('Error enviando correo de bienvenida:', err));
         } catch (mailError) { console.error('Error configurando correo de bienvenida:', mailError); }
         
-        res.status(201).json({ message: 'Usuario registrado con seguridad', id_usuario, necesitaVerificacion });
+        res.status(201).json({ message: 'Usuario registrado con seguridad', id_usuario });
     } catch (error) { 
         logError('Registro de Usuario POST /registro', error);
         if (error.code === 'P2002') {
             return res.status(400).json({ error: 'Este correo electrónico ya está registrado. Intenta iniciar sesión.' });
         }
         res.status(500).json({ error: 'Error interno al registrar usuario: ' + error.message }); 
-    }
-});
-
-router.post('/verificar-telefono', async (req, res) => {
-    try {
-        const { id_usuario, codigo } = req.body;
-        if (!id_usuario || !codigo) return res.status(400).json({ error: 'Faltan datos para la verificación.' });
-
-        await UsuarioBLL.verificarCodigoTelefono(id_usuario, codigo);
-        res.json({ message: '¡Número de teléfono verificado exitosamente!' });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-router.post('/reenviar-codigo', async (req, res) => {
-    try {
-        const { id_usuario } = req.body;
-        if (!id_usuario) return res.status(400).json({ error: 'Falta el ID de usuario.' });
-
-        await UsuarioBLL.reenviarCodigoVerificacion(id_usuario);
-        res.json({ message: 'Se ha reenviado un nuevo código de verificación a tu teléfono.' });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
     }
 });
 
@@ -218,10 +212,9 @@ router.post('/logout', verificarToken, async (req, res, next) => {
         const token = req.tokenActual;
         const expiracion = new Date(req.usuarioLogueado.exp * 1000);
         
-        await prisma.tokens_Revocados.upsert({
-            where: { token },
-            update: {},
-            create: { token, fecha_expiracion: expiracion }
+        await prisma.tokens_Revocados.createMany({
+            data: [{ token, fecha_expiracion: expiracion }],
+            skipDuplicates: true
         });
         
         // Limpiar la sesión actual de la lista de dispositivos
@@ -288,10 +281,9 @@ router.delete('/sesiones/:id_sesion', verificarToken, async (req, res) => {
         }
 
         // Enviar el token a la lista negra (tokens revocados) para que Node.js lo rechace si intenta hacer requests
-        await prisma.tokens_Revocados.upsert({
-            where: { token: sesion.token },
-            update: {},
-            create: { token: sesion.token, fecha_expiracion: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000) }
+        await prisma.tokens_Revocados.createMany({
+            data: [{ token: sesion.token, fecha_expiracion: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000) }],
+            skipDuplicates: true
         });
 
         await prisma.sesiones_Activas.delete({ where: { id_sesion } });

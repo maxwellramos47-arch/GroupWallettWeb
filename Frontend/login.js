@@ -153,6 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkRegister = document.getElementById('link-register') || document.getElementById('btn-register');
     const linkLogin = document.getElementById('link-login') || document.getElementById('btn-login');
     let captchaTokenActual = '';
+    let pendingRegistrationData = null;
+    let currentVerificationToken = null;
 
     const cargarCaptcha = async () => {
         try {
@@ -173,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (captchaDiv) {
                     captchaDiv.innerHTML = `
-                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ${data.question}</label>
+                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">CAPTCHA: ${data.question}</label>
                         <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
                     `;
                 }
@@ -185,55 +187,51 @@ document.addEventListener('DOMContentLoaded', () => {
     if (linkRegister && formRegister) {
         linkRegister.addEventListener('click', (e) => {
             e.preventDefault();
-            showSpinner(); // Mostrar pantalla de carga
             
-            setTimeout(() => {
-                hideSpinner(); // Ocultar carga después de 1 segundo
-                formLogin.style.display = 'none';
-                if (recoverySection) recoverySection.style.display = 'none';
-                formRegister.style.display = 'block';
+            formLogin.style.display = 'none';
+            if (recoverySection) recoverySection.style.display = 'none';
+            formRegister.style.display = 'block';
 
-                // Agregar dinámicamente el campo de confirmación de contraseña si no existe
-                if (!document.getElementById('registro-password-confirm')) {
-                    const passField = document.getElementById('registro-password');
-                    if (passField) {
-                        const wrapper = document.createElement('div');
-                        wrapper.style.marginTop = '1rem';
-                        wrapper.innerHTML = `<label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Confirmar Contraseña</label>
-                        <div style="display: flex; gap: 0.5rem; align-items: stretch;">
-                            <input type="password" id="registro-password-confirm" placeholder="Repite tu contraseña" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                            <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
-                        </div>`;
-                        passField.parentNode.insertBefore(wrapper, passField.nextSibling);
-                    }
+            // Agregar dinámicamente el campo de confirmación de contraseña si no existe
+            if (!document.getElementById('registro-password-confirm')) {
+                const passField = document.getElementById('registro-password');
+                if (passField) {
+                    const wrapper = document.createElement('div');
+                    wrapper.style.marginTop = '1rem';
+                    wrapper.innerHTML = `<label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Confirmar Contraseña</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                        <input type="password" id="registro-password-confirm" placeholder="Repite tu contraseña" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                        <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                    </div>`;
+                    passField.parentNode.insertBefore(wrapper, passField.nextSibling);
                 }
-                
-                // Agregar dinámicamente los Términos y Condiciones si no existen
-                if (!document.getElementById('registro-tos')) {
-                    const confirmWrapper = document.getElementById('registro-password-confirm') ? document.getElementById('registro-password-confirm').parentNode.parentNode : null;
-                    if (confirmWrapper) {
-                        const wrapperTos = document.createElement('div');
-                        wrapperTos.style.marginTop = '1rem';
-                        wrapperTos.style.marginBottom = '1rem';
-                        wrapperTos.style.display = 'flex';
-                        wrapperTos.style.alignItems = 'center';
-                        wrapperTos.style.gap = '0.5rem';
-                        wrapperTos.innerHTML = `
-                            <input type="checkbox" id="registro-tos" required style="width: auto; padding: 0; margin: 0; transform: scale(1.1); cursor: pointer;">
-                            <label for="registro-tos" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">
-                                Acepto los <a href="#" onclick="event.preventDefault(); alert('Términos y Condiciones:\\n\\nAl usar GroupWallet te comprometes a proporcionar datos veraces y a no usar la plataforma para fines ilícitos o lavado de activos. Nos reservamos el derecho de suspender cuentas sospechosas.')" style="color: var(--secondary-emerald); text-decoration: underline;">Términos y Condiciones</a> y la <a href="#" onclick="event.preventDefault(); alert('Política de Privacidad:\\n\\nTus datos de acceso están encriptados con AES-256 y contraseñas hasheadas. No compartiremos ni venderemos tu información personal o financiera a terceros.')" style="color: var(--secondary-emerald); text-decoration: underline;">Política de Privacidad</a>.
-                            </label>
-                        `;
-                        confirmWrapper.parentNode.insertBefore(wrapperTos, confirmWrapper.nextSibling);
-                    }
+            }
+            
+            // Agregar dinámicamente los Términos y Condiciones si no existen
+            if (!document.getElementById('registro-tos')) {
+                const confirmWrapper = document.getElementById('registro-password-confirm') ? document.getElementById('registro-password-confirm').parentNode.parentNode : null;
+                if (confirmWrapper) {
+                    const wrapperTos = document.createElement('div');
+                    wrapperTos.style.marginTop = '1rem';
+                    wrapperTos.style.marginBottom = '1rem';
+                    wrapperTos.style.display = 'flex';
+                    wrapperTos.style.alignItems = 'center';
+                    wrapperTos.style.gap = '0.5rem';
+                    wrapperTos.innerHTML = `
+                        <input type="checkbox" id="registro-tos" required style="width: auto; padding: 0; margin: 0; transform: scale(1.1); cursor: pointer;">
+                        <label for="registro-tos" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">
+                            Acepto los <a href="#" onclick="event.preventDefault(); alert('Términos y Condiciones:\\n\\nAl usar GroupWallet te comprometes a proporcionar datos veraces y a no usar la plataforma para fines ilícitos o lavado de activos. Nos reservamos el derecho de suspender cuentas sospechosas.')" style="color: var(--secondary-emerald); text-decoration: underline;">Términos y Condiciones</a> y la <a href="#" onclick="event.preventDefault(); alert('Política de Privacidad:\\n\\nTus datos de acceso están encriptados con AES-256 y contraseñas hasheadas. No compartiremos ni venderemos tu información personal o financiera a terceros.')" style="color: var(--secondary-emerald); text-decoration: underline;">Política de Privacidad</a>.
+                        </label>
+                    `;
+                    confirmWrapper.parentNode.insertBefore(wrapperTos, confirmWrapper.nextSibling);
                 }
+            }
 
-                // Cargar CAPTCHA dinámico desde Backend
-                cargarCaptcha();
+            // Cargar CAPTCHA dinámico desde Backend
+            cargarCaptcha();
 
-                const btnSubmit = formRegister.querySelector('button[type="submit"]');
-                if (btnSubmit) btnSubmit.textContent = 'Registrarse';
-            }, 1000); // 1000 ms = 1 segundo de carga simulada
+            const btnSubmit = formRegister.querySelector('button[type="submit"]');
+            if (btnSubmit) btnSubmit.textContent = 'Registrarse';
         });
     }
 

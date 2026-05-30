@@ -2,57 +2,68 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const UsuarioDAL = require('../DAL/usuario.dal');
-const { JWT_SECRET, safeEncrypt, safeDecrypt } = require('../Middleware/security.util');
+const { JWT_SECRET, safeEncrypt, safeDecrypt, generarFirmaHMAC } = require('../Middleware/security.util');
 const twilio = require('twilio');
 
 class UsuarioBLL {
-    static async registrar(nombre, correo, telefono, password) {
+    static async generarTokenVerificacion(telefono) {
+        const regexTelefono = /^\+[1-9]\d{7,14}$/;
+        if (!regexTelefono.test(telefono.trim())) throw new Error('Formato de teléfono inválido.');
+
+        const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
+        const codeHash = generarFirmaHMAC(codigoVerificacion);
+        
+        // El token mantiene el secreto a salvo en el navegador
+        const token = jwt.sign({ telefono, codeHash, type: 'sms_verification' }, JWT_SECRET, { expiresIn: '10m' });
+
+        const numeroLimpio = telefono.replace(/[^0-9+]/g, '');
+        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+            throw new Error('El servicio de SMS no está configurado en el servidor.');
+        }
+
+        try {
+            const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+            await client.messages.create({
+                body: `Tu código de verificación para GroupWallet es: ${codigoVerificacion}`,
+                from: process.env.TWILIO_PHONE_NUMBER,
+                to: numeroLimpio
+            });
+        } catch (error) { 
+            console.error('Error enviando SMS con Twilio:', error.message); 
+            throw new Error('No se pudo enviar el SMS. Verifica que tu número sea válido.');
+        }
+        return { token };
+    }
+
+    static async registrar(nombre, correo, telefono, password, verificationToken, codigoSms) {
         const correoNormalizado = correo.toLowerCase().trim();
         const passwordHash = await bcrypt.hash(password, 10);
-        const telefonoSeguro = safeEncrypt(telefono);
-
-        let codigoVerificacion = null;
-        let codigoExpires = null;
-        let necesitaVerificacion = false;
+        let telefonoSeguro = null;
+        let telefono_verificado = false;
 
         if (telefono && telefono.trim() !== '') {
             const regexTelefono = /^\+[1-9]\d{7,14}$/;
-            if (!regexTelefono.test(telefono.trim())) {
-                throw new Error('Formato de teléfono inválido. Debe incluir el código de país (Ej: +56912345678).');
-            }
+            if (!regexTelefono.test(telefono.trim())) throw new Error('Formato de teléfono inválido.');
+            if (!verificationToken || !codigoSms) throw new Error('Falta la verificación del teléfono por SMS.');
 
-            necesitaVerificacion = true;
-            codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString(); // Código de 6 dígitos
-            codigoExpires = new Date(Date.now() + 10 * 60 * 1000); // Válido por 10 minutos
-        }
-
-        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, telefonoSeguro, passwordHash, codigoVerificacion, codigoExpires);
-
-        if (necesitaVerificacion) {
-            const numeroLimpio = telefono.replace(/[^0-9+]/g, '');
-            // Validar si hay credenciales reales
-            if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_ACCOUNT_SID !== 'fake' && process.env.TWILIO_ACCOUNT_SID.length > 10) {
-                try {
-                    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-                    await client.messages.create({
-                        body: `Tu código de verificación para GroupWallet es: ${codigoVerificacion}`,
-                        from: process.env.TWILIO_PHONE_NUMBER,
-                        to: numeroLimpio
-                    });
-                } catch (error) { 
-                    console.error('Aviso: Falló Twilio. Usando simulador local.'); 
-                    console.log(`\n[SIMULADOR SMS] Código para ${numeroLimpio}: ${codigoVerificacion}\n`);
+            try {
+                const decoded = jwt.verify(verificationToken, JWT_SECRET);
+                if (decoded.type !== 'sms_verification' || decoded.telefono !== telefono) {
+                    throw new Error('El token de verificación está corrupto o no pertenece a este número.');
                 }
-            } else {
-                // MOCK PARA PRUEBAS: Imprime el código en la consola del servidor
-                console.log(`\n======================================================`);
-                console.log(`[SIMULADOR SMS] Enviando al número: ${numeroLimpio}`);
-                console.log(`[SIMULADOR SMS] 🔑 CÓDIGO DE VERIFICACIÓN: ${codigoVerificacion}`);
-                console.log(`======================================================\n`);
-            }
+                const expectedHash = generarFirmaHMAC(codigoSms);
+                if (decoded.codeHash !== expectedHash) {
+                    throw new Error('El código de verificación SMS es incorrecto.');
+                }
+            } catch (err) { throw new Error('El código de verificación expiró o es inválido.'); }
+
+            telefonoSeguro = safeEncrypt(telefono);
+            telefono_verificado = true;
         }
 
-        return { id_usuario, necesitaVerificacion };
+        // Guardado único, final y limpio en base de datos
+        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, telefonoSeguro, passwordHash, telefono_verificado);
+        return { id_usuario };
     }
 
     static async login(correo, password, rememberMe = false) {
@@ -209,18 +220,18 @@ class UsuarioBLL {
         const codigoExpires = new Date(Date.now() + 10 * 60 * 1000);
         await UsuarioDAL.actualizarCodigoVerificacion(id_usuario, codigoVerificacion, codigoExpires);
 
-        const telefonoLimpio = safeDecrypt(usuario.telefono).replace(/[^0-9+]/g, '');
+        const telefonoLimpio = safeDecrypt(limits.telefono).replace(/[^0-9+]/g, '');
 
-        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_ACCOUNT_SID !== 'fake' && process.env.TWILIO_ACCOUNT_SID.length > 10) {
-            try {
-                const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-                await client.messages.create({ body: `Tu nuevo código de verificación es: ${codigoVerificacion}`, from: process.env.TWILIO_PHONE_NUMBER, to: telefonoLimpio });
-            } catch (error) { console.log(`\n[SIMULADOR SMS REENVÍO] Código para ${telefonoLimpio}: ${codigoVerificacion}\n`); }
-        } else {
-            console.log(`\n======================================================`);
-            console.log(`[SIMULADOR SMS REENVÍO] Enviando al número: ${telefonoLimpio}`);
-            console.log(`[SIMULADOR SMS] 🔑 NUEVO CÓDIGO DE VERIFICACIÓN: ${codigoVerificacion}`);
-            console.log(`======================================================\n`);
+        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+            throw new Error('El servicio de SMS no está configurado en el servidor.');
+        }
+
+        try {
+            const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+            await client.messages.create({ body: `Tu nuevo código de verificación es: ${codigoVerificacion}`, from: process.env.TWILIO_PHONE_NUMBER, to: telefonoLimpio });
+        } catch (error) { 
+            console.error('Error reenviando SMS con Twilio:', error.message); 
+            throw new Error('No se pudo reenviar el SMS. Intenta de nuevo más tarde.');
         }
     }
 }
