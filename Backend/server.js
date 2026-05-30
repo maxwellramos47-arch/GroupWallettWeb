@@ -298,15 +298,13 @@ app.get('/api/finanzas/analisis', verificarToken, verificarPremium, async (req, 
         const id_usuario = req.usuarioLogueado.id_usuario;
 
         // Obtener todas las transacciones pagadas por el usuario (Activas e Historial)
-        const transaccionesActivas = await prisma.transacciones.findMany({
-            where: { id_usuario_pagador: parseInt(id_usuario) },
-            select: { monto: true, categoria: true }
-        });
+        const transaccionesActivas = await prisma.$queryRaw`
+            SELECT monto, categoria FROM Transacciones WHERE id_usuario_pagador = ${parseInt(id_usuario)}
+        `;
 
-        const transaccionesHistorial = await prisma.transacciones_Historial.findMany({
-            where: { id_usuario_pagador: parseInt(id_usuario) },
-            select: { monto: true, categoria: true }
-        });
+        const transaccionesHistorial = await prisma.$queryRaw`
+            SELECT monto, categoria FROM Transacciones_Historial WHERE id_usuario_pagador = ${parseInt(id_usuario)}
+        `;
 
         const todasTransacciones = [...transaccionesActivas, ...transaccionesHistorial];
 

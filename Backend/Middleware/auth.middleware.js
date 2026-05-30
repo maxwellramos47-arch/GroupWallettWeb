@@ -114,14 +114,13 @@ const verificarPremium = async (req, res, next) => {
 
         const checkPlan = await prisma.usuarios.findUnique({
             where: { id_usuario: parseInt(id_usuario) },
-            select: { id_plan: true, estado_suscripcion: true, fecha_vencimiento_suscripcion: true }
+            select: { id_plan: true, estado_suscripcion: true }
         });
 
         const isGod = checkPlan?.estado_suscripcion === 'GOD_MODE';
-        const isPremium = checkPlan?.id_plan === 2;
-        const hasValidDate = checkPlan?.fecha_vencimiento_suscripcion && new Date(checkPlan.fecha_vencimiento_suscripcion) > new Date();
+        const isPremium = checkPlan?.id_plan === 2 && checkPlan?.estado_suscripcion === 'activo';
 
-        if (!checkPlan || (!isGod && !isPremium && !hasValidDate)) {
+        if (!checkPlan || (!isGod && !isPremium)) {
             return res.status(403).json({ requires_upgrade: true, message: 'Esta función es exclusiva del plan Premium. Mejora tu plan para acceder.' });
         }
 
