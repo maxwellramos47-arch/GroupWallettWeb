@@ -268,32 +268,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            showSpinner();
-            try {
-                const res = await fetch('/api/usuarios/registro', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, correo, password, captchaAnswer, captchaToken: captchaTokenActual })
-                });
-                const data = await res.json();
-                
-                if (res.ok) {
-                    showToast('Registro exitoso. Ahora puedes iniciar sesión.', 'success');
-                    formRegister.reset();
-                    formRegister.style.display = 'none';
-                    formLogin.style.display = 'block';
-                    document.getElementById('correo').value = correo;
-                } else {
-                    showToast(data.error || 'Error al registrar', 'error');
-                    cargarCaptcha(); // Refrescar el CAPTCHA si falló el registro
-                    if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
-                }
-            } catch (error) {
-                console.error(error);
-                showToast('Error de conexión al intentar registrarse.', 'error');
-            } finally {
-                hideSpinner();
-            }
+            pendingRegistrationData = { nombre, correo, telefono: null, password, captchaAnswer, captchaToken: captchaTokenActual };
+            ejecutarRegistroFinal();
         });
+    }
+
+    async function ejecutarRegistroFinal(codigoSms = null) {
+        showSpinner();
+        try {
+            const payload = { ...pendingRegistrationData };
+            if (codigoSms) {
+                payload.verificationToken = currentVerificationToken;
+                payload.codigoSms = codigoSms;
+            }
+
+            const res = await fetch('/api/usuarios/registro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                showToast('Registro exitoso. Ahora puedes iniciar sesión.', 'success');
+                formRegister.reset();
+                formRegister.style.display = 'none';
+                formLogin.style.display = 'block';
+                document.getElementById('correo').value = payload.correo;
+                const modal = document.getElementById('modal-verificacion-telefono');
+                if (modal) modal.style.display = 'none';
+            } else {
+                showToast(data.error || 'Error al registrar', 'error');
+                cargarCaptcha();
+                if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
+            }
+        } catch (error) { showToast('Error de conexión al registrarse.', 'error'); } 
+        finally { hideSpinner(); }
     }
 });

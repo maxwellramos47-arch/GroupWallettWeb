@@ -78,89 +78,96 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            showSpinner();
-            try {
-                const res = await fetch('/api/usuarios/registro', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual })
-                });
-                const data = await res.json();
-                
-                if (res.ok) {
-                    if (data.necesitaVerificacion) {
-                        showToast('Registro casi listo. Verifica tu teléfono.', 'success');
+            pendingRegistrationData = { nombre, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual };
+
+            if (telefono && telefono.trim() !== '') {
+                showSpinner();
+                try {
+                    const res = await fetch('/api/usuarios/enviar-codigo-registro', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telefono })
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        currentVerificationToken = data.verificationToken;
+                        showToast('Código SMS enviado. Verifica tu teléfono.', 'success');
                         const modal = document.getElementById('modal-verificacion-telefono');
-                        if (modal) {
-                            modal.style.display = 'flex';
-                            const formVerificacion = document.getElementById('form-verificacion-telefono');
-                            formVerificacion.onsubmit = async (eVerif) => {
-                                eVerif.preventDefault();
-                                const codigo = document.getElementById('codigo-verificacion').value;
-                                await verificarTelefono(data.id_usuario, codigo);
-                            };
-
-                            const btnReenviar = document.getElementById('btn-reenviar-codigo');
-                            if (btnReenviar) {
-                                btnReenviar.onclick = async (eReenviar) => {
-                                    eReenviar.preventDefault();
-                                    const originalText = btnReenviar.textContent;
-                                    btnReenviar.textContent = 'Enviando...';
-                                    btnReenviar.style.pointerEvents = 'none';
-
-                                    try {
-                                        const resReenvio = await fetch('/api/usuarios/reenviar-codigo', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ id_usuario: data.id_usuario })
-                                        });
-                                        const dataReenvio = await resReenvio.json();
-                                        if (resReenvio.ok) showToast(dataReenvio.message, 'success');
-                                        else showToast(dataReenvio.error, 'error');
-                                    } catch (err) { showToast('Error de red al reenviar el código.', 'error'); } 
-                                    finally {
-                                        setTimeout(() => { btnReenviar.textContent = originalText; btnReenviar.style.pointerEvents = 'auto'; }, 10000); // Aumentar a 10s para evitar spam
-                                    }
-                                };
-                            }
-                        }
+                        if (modal) modal.style.display = 'flex';
                     } else {
-                        showToast('Registro exitoso. Redirigiendo...', 'success');
-                        setTimeout(() => {
-                            // Pasamos el correo a la página de login para autocompletar
-                            window.location.href = `login.html?correo=${encodeURIComponent(correo)}`;
-                        }, 1500);
+                        showToast(data.error, 'error');
+                        cargarCaptcha();
+                        if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
                     }
-                } else {
-                    showToast(data.error || 'Error al registrar', 'error');
-                    cargarCaptcha(); // Refrescar el CAPTCHA si falló el registro
-                    if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
-                }
-            } catch (error) {
-                console.error(error);
-                showToast('Error de conexión al intentar registrarse.', 'error');
-            } finally {
-                hideSpinner();
+                } catch (error) { showToast('Error de conexión al solicitar SMS.', 'error'); } 
+                finally { hideSpinner(); }
+            } else {
+                ejecutarRegistroFinal();
             }
         });
     }
 
-    async function verificarTelefono(id_usuario, codigo) {
+    async function ejecutarRegistroFinal(codigoSms = null) {
         showSpinner();
         try {
-            const res = await fetch('/api/usuarios/verificar-telefono', {
+            const payload = { ...pendingRegistrationData };
+            if (codigoSms) {
+                payload.verificationToken = currentVerificationToken;
+                payload.codigoSms = codigoSms;
+            }
+
+            const res = await fetch('/api/usuarios/registro', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_usuario, codigo })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
+            
             if (res.ok) {
-                showToast(data.message, 'success');
-                setTimeout(() => window.location.href = 'login.html', 2000);
+                showToast('Registro exitoso. Redirigiendo...', 'success');
+                setTimeout(() => { window.location.href = `login.html?correo=${encodeURIComponent(payload.correo)}`; }, 1500);
             } else {
-                showToast(data.error, 'error');
+                showToast(data.error || 'Error al registrar', 'error');
+                cargarCaptcha();
+                if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
             }
-        } catch (error) { showToast('Error de conexión.', 'error'); } 
+        } catch (error) { showToast('Error de conexión al registrarse.', 'error'); } 
         finally { hideSpinner(); }
+    }
+
+    const formVerificacion = document.getElementById('form-verificacion-telefono');
+    if (formVerificacion) {
+        formVerificacion.onsubmit = async (eVerif) => {
+            eVerif.preventDefault();
+            const codigo = document.getElementById('codigo-verificacion').value;
+            await ejecutarRegistroFinal(codigo);
+        };
+    }
+
+    const btnReenviar = document.getElementById('btn-reenviar-codigo');
+    if (btnReenviar) {
+        btnReenviar.onclick = async (eReenviar) => {
+            eReenviar.preventDefault();
+            if (!pendingRegistrationData || !pendingRegistrationData.telefono) return;
+
+            const originalText = btnReenviar.textContent;
+            btnReenviar.textContent = 'Enviando...';
+            btnReenviar.style.pointerEvents = 'none';
+
+            try {
+                const resReenvio = await fetch('/api/usuarios/enviar-codigo-registro', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono: pendingRegistrationData.telefono })
+                });
+                const dataReenvio = await resReenvio.json();
+                if (resReenvio.ok) {
+                    currentVerificationToken = dataReenvio.verificationToken;
+                    showToast('Nuevo código enviado.', 'success');
+                } else { showToast(dataReenvio.error, 'error'); }
+            } catch (err) { showToast('Error de red al reenviar el código.', 'error'); } 
+            finally { setTimeout(() => { btnReenviar.textContent = originalText; btnReenviar.style.pointerEvents = 'auto'; }, 10000); }
+        };
     }
 });
