@@ -25,7 +25,7 @@ const cuotaRoutes = require('./Routes/cuota.routes');
 const uploadRoutes = require('./Routes/upload.routes');
 const { logError } = require('./Middleware/logger.util');
 const GastoBLL = require('./BLL/gasto.bll');
-const EmailTemplates = require('./Utils/emailTemplates');
+const EmailTemplates = require('./Routes/emailTemplates');
 
 const app = express();
 app.set("trust proxy", 1);
