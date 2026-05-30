@@ -1245,11 +1245,49 @@ document.addEventListener('DOMContentLoaded', () => {
                         transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
                     } else {
                         showToast('Pago confirmado con éxito.', 'success');
-                        // Actualizar estado local real
                         const t = transacciones.find(tr => tr.id_transaccion == idTransaccion);
                         if (t && t.participantes_detalle) {
                             const p = t.participantes_detalle.find(pd => pd.id_usuario == idUsuario);
                             if (p) p.estado_pago = 'Pagado';
+                        }
+
+                        // Nueva lógica para notificar por WhatsApp/Email
+                        const acreedor = transacciones.find(t => t.id_transaccion == idTransaccion)?.pagador_nombre;
+                        if (acreedor) {
+                            const notifOverlay = document.createElement('div');
+                            notifOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10001; padding: 1rem;";
+                            const notifBox = document.createElement('div');
+                            notifBox.className = "card";
+                            notifBox.style = "max-width: 400px; width: 100%;";
+                            notifBox.innerHTML = `
+                                <h3 style="margin-top: 0;">💬 Notificar Pago</h3>
+                                <p>¿Quieres avisarle a <strong>${acreedor}</strong> que ya pagaste?</p>
+                                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                                    <button id="btn-si-notificar-ws" class="btn-primary" style="background-color: #25D366; flex: 1;">📱 WhatsApp</button>
+                                    <button id="btn-si-notificar-email" class="btn-primary" style="background-color: var(--primary-slate); flex: 1;">✉️ Correo</button>
+                                </div>
+                                <button id="btn-no-notificar" class="btn-primary" style="background-color: var(--text-muted); margin-top: 0.5rem;">No, gracias</button>
+                            `;
+                            notifOverlay.appendChild(notifBox);
+                            document.body.appendChild(notifOverlay);
+
+                            const closeNotifModal = () => document.body.removeChild(notifOverlay);
+                            document.getElementById('btn-no-notificar').addEventListener('click', closeNotifModal);
+
+                            const handleNotification = async (e, url) => {
+                                const btn = e.target;
+                                btn.disabled = true;
+                                btn.textContent = 'Enviando...';
+                                try {
+                                    const resNotif = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_transaccion: idTransaccion }) });
+                                    const dataNotif = await resNotif.json();
+                                    if (resNotif.ok) showToast(dataNotif.message, 'success');
+                                    else showToast(dataNotif.error, 'error');
+                                } catch (err) { showToast('Error de red al notificar.', 'error'); } finally { closeNotifModal(); }
+                            };
+
+                            document.getElementById('btn-si-notificar-ws').addEventListener('click', (e) => handleNotification(e, '/api/cuotas/notificar-pago'));
+                            document.getElementById('btn-si-notificar-email').addEventListener('click', (e) => handleNotification(e, '/api/cuotas/notificar-pago-email'));
                         }
                     }
                     

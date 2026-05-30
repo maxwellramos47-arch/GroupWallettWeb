@@ -37,9 +37,9 @@ class GrupoDAL {
     static async getMembers(id_grupo) {
         const result = await prisma.miembros_Grupo.findMany({
             where: { id_grupo: parseInt(id_grupo) },
-            select: { usuario: { select: { id_usuario: true, nombre: true } } }
+            select: { usuario: { select: { id_usuario: true, nombre: true, telefono: true } } }
         });
-        return result.map(r => r.usuario);
+        return result.map(r => r.usuario); // El teléfono vendrá encriptado
     }
 
     static async getMemberRole(id_grupo, id_usuario) {

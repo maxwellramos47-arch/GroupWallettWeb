@@ -2,6 +2,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     const formLogin = document.getElementById('form-login');
 
+    // Pre-llenar correo si viene desde el registro
+    const urlParams = new URLSearchParams(window.location.search);
+    const correoFromRegister = urlParams.get('correo');
+    if (correoFromRegister) {
+        document.getElementById('correo').value = decodeURIComponent(correoFromRegister);
+    }
+
     // Manejo de mostrar/ocultar contraseñas
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.toggle-password');
@@ -145,6 +152,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const formRegister = document.getElementById('form-register');
     const linkRegister = document.getElementById('link-register') || document.getElementById('btn-register');
     const linkLogin = document.getElementById('link-login') || document.getElementById('btn-login');
+    let captchaTokenActual = '';
+
+    const cargarCaptcha = async () => {
+        try {
+            const res = await fetch('/api/usuarios/captcha');
+            if (res.ok) {
+                const data = await res.json();
+                captchaTokenActual = data.token;
+                
+                let captchaDiv = document.getElementById('captcha-container');
+                const btnSubmit = formRegister.querySelector('button[type="submit"]');
+                
+                if (!captchaDiv && btnSubmit) {
+                    captchaDiv = document.createElement('div');
+                    captchaDiv.id = 'captcha-container';
+                    captchaDiv.style.marginBottom = '1rem';
+                    btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
+                }
+                
+                if (captchaDiv) {
+                    captchaDiv.innerHTML = `
+                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ${data.question}</label>
+                        <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    `;
+                }
+            }
+        } catch (e) { console.error('Error cargando CAPTCHA', e); }
+    };
 
     // Cambiar al formulario de registro
     if (linkRegister && formRegister) {
@@ -193,24 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Agregar dinámicamente el CAPTCHA si no existe
-                if (!document.getElementById('captcha-container')) {
-                    const btnSubmit = formRegister.querySelector('button[type="submit"]');
-                    if (btnSubmit) {
-                        const num1 = Math.floor(Math.random() * 10) + 1;
-                        const num2 = Math.floor(Math.random() * 10) + 1;
-                        window.captchaAnswer = num1 + num2;
-
-                        const captchaDiv = document.createElement('div');
-                        captchaDiv.id = 'captcha-container';
-                        captchaDiv.style.marginBottom = '1rem';
-                        captchaDiv.innerHTML = `
-                            <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ¿Cuánto es ${num1} + ${num2}?</label>
-                            <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                        `;
-                        btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
-                    }
-                }
+                // Cargar CAPTCHA dinámico desde Backend
+                cargarCaptcha();
 
                 const btnSubmit = formRegister.querySelector('button[type="submit"]');
                 if (btnSubmit) btnSubmit.textContent = 'Registrarse';
@@ -237,12 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const confirmPassword = document.getElementById('registro-password-confirm') ? document.getElementById('registro-password-confirm').value : null;
             const tosCheckbox = document.getElementById('registro-tos');
             const captchaInput = document.getElementById('registro-captcha');
-
-            // Validar CAPTCHA
-            if (captchaInput && parseInt(captchaInput.value) !== window.captchaAnswer) {
-                showToast('La respuesta de seguridad es incorrecta. Inténtalo de nuevo.', 'error');
-                return;
-            }
+            const captchaAnswer = captchaInput ? captchaInput.value : null;
 
             // Validar que aceptó los Términos
             if (tosCheckbox && !tosCheckbox.checked) {
@@ -261,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/usuarios/registro', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, correo, password })
+                    body: JSON.stringify({ nombre, correo, password, captchaAnswer, captchaToken: captchaTokenActual })
                 });
                 const data = await res.json();
                 
@@ -273,6 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('correo').value = correo;
                 } else {
                     showToast(data.error || 'Error al registrar', 'error');
+                    cargarCaptcha(); // Refrescar el CAPTCHA si falló el registro
+                    if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
                 }
             } catch (error) {
                 console.error(error);

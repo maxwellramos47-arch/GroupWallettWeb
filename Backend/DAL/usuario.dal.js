@@ -2,9 +2,9 @@ const prisma = require('../Config/prisma');
 const Usuario = require('../Entities/Usuario');
 
 class UsuarioDAL {
-    static async create(nombre, correo, telefono, passwordHash) {
+    static async create(nombre, correo, telefono, passwordHash, codigoVerificacion, codigoExpires) {
         const user = await prisma.usuarios.create({
-            data: { nombre, correo, telefono, password_hash: passwordHash }
+            data: { nombre, correo, telefono, password_hash: passwordHash, codigo_verificacion_telefono: codigoVerificacion, codigo_verificacion_expires: codigoExpires }
         });
         return user.id_usuario;
     }
@@ -100,6 +100,50 @@ class UsuarioDAL {
         await prisma.usuarios.update({
             where: { id_usuario },
             data: { estado_suscripcion: 'GOD_MODE', id_plan: 2 }
+        });
+    }
+
+    static async findParaVerificacion(id_usuario) {
+        return await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(id_usuario) },
+            select: { codigo_verificacion_telefono: true, codigo_verificacion_expires: true, telefono_verificado: true }
+        });
+    }
+
+    static async marcarTelefonoVerificado(id_usuario) {
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_usuario) },
+            data: { telefono_verificado: true, codigo_verificacion_telefono: null, codigo_verificacion_expires: null }
+        });
+    }
+
+    static async actualizarCodigoVerificacion(id_usuario, codigo, expires) {
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_usuario) },
+            data: {
+                codigo_verificacion_telefono: codigo,
+                codigo_verificacion_expires: expires
+            }
+        });
+    }
+
+    static async updateResendRateLimit(id_usuario, attempts, blockUntil) {
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_usuario) },
+            data: {
+                reenvio_codigo_intentos: attempts,
+                reenvio_codigo_bloqueado_hasta: blockUntil
+            }
+        });
+    }
+
+    static async updatePasswordRecoveryRateLimit(id_usuario, attempts, blockUntil) {
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_usuario) },
+            data: {
+                recuperacion_intentos: attempts,
+                recuperacion_bloqueado_hasta: blockUntil
+            }
         });
     }
 }

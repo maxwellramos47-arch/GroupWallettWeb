@@ -36,6 +36,13 @@ model Usuarios {
   foto_url                      String?   @db.VarChar(500)
   push_subscription             String?   @db.Text
   fecha_revocacion_sesiones     DateTime? @db.Timestamp()
+  telefono_verificado           Boolean?  @default(false)
+  codigo_verificacion_telefono  String?   @db.VarChar(10)
+  codigo_verificacion_expires   DateTime? @db.Timestamp()
+  reenvio_codigo_intentos       Int?      @default(0)
+  reenvio_codigo_bloqueado_hasta DateTime? @db.Timestamp()
+  recuperacion_intentos         Int?      @default(0)
+  recuperacion_bloqueado_hasta  DateTime? @db.Timestamp()
 
   plan                          Planes_Suscripcion? @relation(fields: [id_plan], references: [id_plan])
   grupos_creados                Grupos[]

@@ -11,6 +11,14 @@
             window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
         }
     </script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
 </head>
 <body class="login-body">
     <div class="login-container card">
@@ -58,6 +66,22 @@
             ¿Ya tienes cuenta? <a href="login.html" style="color: var(--secondary-emerald); font-weight: bold;">Inicia Sesión</a>
         </p>
     </div>
+
+    <!-- Modal de Verificación de Teléfono -->
+    <div id="modal-verificacion-telefono" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 10000; padding: 1rem;">
+        <div class="card" style="max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">📱 Verificar Teléfono</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Hemos enviado un código de 6 dígitos a tu número. Ingrésalo para completar tu registro.</p>
+            <form id="form-verificacion-telefono">
+                <input type="number" id="codigo-verificacion" placeholder="_ _ _ _ _ _" required style="width: 100%; padding: 0.8rem; font-size: 1.5rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light); text-align: center; letter-spacing: 0.5em;">
+                <button type="submit" class="btn-primary mt-2" style="background-color: var(--secondary-emerald);">Verificar y Finalizar</button>
+            </form>
+            <p style="text-align: center; font-size: 0.8rem; margin-top: 1rem; color: var(--text-muted);">
+                ¿No recibiste el código? <a href="#" id="btn-reenviar-codigo" style="color: var(--secondary-emerald); font-weight: bold;">Reenviar código</a>
+            </p>
+        </div>
+    </div>
+
     <script src="toast.js"></script>
     <script src="registro.js"></script>
 </body>

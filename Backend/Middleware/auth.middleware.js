@@ -17,21 +17,32 @@ async function verificarToken(req, res, next) {
     if (!token) return res.status(401).json({ error: 'Sesión expirada o no proporcionada.' });
 
     try {
+        // 1. Verificación Estricta en Base de Datos (Whitelist)
+        const sesionActiva = await prisma.sesiones_Activas.findUnique({
+            where: { token }
+        });
+
+        if (!sesionActiva) {
+            res.clearCookie('usuarioToken');
+            return res.status(401).json({ error: 'Sesión no encontrada en la base de datos o ya fue cerrada.' });
+        }
+
+        // 2. Verificar que no esté en la lista negra (Blacklist)
         const checkRevocado = await prisma.tokens_Revocados.findUnique({
             where: { token }
         });
         if (checkRevocado) {
             res.clearCookie('usuarioToken');
-            return res.status(401).json({ error: 'Sesión cerrada o token revocado.' });
+            return res.status(401).json({ error: 'Sesión revocada por el sistema.' });
         }
 
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             
-            // Validar si la sesión fue revocada globalmente (Cerrar sesión en todos los dispositivos)
+            // 3. Validar estado del usuario
             const user = await prisma.usuarios.findUnique({ 
                 where: { id_usuario: parseInt(decoded.id_usuario) }, 
-                select: { fecha_revocacion_sesiones: true } 
+                select: { fecha_revocacion_sesiones: true, bloqueado_hasta: true } 
             });
             
             if (user && user.fecha_revocacion_sesiones && (decoded.iat * 1000 < user.fecha_revocacion_sesiones.getTime())) {
@@ -39,11 +50,28 @@ async function verificarToken(req, res, next) {
                 return res.status(401).json({ error: 'La sesión fue revocada globalmente en otro dispositivo.' });
             }
 
+            if (user && user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date()) {
+                res.clearCookie('usuarioToken');
+                return res.status(401).json({ error: 'Tu cuenta se encuentra bloqueada temporalmente.' });
+            }
+
+            // 4. Throttle para actualizar último acceso (Máximo 1 vez por hora para no saturar DB)
+            const ahora = Date.now();
+            const ultimoAcceso = sesionActiva.ultimo_acceso.getTime();
+            if (ahora - ultimoAcceso > 3600000) { 
+                await prisma.sesiones_Activas.update({
+                    where: { id_sesion: sesionActiva.id_sesion },
+                    data: { ultimo_acceso: new Date() }
+                });
+            }
+
             req.usuarioLogueado = decoded;
             req.tokenActual = token;
             next();
         } catch (err) {
-            console.error('Error en verificación de token o Base de Datos:', err.message);
+            // Si el JWT expiró matemáticamente, limpiar la DB
+            await prisma.sesiones_Activas.deleteMany({ where: { token } });
+            console.error('Sesión expirada, token eliminado de DB:', err.message);
             res.clearCookie('usuarioToken');
             return res.status(401).json({ error: 'Token inválido o expirado.' });
         }

@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Súper Admin - GroupWallet</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
 </head>
 <body>
     <header class="main-header" style="background-color: #8e44ad;">
@@ -22,6 +30,10 @@
     </header>
 
     <main class="dashboard-container" style="max-width: 800px;">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+            <button id="btn-refresh-stats" class="btn-primary" style="width: auto; padding: 0.5rem 1rem; background-color: var(--primary-slate); font-size: 0.9rem;">🔄 Refrescar Métricas</button>
+        </div>
+
         <div class="card" style="border-left: 5px solid #8e44ad;">
             <h3 style="color: #8e44ad; border-bottom-color: #f3e5f5;">Métricas SaaS (Viabilidad del Proyecto)</h3>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Modelo legal sin custodia de fondos (Conciliación). Ingresos puros por Suscripción.</p>
@@ -61,16 +73,20 @@
 
         <div class="card mt-2" style="border-left: 5px solid #e74c3c;">
             <h3 style="color: #c0392b; border-bottom-color: #fadbd8;">Métricas del Servidor (En Vivo)</h3>
-            <div class="balance-stats" style="margin-top: 1.5rem;">
-                <div class="stat" style="background-color: #f8f9fa;">
+            <div class="balance-stats" style="margin-top: 1.5rem; flex-wrap: wrap;">
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 20%;">
+                    <span>Usuarios en Línea</span>
+                    <h4 id="stat-online" style="color: #8e44ad; font-size: 2rem;">0</h4>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 20%;">
                     <span>Peticiones a la API</span>
                     <h4 id="stat-requests" style="color: var(--primary-slate); font-size: 2rem;">0</h4>
                 </div>
-                <div class="stat" style="background-color: #f8f9fa;">
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 20%;">
                     <span>Tiempo Activo (Uptime)</span>
                     <h4 id="stat-uptime" style="color: var(--secondary-emerald); font-size: 2rem;">0 min</h4>
                 </div>
-                <div class="stat" style="background-color: #f8f9fa;">
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 20%;">
                     <span>Memoria RAM Usada</span>
                     <h4 id="stat-ram" style="color: #e74c3c; font-size: 2rem;">0 MB</h4>
                 </div>

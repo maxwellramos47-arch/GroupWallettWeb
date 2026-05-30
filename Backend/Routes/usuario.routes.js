@@ -8,6 +8,8 @@ const prisma = require('../Config/prisma');
 const { logError } = require('../Middleware/logger.util');
 const UAParser = require('ua-parser-js');
 const EmailTemplates = require('./emailTemplates');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../Middleware/security.util');
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -17,10 +19,31 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+router.get('/captcha', (req, res) => {
+    // Generar un CAPTCHA Matemático protegido por el servidor
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const answer = num1 + num2;
+    
+    // Firmamos la respuesta correcta en un token que caduca en 10 minutos
+    const token = jwt.sign({ answer, type: 'captcha' }, JWT_SECRET, { expiresIn: '10m' });
+    res.json({ question: `¿Cuánto es ${num1} + ${num2}?`, token });
+});
+
 router.post('/registro', async (req, res) => {
     try {
-        const { nombre, correo, telefono, password } = req.body;
-        const id = await UsuarioBLL.registrar(nombre, correo, telefono, password);
+        const { nombre, correo, telefono, password, captchaAnswer, captchaToken } = req.body;
+        
+        // --- Validación Estricta de CAPTCHA en Backend ---
+        if (!captchaToken || !captchaAnswer) return res.status(400).json({ error: 'Falta la verificación de seguridad (CAPTCHA).' });
+        try {
+            const decoded = jwt.verify(captchaToken, JWT_SECRET);
+            if (decoded.type !== 'captcha' || decoded.answer !== parseInt(captchaAnswer)) {
+                return res.status(400).json({ error: 'Respuesta de seguridad (CAPTCHA) incorrecta.' });
+            }
+        } catch (err) { return res.status(400).json({ error: 'El CAPTCHA expiró o es inválido. Por favor, recarga la página.' }); }
+
+        const { id_usuario, necesitaVerificacion } = await UsuarioBLL.registrar(nombre, correo, telefono, password);
         
         // --- Enviar correo de bienvenida (Background Task) ---
         try {
@@ -44,13 +67,37 @@ router.post('/registro', async (req, res) => {
             transporter.sendMail(mailOptions).catch(err => console.error('Error enviando correo de bienvenida:', err));
         } catch (mailError) { console.error('Error configurando correo de bienvenida:', mailError); }
         
-        res.status(201).json({ message: 'Usuario registrado con seguridad', id });
+        res.status(201).json({ message: 'Usuario registrado con seguridad', id_usuario, necesitaVerificacion });
     } catch (error) { 
         logError('Registro de Usuario POST /registro', error);
         if (error.code === 'P2002') {
             return res.status(400).json({ error: 'Este correo electrónico ya está registrado. Intenta iniciar sesión.' });
         }
         res.status(500).json({ error: 'Error interno al registrar usuario: ' + error.message }); 
+    }
+});
+
+router.post('/verificar-telefono', async (req, res) => {
+    try {
+        const { id_usuario, codigo } = req.body;
+        if (!id_usuario || !codigo) return res.status(400).json({ error: 'Faltan datos para la verificación.' });
+
+        await UsuarioBLL.verificarCodigoTelefono(id_usuario, codigo);
+        res.json({ message: '¡Número de teléfono verificado exitosamente!' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+router.post('/reenviar-codigo', async (req, res) => {
+    try {
+        const { id_usuario } = req.body;
+        if (!id_usuario) return res.status(400).json({ error: 'Falta el ID de usuario.' });
+
+        await UsuarioBLL.reenviarCodigoVerificacion(id_usuario);
+        res.json({ message: 'Se ha reenviado un nuevo código de verificación a tu teléfono.' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
 });
 
@@ -115,33 +162,38 @@ router.put('/perfil', verificarToken, async (req, res) => {
 router.post('/recuperar-password', async (req, res) => {
     try {
         const token = await UsuarioBLL.solicitarRecuperacion(req.body.correo);
-        
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: process.env.SMTP_PORT || 587,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
-            }
-        });
 
-        // Generar enlace dinámico hacia el frontend
-        const clientUrl = req.headers.origin || process.env.FRONTEND_URL || `${req.secure ? 'https://' : 'http://'}${req.headers.host}`;
-        const recoveryLink = `${clientUrl}/login.html?reset_token=${token}`;
+        // Solo enviamos el correo si se generó un token (usuario existe y no está bloqueado)
+        if (token) {
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: process.env.SMTP_PORT || 587,
+                secure: false,
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            });
 
-        const mailOptions = {
-            from: `"GroupWallet" <${process.env.SMTP_USER}>`,
-            to: req.body.correo,
-            subject: 'Restablecer Contraseña - GroupWallet',
-            html: EmailTemplates.recuperacionPassword(recoveryLink)
-        };
-        await transporter.sendMail(mailOptions);
-        
-        res.json({ message: 'Se ha enviado un enlace de recuperación a tu correo.' });
+            const clientUrl = req.headers.origin || process.env.FRONTEND_URL || `${req.secure ? 'https://' : 'http://'}${req.headers.host}`;
+            const recoveryLink = `${clientUrl}/login.html?reset_token=${token}`;
+
+            const mailOptions = {
+                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+                to: req.body.correo,
+                subject: 'Restablecer Contraseña - GroupWallet',
+                html: EmailTemplates.recuperacionPassword(recoveryLink)
+            };
+            // Enviar en segundo plano para no hacer esperar al usuario
+            transporter.sendMail(mailOptions).catch(err => console.error('Error enviando correo de recuperación:', err));
+        }
+
+        // Siempre devolver un mensaje genérico para evitar enumeración de correos
+        res.json({ message: 'Si tu correo está registrado, recibirás un enlace de recuperación en breve.' });
     } catch (error) {
-        console.error('Error al enviar correo de recuperación:', error);
-        res.status(error.message.includes('no encontrado') ? 404 : 500).json({ error: error.message });
+        if (error.message.includes('demasiadas recuperaciones')) {
+            return res.status(429).json({ error: error.message });
+        }
+        console.error('Error al solicitar recuperación:', error);
+        // Para cualquier otro error, también devolvemos un mensaje genérico por seguridad
+        res.json({ message: 'Si tu correo está registrado, recibirás un enlace de recuperación en breve.' });
     }
 });
 

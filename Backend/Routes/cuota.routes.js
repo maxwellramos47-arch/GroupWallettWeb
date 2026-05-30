@@ -86,4 +86,24 @@ router.post('/confirmar-checkout', verificarToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: 'Error al verificar el pago.' }); }
 });
 
+router.post('/notificar-pago', verificarToken, async (req, res) => {
+    try {
+        const { id_transaccion } = req.body;
+        const id_deudor = req.usuarioLogueado.id_usuario;
+        const resultado = await GastoBLL.notificarPagoManualPorWhatsApp(id_transaccion, id_deudor);
+        res.json(resultado);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/notificar-pago-email', verificarToken, async (req, res) => {
+    try {
+        const { id_transaccion } = req.body;
+        const id_deudor = req.usuarioLogueado.id_usuario;
+        const resultado = await GastoBLL.notificarPagoManualPorEmail(id_transaccion, id_deudor);
+        res.json(resultado);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 module.exports = router;

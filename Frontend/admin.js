@@ -72,46 +72,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) { console.error('Error cargando gráfico:', error); }
     };
 
-    showSpinner();
-    try {
-        const response = await fetch('/api/admin/stats', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+    // --- Cargar Métricas Principales ---
+    const cargarMetricas = async (isRefresh = false) => {
+        if (!isRefresh) showSpinner();
+        try {
+            const response = await fetch('/api/admin/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (response.ok) {
-            // --- Cargar Métricas SaaS ---
-            if (data.saas_metrics) {
-                document.getElementById('stat-mrr').textContent = `$${data.saas_metrics.mrr.toLocaleString('es-CL')}`;
-                document.getElementById('stat-churn').textContent = `${data.saas_metrics.churn_rate.toFixed(1)}%`;
-                document.getElementById('stat-ltv').textContent = `$${data.saas_metrics.ltv.toLocaleString('es-CL')}`;
-                document.getElementById('stat-cac').textContent = `$${data.saas_metrics.cac.toLocaleString('es-CL')}`;
-                document.getElementById('stat-burn').textContent = `$${data.saas_metrics.burn_rate.toLocaleString('es-CL')}`;
+            if (response.ok) {
+                // --- Cargar Métricas SaaS ---
+                if (data.saas_metrics) {
+                    document.getElementById('stat-mrr').textContent = `$${data.saas_metrics.mrr.toLocaleString('es-CL')}`;
+                    document.getElementById('stat-churn').textContent = `${data.saas_metrics.churn_rate.toFixed(1)}%`;
+                    document.getElementById('stat-ltv').textContent = `$${data.saas_metrics.ltv.toLocaleString('es-CL')}`;
+                    document.getElementById('stat-cac').textContent = `$${data.saas_metrics.cac.toLocaleString('es-CL')}`;
+                    document.getElementById('stat-burn').textContent = `$${data.saas_metrics.burn_rate.toLocaleString('es-CL')}`;
+                }
+                
+                // Actualizar Métricas de Servidor y Tráfico
+                if (data.server_metrics) {
+                    const statReq = document.getElementById('stat-requests');
+                    const statUp = document.getElementById('stat-uptime');
+                    const statRam = document.getElementById('stat-ram');
+                    const statOnline = document.getElementById('stat-online');
+                    if (statReq) statReq.textContent = data.server_metrics.total_requests;
+                    if (statUp) statUp.textContent = `${data.server_metrics.uptime_minutes} min`;
+                    if (statRam) statRam.textContent = `${data.server_metrics.ram_mb} MB`;
+                    if (statOnline) statOnline.textContent = data.server_metrics.usuarios_en_linea;
+                }
+
+                cargarGraficoEvolucion();
+                if (isRefresh) showToast('Métricas actualizadas.', 'success');
+            } else {
+                // Si no es God Mode, la API devolverá 403 y lo sacamos de aquí
+                showToast(data.error || 'Acceso denegado. Modo incógnito activado.', 'error');
+                if (!isRefresh) setTimeout(() => window.location.href = 'dashboard.html', 2000);
             }
-            
-            // Actualizar Métricas de Servidor y Tráfico
-            if (data.server_metrics) {
-                const statReq = document.getElementById('stat-requests');
-                const statUp = document.getElementById('stat-uptime');
-                const statRam = document.getElementById('stat-ram');
-                if (statReq) statReq.textContent = data.server_metrics.total_requests;
-                if (statUp) statUp.textContent = `${data.server_metrics.uptime_minutes} min`;
-                if (statRam) statRam.textContent = `${data.server_metrics.ram_mb} MB`;
-            }
-
-            cargarGraficoEvolucion();
-            showToast('Métricas actualizadas exitosamente.', 'success');
-        } else {
-            // Si no es God Mode, la API devolverá 403 y lo sacamos de aquí
-            showToast(data.error || 'Acceso denegado. Modo incógnito activado.', 'error');
-            setTimeout(() => window.location.href = 'dashboard.html', 2000);
+        } catch (error) {
+            console.error(error);
+            showToast('Error al conectar con la base de datos.', 'error');
+        } finally {
+            if (!isRefresh) hideSpinner();
         }
-    } catch (error) {
-        console.error(error);
-        showToast('Error al conectar con la base de datos.', 'error');
-    } finally {
-        hideSpinner();
+    };
+
+    cargarMetricas();
+
+    const btnRefreshStats = document.getElementById('btn-refresh-stats');
+    if (btnRefreshStats) {
+        btnRefreshStats.addEventListener('click', () => {
+            const originalText = btnRefreshStats.textContent;
+            btnRefreshStats.textContent = '⏳ Actualizando...';
+            btnRefreshStats.disabled = true;
+            cargarMetricas(true).finally(() => {
+                btnRefreshStats.textContent = originalText;
+                btnRefreshStats.disabled = false;
+            });
+        });
     }
 
     // --- Visor de Logs ---

@@ -1,25 +1,36 @@
 // registro.js
 document.addEventListener('DOMContentLoaded', () => {
     const formRegister = document.getElementById('form-register');
+    let captchaTokenActual = '';
 
-    // Generar CAPTCHA Matemático Simple dinámicamente
-    if (formRegister && !document.getElementById('captcha-container')) {
-        const btnSubmit = formRegister.querySelector('button[type="submit"]');
-        if (btnSubmit) {
-            const num1 = Math.floor(Math.random() * 10) + 1;
-            const num2 = Math.floor(Math.random() * 10) + 1;
-            window.captchaAnswer = num1 + num2;
+    const cargarCaptcha = async () => {
+        try {
+            const res = await fetch('/api/usuarios/captcha');
+            if (res.ok) {
+                const data = await res.json();
+                captchaTokenActual = data.token;
+                
+                let captchaDiv = document.getElementById('captcha-container');
+                const btnSubmit = formRegister.querySelector('button[type="submit"]');
+                
+                if (!captchaDiv && btnSubmit) {
+                    captchaDiv = document.createElement('div');
+                    captchaDiv.id = 'captcha-container';
+                    captchaDiv.style.marginBottom = '1rem';
+                    btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
+                }
+                
+                if (captchaDiv) {
+                    captchaDiv.innerHTML = `
+                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ${data.question}</label>
+                        <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    `;
+                }
+            }
+        } catch (e) { console.error('Error cargando CAPTCHA', e); }
+    };
 
-            const captchaDiv = document.createElement('div');
-            captchaDiv.id = 'captcha-container';
-            captchaDiv.style.marginBottom = '1rem';
-            captchaDiv.innerHTML = `
-                <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Verificación Humana: ¿Cuánto es ${num1} + ${num2}?</label>
-                <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-            `;
-            btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
-        }
-    }
+    if (formRegister) cargarCaptcha();
 
     // Manejo de mostrar/ocultar contraseñas
     document.addEventListener('click', (e) => {
@@ -44,12 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const confirmPassword = document.getElementById('registro-password-confirm').value;
             const tosCheckbox = document.getElementById('registro-tos');
             const captchaInput = document.getElementById('registro-captcha');
-
-            // Validar CAPTCHA
-            if (captchaInput && parseInt(captchaInput.value) !== window.captchaAnswer) {
-                showToast('La respuesta de seguridad es incorrecta. Inténtalo de nuevo.', 'error');
-                return;
-            }
+            const captchaAnswer = captchaInput ? captchaInput.value : null;
 
             // Validar que aceptó los Términos
             if (tosCheckbox && !tosCheckbox.checked) {
@@ -68,15 +74,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/usuarios/registro', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, correo, telefono, password })
+                    body: JSON.stringify({ nombre, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual })
                 });
                 const data = await res.json();
                 
                 if (res.ok) {
-                    showToast('Registro exitoso. Redirigiendo...', 'success');
-                    setTimeout(() => window.location.href = 'login.html', 1500); // Lo manda al login automáticamente tras registrar
+                    if (data.necesitaVerificacion) {
+                        showToast('Registro casi listo. Verifica tu teléfono.', 'success');
+                        const modal = document.getElementById('modal-verificacion-telefono');
+                        if (modal) {
+                            modal.style.display = 'flex';
+                            const formVerificacion = document.getElementById('form-verificacion-telefono');
+                            formVerificacion.onsubmit = async (eVerif) => {
+                                eVerif.preventDefault();
+                                const codigo = document.getElementById('codigo-verificacion').value;
+                                await verificarTelefono(data.id_usuario, codigo);
+                            };
+
+                            const btnReenviar = document.getElementById('btn-reenviar-codigo');
+                            if (btnReenviar) {
+                                btnReenviar.onclick = async (eReenviar) => {
+                                    eReenviar.preventDefault();
+                                    const originalText = btnReenviar.textContent;
+                                    btnReenviar.textContent = 'Enviando...';
+                                    btnReenviar.style.pointerEvents = 'none';
+
+                                    try {
+                                        const resReenvio = await fetch('/api/usuarios/reenviar-codigo', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ id_usuario: data.id_usuario })
+                                        });
+                                        const dataReenvio = await resReenvio.json();
+                                        if (resReenvio.ok) showToast(dataReenvio.message, 'success');
+                                        else showToast(dataReenvio.error, 'error');
+                                    } catch (err) { showToast('Error de red al reenviar el código.', 'error'); } 
+                                    finally {
+                                        setTimeout(() => { btnReenviar.textContent = originalText; btnReenviar.style.pointerEvents = 'auto'; }, 10000); // Aumentar a 10s para evitar spam
+                                    }
+                                };
+                            }
+                        }
+                    } else {
+                        showToast('Registro exitoso. Redirigiendo...', 'success');
+                        setTimeout(() => {
+                            // Pasamos el correo a la página de login para autocompletar
+                            window.location.href = `login.html?correo=${encodeURIComponent(correo)}`;
+                        }, 1500);
+                    }
                 } else {
                     showToast(data.error || 'Error al registrar', 'error');
+                    cargarCaptcha(); // Refrescar el CAPTCHA si falló el registro
+                    if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
                 }
             } catch (error) {
                 console.error(error);
@@ -85,5 +134,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideSpinner();
             }
         });
+    }
+
+    async function verificarTelefono(id_usuario, codigo) {
+        showSpinner();
+        try {
+            const res = await fetch('/api/usuarios/verificar-telefono', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_usuario, codigo })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.message, 'success');
+                setTimeout(() => window.location.href = 'login.html', 2000);
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch (error) { showToast('Error de conexión.', 'error'); } 
+        finally { hideSpinner(); }
     }
 });

@@ -18,7 +18,11 @@ class GrupoBLL {
     }
 
     static async obtenerMiembros(id_grupo) {
-        return await GrupoDAL.getMembers(id_grupo);
+        const miembros = await GrupoDAL.getMembers(id_grupo);
+        return miembros.map(m => ({
+            ...m,
+            telefono: safeDecrypt(m.telefono)
+        }));
     }
 
     static async editarGrupo(id_grupo, id_solicitante, nombre_grupo) {

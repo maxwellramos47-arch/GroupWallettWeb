@@ -3,16 +3,44 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const UsuarioDAL = require('../DAL/usuario.dal');
 const { JWT_SECRET, safeEncrypt, safeDecrypt } = require('../Middleware/security.util');
+const twilio = require('twilio');
 
 class UsuarioBLL {
     static async registrar(nombre, correo, telefono, password) {
+        const correoNormalizado = correo.toLowerCase().trim();
         const passwordHash = await bcrypt.hash(password, 10);
         const telefonoSeguro = safeEncrypt(telefono);
-        return await UsuarioDAL.create(nombre, correo, telefonoSeguro, passwordHash);
+
+        let codigoVerificacion = null;
+        let codigoExpires = null;
+        let necesitaVerificacion = false;
+
+        if (telefono && telefono.trim() !== '') {
+            necesitaVerificacion = true;
+            codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString(); // Código de 6 dígitos
+            codigoExpires = new Date(Date.now() + 10 * 60 * 1000); // Válido por 10 minutos
+        }
+
+        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, telefonoSeguro, passwordHash, codigoVerificacion, codigoExpires);
+
+        if (necesitaVerificacion && process.env.TWILIO_ACCOUNT_SID) {
+            try {
+                const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+                const numeroLimpio = telefono.replace(/[^0-9+]/g, '');
+                await client.messages.create({
+                    body: `Tu código de verificación para GroupWallet es: ${codigoVerificacion}`,
+                    from: process.env.TWILIO_PHONE_NUMBER,
+                    to: numeroLimpio
+                });
+            } catch (error) { console.error('Error enviando SMS de verificación con Twilio:', error.message); }
+        }
+
+        return { id_usuario, necesitaVerificacion };
     }
 
     static async login(correo, password, rememberMe = false) {
-        const usuario = await UsuarioDAL.findByEmail(correo);
+        const correoNormalizado = correo.toLowerCase().trim();
+        const usuario = await UsuarioDAL.findByEmail(correoNormalizado);
         if (!usuario) throw new Error('Usuario no encontrado o credenciales inválidas.');
 
         // Verificar si la cuenta está bloqueada temporalmente
@@ -63,10 +91,38 @@ class UsuarioBLL {
     }
 
     static async solicitarRecuperacion(correo) {
-        const token = crypto.randomBytes(20).toString('hex');
-        const success = await UsuarioDAL.setResetToken(correo, token, new Date(Date.now() + 15 * 60 * 1000)); // Expiración en 15 minutos
-        if (!success) throw new Error('Correo no encontrado en el sistema.');
-        return token;
+        const correoNormalizado = correo.toLowerCase().trim();
+        const usuario = await UsuarioDAL.findByEmail(correoNormalizado);
+
+        // Para prevenir enumeración de correos, no lanzamos error si el usuario no existe.
+        // La lógica de rate-limiting solo se aplica si el usuario es encontrado.
+        if (usuario) {
+            if (usuario.recuperacion_bloqueado_hasta && new Date(usuario.recuperacion_bloqueado_hasta) > new Date()) {
+                const minutosRestantes = Math.ceil((new Date(usuario.recuperacion_bloqueado_hasta) - new Date()) / 60000);
+                throw new Error(`Has solicitado demasiadas recuperaciones. Intenta de nuevo en ${minutosRestantes} minuto(s).`);
+            }
+
+            let newAttempts = (usuario.recuperacion_intentos || 0);
+            let newBlockUntil = usuario.recuperacion_bloqueado_hasta;
+
+            // Si el último bloqueo ya pasó, reseteamos el contador
+            if (newBlockUntil && new Date(newBlockUntil) < new Date()) {
+                newAttempts = 0;
+                newBlockUntil = null;
+            }
+            newAttempts++;
+
+            if (newAttempts >= 3) {
+                newBlockUntil = new Date(Date.now() + 15 * 60 * 1000); // Bloqueo por 15 minutos
+            }
+            await UsuarioDAL.updatePasswordRecoveryRateLimit(usuario.id_usuario, newAttempts, newBlockUntil);
+
+            const token = crypto.randomBytes(20).toString('hex');
+            await UsuarioDAL.setResetToken(correoNormalizado, token, new Date(Date.now() + 15 * 60 * 1000));
+            return token;
+        }
+
+        return null; // No se encontró el usuario, no se genera token.
     }
 
     static async restablecerPassword(token, new_password) {

@@ -540,6 +540,13 @@ app.get('/api/admin/stats', verificarToken, verificarSuperAdmin, async (req, res
         
         const totalHistoricoPremium = usuariosPremium + usuariosVencidos;
         const churnRate = totalHistoricoPremium > 0 ? (usuariosVencidos / totalHistoricoPremium) * 100 : 0;
+
+        // --- Usuarios en línea (Sesiones activas recientes) ---
+        const limiteEnLinea = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 horas (para cubrir el throttle del middleware)
+        const enLineaGroup = await prisma.sesiones_Activas.groupBy({
+            by: ['id_usuario'],
+            where: { ultimo_acceso: { gte: limiteEnLinea } }
+        });
         
         const arpa = 5000; // Ingreso Promedio por Cuenta
         
@@ -576,7 +583,8 @@ app.get('/api/admin/stats', verificarToken, verificarSuperAdmin, async (req, res
             server_metrics: {
                 total_requests: totalRequests,
                 uptime_minutes: Math.floor(process.uptime() / 60),
-                ram_mb: Math.round(memory.rss / 1024 / 1024)
+                ram_mb: Math.round(memory.rss / 1024 / 1024),
+                usuarios_en_linea: enLineaGroup.length
             }
         });
     } catch (error) {
@@ -818,11 +826,25 @@ cron.schedule('0 0 * * *', async () => {
 
 cron.schedule('0 * * * *', async () => {
     try {
+        // 1. Limpiar lista negra
         await prisma.tokens_Revocados.deleteMany({
             where: { fecha_expiracion: { lt: new Date() } }
         });
+        
+        // 2. Limpiar sesiones inactivas (más de 30 días)
+        const limiteSesion = new Date();
+        limiteSesion.setDate(limiteSesion.getDate() - 30);
+        await prisma.sesiones_Activas.deleteMany({
+            where: { ultimo_acceso: { lt: limiteSesion } }
+        });
+
+        // 3. Limpiar tokens de recuperación de contraseñas expirados
+        await prisma.usuarios.updateMany({
+            where: { reset_token_expires: { lt: new Date() } },
+            data: { reset_token: null, reset_token_expires: null }
+        });
     } catch (error) {
-        console.error('[CRON] Error limpiando tokens de la lista negra:', error);
+        console.error('[CRON] Error limpiando tokens y sesiones expiradas:', error);
     }
 });
 

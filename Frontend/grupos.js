@@ -166,8 +166,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         miembros.forEach(m => {
                             let btnExpulsar = '';
                             let btnBanco = '';
+                            let btnWhatsapp = '';
                             if (m.id_usuario != miId) {
                                 btnBanco = `<button class="btn-ver-banco-modal btn-primary" data-usuario="${m.id_usuario}" style="background-color: var(--primary-slate); padding: 0.2rem 0.5rem; font-size: 0.75rem; width: auto; margin-left: 0.5rem;">🏦 Banco</button>`;
+                                if (m.telefono) {
+                                    const numeroLimpio = m.telefono.replace(/[^0-9+]/g, '');
+                                    btnWhatsapp = `<a href="https://wa.me/${numeroLimpio}" target="_blank" title="Chatear por WhatsApp" style="text-decoration: none; font-size: 1.2rem;">💬</a>`;
+                                }
                             }
                             if (miRol === 'Administrador' && m.id_usuario != miId) {
                                 btnExpulsar = `<button class="btn-expulsar-miembro btn-primary" data-grupo="${idGrupo}" data-usuario="${m.id_usuario}" style="background-color: var(--danger-color); padding: 0.2rem 0.5rem; font-size: 0.75rem; width: auto; margin-left: 0.5rem;">Expulsar</button>`;
@@ -176,7 +181,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <div style="display: flex; align-items: center;">
                                     <span style="font-weight: 500;">${m.nombre} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
                                 </div>
-                                <div style="display: flex; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 0.8rem;">
+                                    ${btnWhatsapp}
                                     ${btnBanco}
                                     ${btnExpulsar}
                                 </div>
