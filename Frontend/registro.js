@@ -86,7 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await fetch('/api/usuarios/enviar-codigo-registro', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ telefono })
+                        body: JSON.stringify({ 
+                            telefono, 
+                            oldToken: currentVerificationToken 
+                        })
                     });
                     const data = await res.json();
                     
@@ -159,7 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resReenvio = await fetch('/api/usuarios/enviar-codigo-registro', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ telefono: pendingRegistrationData.telefono })
+                    body: JSON.stringify({ 
+                        telefono: pendingRegistrationData.telefono,
+                        oldToken: currentVerificationToken
+                    })
                 });
                 const dataReenvio = await resReenvio.json();
                 if (resReenvio.ok) {

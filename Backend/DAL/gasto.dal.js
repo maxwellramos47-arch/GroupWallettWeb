@@ -116,6 +116,29 @@ class GastoDAL {
             await tx.$executeRaw`DELETE FROM Transacciones WHERE id_transaccion = ${parseInt(id_transaccion)}`;
         });
     }
+
+    static async getGastoDetailsForNotification(id_transaccion) {
+        const gasto = await prisma.transacciones.findUnique({
+            where: { id_transaccion: parseInt(id_transaccion) },
+            include: {
+                pagador: { select: { id_usuario: true, nombre: true, telefono: true, correo: true } },
+                participantes: {
+                    include: {
+                        usuario: { select: { id_usuario: true, nombre: true } }
+                    }
+                }
+            }
+        });
+
+        if (!gasto) return null;
+
+        gasto.participantes = gasto.participantes.map(p => ({
+            id_usuario: p.usuario.id_usuario,
+            nombre: p.usuario.nombre,
+            estado_pago: p.estado_pago
+        }));
+        return gasto;
+    }
 }
 
 module.exports = GastoDAL;

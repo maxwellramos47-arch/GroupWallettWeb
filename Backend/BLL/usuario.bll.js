@@ -103,8 +103,7 @@ class UsuarioBLL {
     static async obtenerPerfil(id_usuario) {
         const usuario = await UsuarioDAL.findById(id_usuario);
         if (!usuario) throw new Error('Usuario no encontrado');
-        const verifStatus = await UsuarioDAL.findParaVerificacion(id_usuario);
-        return { nombre: usuario.nombre, correo: usuario.correo, telefono: safeDecrypt(usuario.telefono), telefono_verificado: verifStatus ? verifStatus.telefono_verificado : false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
+        return { nombre: usuario.nombre, correo: usuario.correo, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
     }
 
     static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password_actual, nueva_password) {
@@ -188,51 +187,6 @@ class UsuarioBLL {
 
     static async activarGodMode(id_usuario) {
         await UsuarioDAL.enableGodMode(id_usuario);
-    }
-
-    static async reenviarCodigoVerificacion(id_usuario) {
-        const usuario = await UsuarioDAL.findById(id_usuario);
-        if (!usuario || !usuario.telefono) {
-            throw new Error('No se encontró un número de teléfono para este usuario.');
-        }
-        
-        const limits = await UsuarioDAL.findParaVerificacion(id_usuario);
-        if (limits && limits.telefono_verificado) {
-            throw new Error('Este número de teléfono ya ha sido verificado.');
-        }
-
-        // Lógica de Rate Limiting para reenvío
-        if (limits.reenvio_codigo_bloqueado_hasta && new Date(limits.reenvio_codigo_bloqueado_hasta) > new Date()) {
-            const minutosRestantes = Math.ceil((new Date(limits.reenvio_codigo_bloqueado_hasta) - new Date()) / 60000);
-            throw new Error(`Has solicitado demasiados códigos. Intenta de nuevo en ${minutosRestantes} minuto(s).`);
-        }
-
-        let newAttempts = (limits.reenvio_codigo_intentos || 0);
-        let newBlockUntil = limits.reenvio_codigo_bloqueado_hasta;
-
-        if (newBlockUntil && new Date(newBlockUntil) < new Date()) { newAttempts = 0; }
-        newAttempts++;
-
-        if (newAttempts >= 3) { newBlockUntil = new Date(Date.now() + 10 * 60 * 1000); } // 10 mins
-        await UsuarioDAL.updateResendRateLimit(id_usuario, newAttempts, newBlockUntil);
-
-        const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
-        const codigoExpires = new Date(Date.now() + 10 * 60 * 1000);
-        await UsuarioDAL.actualizarCodigoVerificacion(id_usuario, codigoVerificacion, codigoExpires);
-
-        const telefonoLimpio = safeDecrypt(limits.telefono).replace(/[^0-9+]/g, '');
-
-        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-            throw new Error('El servicio de SMS no está configurado en el servidor.');
-        }
-
-        try {
-            const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-            await client.messages.create({ body: `Tu nuevo código de verificación es: ${codigoVerificacion}`, from: process.env.TWILIO_PHONE_NUMBER, to: telefonoLimpio });
-        } catch (error) { 
-            console.error('Error reenviando SMS con Twilio:', error.message); 
-            throw new Error('No se pudo reenviar el SMS. Intenta de nuevo más tarde.');
-        }
     }
 }
 

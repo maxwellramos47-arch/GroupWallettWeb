@@ -3,6 +3,9 @@ const GrupoDAL = require('../DAL/grupo.dal');
 const UsuarioDAL = require('../DAL/usuario.dal');
 const { generarFirmaHMAC } = require('../Middleware/security.util');
 const webpush = require('web-push');
+const { safeDecrypt } = require('../Middleware/security.util');
+const EmailTemplates = require('../Routes/emailTemplates');
+const nodemailer = require('nodemailer');
 
 class GastoBLL {
     static async obtenerGastos() {
@@ -86,6 +89,64 @@ class GastoBLL {
         const archivado = await GastoDAL.registerInAppPaymentAndArchive(id_transaccion, id_usuario, info.id_receptor, montoBase, comision, total);
         
         return { archivado, montoBase, comision, total };
+    }
+
+    static async notificarPagoManualPorWhatsApp(id_transaccion, id_deudor_notificador) {
+        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+            throw new Error('La integración con Twilio no está configurada en el servidor.');
+        }
+
+        const gasto = await GastoDAL.getGastoDetailsForNotification(id_transaccion);
+        if (!gasto) throw new Error('Transacción no encontrada para notificar.');
+
+        const deudor = gasto.participantes.find(p => p.id_usuario == id_deudor_notificador);
+        if (!deudor) throw new Error('El usuario notificador no es parte de este gasto.');
+
+        const acreedor = gasto.pagador;
+        const telefonoAcreedor = safeDecrypt(acreedor.telefono);
+
+        if (!telefonoAcreedor) {
+            return { message: 'Notificación no enviada: El acreedor no tiene un número de teléfono registrado.' };
+        }
+
+        const twilio = require('twilio');
+        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        const fromWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+
+        const montoCuota = parseFloat(gasto.monto) / gasto.participantes.length;
+        const mensaje = `¡Hola ${acreedor.nombre}! ✅ ${deudor.nombre} ha marcado como pagada su cuota de $${montoCuota.toFixed(2)} por el gasto "${gasto.descripcion}" en GroupWallet.`;
+
+        try {
+            const numeroLimpio = telefonoAcreedor.replace(/[^0-9+]/g, '');
+            await client.messages.create({ body: mensaje, from: fromWhatsApp, to: `whatsapp:${numeroLimpio}` });
+            return { message: 'Notificación de pago enviada por WhatsApp exitosamente.' };
+        } catch (error) {
+            console.error(`Error Twilio al notificar pago a ${acreedor.nombre}:`, error.message);
+            throw new Error('No se pudo enviar la notificación por WhatsApp.');
+        }
+    }
+
+    static async notificarPagoManualPorEmail(id_transaccion, id_deudor_notificador) {
+        const gasto = await GastoDAL.getGastoDetailsForNotification(id_transaccion);
+        if (!gasto) throw new Error('Transacción no encontrada para notificar.');
+
+        const deudor = gasto.participantes.find(p => p.id_usuario == id_deudor_notificador);
+        if (!deudor) throw new Error('El usuario notificador no es parte de este gasto.');
+
+        const acreedor = gasto.pagador;
+        if (!acreedor.correo) return { message: 'Notificación no enviada: El acreedor no tiene un correo registrado.' };
+
+        const montoCuota = parseFloat(gasto.monto) / gasto.participantes.length;
+
+        try {
+            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+            const mailOptions = { from: `"GroupWallet" <${process.env.SMTP_USER}>`, to: acreedor.correo, subject: `✅ ${deudor.nombre} ha pagado su cuota`, html: EmailTemplates.notificacionPagoCuota(acreedor.nombre, deudor.nombre, montoCuota, gasto.descripcion) };
+            await transporter.sendMail(mailOptions);
+            return { message: 'Notificación de pago enviada por correo exitosamente.' };
+        } catch (error) {
+            console.error(`Error al enviar correo de notificación de pago a ${acreedor.nombre}:`, error);
+            throw new Error('No se pudo enviar la notificación por correo.');
+        }
     }
 }
 module.exports = GastoBLL;

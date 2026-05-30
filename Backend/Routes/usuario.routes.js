@@ -40,8 +40,21 @@ const smsLimiter = rateLimit({
 
 router.post('/enviar-codigo-registro', smsLimiter, async (req, res) => {
     try {
-        const { telefono } = req.body;
+        const { telefono, oldToken } = req.body;
         if (!telefono) return res.status(400).json({ error: 'Falta el número de teléfono.' });
+
+        // Invalidar el token anterior si existe
+        if (oldToken) {
+            try {
+                const decoded = jwt.decode(oldToken);
+                if (decoded && decoded.exp) {
+                    await prisma.tokens_Revocados.createMany({
+                        data: [{ token: oldToken, fecha_expiracion: new Date(decoded.exp * 1000) }],
+                        skipDuplicates: true
+                    });
+                }
+            } catch (e) { /* Ignorar errores si el token viejo estaba corrupto */ }
+        }
         
         const { token } = await UsuarioBLL.generarTokenVerificacion(telefono);
         res.json({ message: 'Código SMS enviado exitosamente.', verificationToken: token });
@@ -61,8 +74,29 @@ router.post('/registro', async (req, res) => {
             }
         } catch (err) { return res.status(400).json({ error: 'El CAPTCHA expiró o es inválido. Por favor, recarga la página.' }); }
 
+        // --- Validación Estricta de Código Invalidado ---
+        if (verificationToken) {
+            const isRevoked = await prisma.tokens_Revocados.findUnique({ where: { token: verificationToken } });
+            if (isRevoked) {
+                return res.status(400).json({ error: 'Este código ha sido invalidado porque solicitaste uno nuevo.' });
+            }
+        }
+
         const { id_usuario } = await UsuarioBLL.registrar(nombre, correo, telefono, password, verificationToken, codigoSms);
         
+        // --- Quemar el token usado (Single-Use Token) ---
+        if (verificationToken) {
+            try {
+                const dec = jwt.decode(verificationToken);
+                if (dec && dec.exp) {
+                    await prisma.tokens_Revocados.createMany({
+                        data: [{ token: verificationToken, fecha_expiracion: new Date(dec.exp * 1000) }],
+                        skipDuplicates: true
+                    });
+                }
+            } catch (err) {}
+        }
+
         // --- Enviar correo de bienvenida (Background Task) ---
         try {
             const transporter = nodemailer.createTransport({
