@@ -981,6 +981,6 @@ async function inicializarDatosBase() {
 inicializarDatosBase().then(() => {
     server.listen(PORT, () => {
         console.log(`Servidor de GroupWallet en línea y escuchando en el puerto ${PORT}`);
-        console.log(`Archivos estáticos servidos desde: ${__dirname}`);
+        console.log(`Archivos estáticos servidos desde: ${path.join(__dirname, '../Frontend')}`);
     });
 });
