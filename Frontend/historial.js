@@ -21,7 +21,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Interceptor Global de Fetch para expirar token
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
-        const response = await originalFetch(...args);
+        let [resource, config] = args;
+        if (!config) config = {};
+        config.credentials = 'same-origin'; // Fuerza el envío de cookies HttpOnly siempre
+
+        const response = await originalFetch(resource, config);
         if (response.status === 401) {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
@@ -240,9 +244,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             showSpinner();
             try {
-                const response = await fetch(`/api/historial/exportar/${idGrupo}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await fetch(`/api/historial/exportar/${idGrupo}`);
+                
+                if (response.status === 403) {
+                    const data = await response.json();
+                    if (data.requires_upgrade) {
+                        showToast('La exportación a Excel es exclusiva de Premium. Descubre sus beneficios...', 'info');
+                        setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);
+                        return;
+                    }
+                }
+
                 if (!response.ok) throw new Error('Error en la descarga');
 
                 const blob = await response.blob();
@@ -284,12 +296,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnExportarPdf.addEventListener('click', async () => {
             showSpinner();
             try {
-                const res = await fetch('/api/usuarios/perfil', { headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch('/api/usuarios/perfil');
                 if (res.ok) {
                     const perfil = await res.json();
-                    if (!perfil.estado_suscripcion) {
+                    if (perfil.id_plan !== 2 && perfil.estado_suscripcion !== 'GOD_MODE') {
                         hideSpinner();
-                        showToast('La exportación a PDF es exclusiva del Plan Premium. Redirigiendo...', 'error');
+                        showToast('La exportación a PDF es exclusiva de Premium. Descubre sus beneficios...', 'info');
                         setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);
                         return;
                     }

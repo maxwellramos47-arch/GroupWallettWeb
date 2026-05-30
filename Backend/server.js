@@ -191,7 +191,7 @@ app.get('/api/historial', verificarToken, async (req, res) => {
 });
 
 // 1.7 NUEVO Endpoint GET: Exportar historial a Excel (CSV)
-app.get('/api/historial/exportar/:id_grupo', verificarToken, async (req, res) => {
+app.get('/api/historial/exportar/:id_grupo', verificarToken, verificarPremium, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
     const id_grupo = req.params.id_grupo;
 
@@ -392,6 +392,17 @@ app.use('/api/upload', uploadRoutes);
 app.use((err, req, res, next) => {
     logError('Middleware Global de Errores', err);
     res.status(500).json({ error: 'Ocurrió un error inesperado en el servidor. Estamos trabajando para solucionarlo.' });
+});
+
+// ==========================================
+// Prevención de Caídas Silenciosas
+// ==========================================
+process.on('uncaughtException', (err) => {
+    console.error('💥 CRASH INTERCEPTADO (Uncaught Exception):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 PROMESA FALLIDA NO MANEJADA:', reason);
 });
 
 // ==========================================
