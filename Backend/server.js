@@ -476,6 +476,18 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // ==========================================
+// Detección de Apagado por el Servidor (Render)
+// ==========================================
+process.on('SIGTERM', () => {
+    console.log('🛑 Render envió señal de apagado (SIGTERM). El servidor entrará en suspensión por inactividad o mantenimiento.');
+    process.exit(0);
+});
+process.on('SIGINT', () => {
+    console.log('🛑 Señal de interrupción manual (SIGINT). Cerrando servidor...');
+    process.exit(0);
+});
+
+// ==========================================
 // Tareas Programadas (Cron Jobs)
 // ==========================================
 
