@@ -27,7 +27,7 @@
     "nodemon": "^3.1.14"
   },
   "scripts": {
-    "start": "node Backend/server.js",
+    "start": "node --max-old-space-size=384 Backend/server.js",
     "dev": "nodemon Backend/server.js",
     "build": "prisma generate && prisma db push",
     "postinstall": "prisma generate",

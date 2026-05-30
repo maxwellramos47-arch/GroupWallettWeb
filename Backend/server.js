@@ -234,17 +234,67 @@ app.get('/api/historial/exportar/:id_grupo', verificarToken, verificarPremium, a
 // 1.8 NUEVO Endpoint GET: Obtener Análisis de Finanzas (Requiere Premium)
 app.get('/api/finanzas/analisis', verificarToken, verificarPremium, async (req, res) => {
     try {
-        // Si es Premium (es_premium == true), devolver datos de negocio reales
-        res.json({
-            categoria_frecuente: "Restaurantes",
-            ahorro_proyectado: 125.50,
-            mayor_gasto: 350.00,
-            gasto_promedio: 85.20,
-            total_gastado: 1120.50,
-            distribucion_gastos: {
-                etiquetas: ['Restaurantes', 'Transporte', 'Ocio', 'Supermercado'],
-                valores: [350.00, 120.00, 200.00, 450.50]
+        const id_usuario = req.usuarioLogueado.id_usuario;
+
+        // Obtener todas las transacciones pagadas por el usuario (Activas e Historial)
+        const transaccionesActivas = await prisma.transacciones.findMany({
+            where: { id_usuario_pagador: parseInt(id_usuario) },
+            select: { monto: true, categoria: true }
+        });
+
+        const transaccionesHistorial = await prisma.transacciones_Historial.findMany({
+            where: { id_usuario_pagador: parseInt(id_usuario) },
+            select: { monto: true, categoria: true }
+        });
+
+        const todasTransacciones = [...transaccionesActivas, ...transaccionesHistorial];
+
+        if (todasTransacciones.length === 0) {
+            return res.json({
+                categoria_frecuente: "Sin datos",
+                ahorro_proyectado: 0,
+                mayor_gasto: 0,
+                gasto_promedio: 0,
+                total_gastado: 0,
+                distribucion_gastos: { etiquetas: [], valores: [] }
+            });
+        }
+
+        let totalGastado = 0;
+        let mayorGasto = 0;
+        const categoriasMap = {};
+
+        todasTransacciones.forEach(t => {
+            const monto = parseFloat(t.monto);
+            totalGastado += monto;
+            if (monto > mayorGasto) mayorGasto = monto;
+
+            const cat = t.categoria || 'General';
+            categoriasMap[cat] = (categoriasMap[cat] || 0) + monto;
+        });
+
+        const gastoPromedio = totalGastado / todasTransacciones.length;
+        const ahorroProyectado = totalGastado * 0.15; // Proyección sugerida del 15%
+
+        const etiquetas = Object.keys(categoriasMap);
+        const valores = Object.values(categoriasMap);
+
+        let categoriaFrecuente = "General";
+        let maxMontoCat = 0;
+        for (const cat in categoriasMap) {
+            if (categoriasMap[cat] > maxMontoCat) {
+                maxMontoCat = categoriasMap[cat];
+                categoriaFrecuente = cat;
             }
+        }
+
+        res.json({
+            categoria_frecuente: categoriaFrecuente,
+            ahorro_proyectado: ahorroProyectado,
+            mayor_gasto: mayorGasto,
+            gasto_promedio: gastoPromedio,
+            total_gastado: totalGastado,
+            distribucion_gastos: { etiquetas, valores }
         });
     } catch (error) {
         console.error(error);
@@ -312,6 +362,26 @@ app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
     } catch (error) {
         console.error('Error al cancelar suscripción:', error);
         res.status(500).json({ error: 'Error al intentar cancelar la suscripción.' });
+    }
+});
+
+// 3.8 NUEVO Endpoint GET: Obtener Estadísticas Globales (Súper Admin)
+app.get('/api/admin/stats', verificarToken, verificarSuperAdmin, async (req, res) => {
+    try {
+        const totalUsuarios = await prisma.usuarios.count();
+        const usuariosPremium = await prisma.usuarios.count({ where: { id_plan: 2 } });
+        
+        // Ganancia estimada: Usuarios Premium * $5.00
+        const gananciaEstimada = usuariosPremium * 5.00;
+
+        res.json({
+            total_usuarios: totalUsuarios,
+            usuarios_premium: usuariosPremium,
+            ganancia_estimada: gananciaEstimada
+        });
+    } catch (error) {
+        console.error('Error obteniendo stats:', error);
+        res.status(500).json({ error: 'Error al obtener las estadísticas.' });
     }
 });
 
