@@ -7,7 +7,7 @@ const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
 const { logError } = require('../Middleware/logger.util');
 const UAParser = require('ua-parser-js');
-const EmailTemplates = require('../Utils/emailTemplates');
+const EmailTemplates = require('./emailTemplates');
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
