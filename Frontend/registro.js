@@ -69,6 +69,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Validar formato del teléfono (si fue ingresado)
+            const regexTelefono = /^\+[1-9]\d{7,14}$/;
+            if (telefono && telefono.trim() !== '' && !regexTelefono.test(telefono.trim())) {
+                showToast('El teléfono debe incluir el código de país (Ej: +56912345678).', 'error');
+                return;
+            }
+
             showSpinner();
             try {
                 const res = await fetch('/api/usuarios/registro', {

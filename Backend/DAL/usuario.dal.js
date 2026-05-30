@@ -106,7 +106,13 @@ class UsuarioDAL {
     static async findParaVerificacion(id_usuario) {
         return await prisma.usuarios.findUnique({
             where: { id_usuario: parseInt(id_usuario) },
-            select: { codigo_verificacion_telefono: true, codigo_verificacion_expires: true, telefono_verificado: true }
+            select: { 
+                codigo_verificacion_telefono: true, 
+                codigo_verificacion_expires: true, 
+                telefono_verificado: true,
+                reenvio_codigo_intentos: true,
+                reenvio_codigo_bloqueado_hasta: true
+            }
         });
     }
 

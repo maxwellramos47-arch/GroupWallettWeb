@@ -101,6 +101,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const fotoPreview = document.getElementById('perfil-foto-preview');
                 if (fotoPreview) fotoPreview.src = perfil.foto_url;
             }
+
+            if (perfil.telefono) {
+                const labelTelefono = document.getElementById('label-telefono');
+                if (labelTelefono) {
+                    if (perfil.telefono_verificado) {
+                        labelTelefono.innerHTML = `Teléfono (Verificación por SMS) <span style="color: var(--secondary-emerald); font-size: 0.8rem; font-weight: bold; margin-left: 0.5rem;">✔️ Verificado</span>`;
+                    } else {
+                        labelTelefono.innerHTML = `Teléfono (Verificación por SMS) <span style="color: var(--danger-color); font-size: 0.8rem; font-weight: bold; margin-left: 0.5rem;">⚠️ No verificado</span>`;
+                    }
+                }
+            }
         }
     } catch (error) { console.error('Error al cargar perfil:', error); } finally { hideSpinner(); }
 
