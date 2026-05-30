@@ -13,6 +13,7 @@ const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Inicializar Stripe
+const vision = require('@google-cloud/vision'); // Inicializar Google Vision AI
 
 const prisma = require('./Config/prisma'); // Importar el Singleton de Prisma
 const { encriptarDatoSensible, desencriptarDatoSensible, generarFirmaHMAC, JWT_SECRET } = require('./Middleware/security.util');
@@ -299,6 +300,63 @@ app.get('/api/finanzas/analisis', verificarToken, verificarPremium, async (req, 
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al generar análisis' });
+    }
+});
+
+// 1.9 NUEVO Endpoint POST: Leer comprobantes (OCR) con Google Vision AI
+app.post('/api/finanzas/ocr', verificarToken, async (req, res) => {
+    try {
+        const { imageUrl } = req.body;
+        if (!imageUrl) return res.status(400).json({ error: 'Falta la URL de la imagen.' });
+
+        // Instanciar el cliente de Google Vision
+        const client = new vision.ImageAnnotatorClient();
+        
+        // Detectar texto en la imagen (ideal para recibos y comprobantes bancarios)
+        const [result] = await client.documentTextDetection(imageUrl);
+        const fullText = result.fullTextAnnotation ? result.fullTextAnnotation.text : '';
+
+        if (!fullText) {
+            return res.json({ monto: null, banco: 'Desconocido', texto_completo: '' });
+        }
+
+        // --- 1. Extraer el Banco ---
+        const txtLow = fullText.toLowerCase();
+        let banco = "Desconocido";
+        if (txtLow.includes('estado')) banco = 'Banco Estado';
+        else if (txtLow.includes('santander')) banco = 'Banco Santander';
+        else if (txtLow.includes('chile')) banco = 'Banco de Chile';
+        else if (txtLow.includes('bci')) banco = 'Banco Bci';
+        else if (txtLow.includes('falabella')) banco = 'Banco Falabella';
+        else if (txtLow.includes('itau') || txtLow.includes('itaú')) banco = 'Banco Itaú';
+        else if (txtLow.includes('scotiabank')) banco = 'Scotiabank';
+        else if (txtLow.includes('mercado pago')) banco = 'MercadoPago';
+        else if (txtLow.includes('tenpo')) banco = 'Tenpo';
+        else if (txtLow.includes('mach')) banco = 'Mach';
+
+        // --- 2. Extraer el Monto ---
+        // Busca números en formato 10000, 10.000, 10,000, $10000, 10.000,50
+        const regex = /[\$]?\s?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)/g;
+        let match;
+        const montos = [];
+        
+        while ((match = regex.exec(fullText)) !== null) {
+            let numStr = match[1];
+            // Limpiar separadores de miles (asumimos que el punto separa miles y la coma los centavos por defecto)
+            if (numStr.includes('.') && !numStr.includes(',')) {
+                const partes = numStr.split('.');
+                if (partes[partes.length - 1].length === 2) numStr = numStr.replace('.', ','); // Era un decimal disfrazado
+                else numStr = numStr.replace(/\./g, ''); // Era un separador de miles
+            }
+            const numParsed = parseFloat(numStr.replace(',', '.'));
+            if (!isNaN(numParsed) && numParsed > 0) montos.push(numParsed);
+        }
+
+        const montoMaximo = montos.length > 0 ? Math.max(...montos) : null;
+        res.json({ monto: montoMaximo, banco: banco });
+    } catch (error) {
+        console.error('Error procesando OCR:', error);
+        res.status(500).json({ error: 'Error al procesar la imagen con Inteligencia Artificial.' });
     }
 });
 

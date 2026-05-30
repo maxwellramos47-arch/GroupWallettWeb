@@ -369,13 +369,23 @@ document.addEventListener('DOMContentLoaded', () => {
         let miIdUsuario = usuarioId || "1";
 
         transaccionesFiltradas.forEach(t => {
-            if (t.pagador === miIdUsuario) {
-                miBalance += t.monto;
-            }
-
-            if (t.participantes.includes(miIdUsuario)) {
+            if (t.participantes_detalle) {
                 const division = t.monto / t.participantes.length;
-                miBalance -= division;
+                
+                if (t.pagador == miIdUsuario) {
+                    // Yo pagué. Sumar a mi balance SOLO lo que los demás me deben AÚN (Pendiente)
+                    t.participantes_detalle.forEach(p => {
+                        if (p.id_usuario != miIdUsuario && p.estado_pago === 'Pendiente') {
+                            miBalance += division;
+                        }
+                    });
+                } else if (t.participantes.includes(miIdUsuario)) {
+                    // Otro pagó. Si yo estoy y sigo pendiente, resto a mi balance.
+                    const miDetalle = t.participantes_detalle.find(p => p.id_usuario == miIdUsuario);
+                    if (miDetalle && miDetalle.estado_pago === 'Pendiente') {
+                        miBalance -= division;
+                    }
+                }
             }
         });
 
@@ -387,6 +397,31 @@ document.addEventListener('DOMContentLoaded', () => {
             saldoTeDeben.textContent = `${moneda}0.00`;
             saldoDebes.textContent = `${moneda}${Math.abs(miBalance).toFixed(2)}`;
         }
+    };
+
+    // --- 2.7 Función Global para actualizar Analíticas Premium en tiempo real ---
+    const actualizarGraficosAnalisis = async () => {
+        try {
+            const reqAnalisis = await fetch('/api/finanzas/analisis');
+            if (reqAnalisis.ok) {
+                const datosAnalisis = await reqAnalisis.json();
+                
+                const catFrecuente = document.getElementById('cat-frecuente');
+                if (catFrecuente) { // Si existe en el DOM, actualizamos toda la tarjeta
+                    catFrecuente.textContent = datosAnalisis.categoria_frecuente;
+                    document.getElementById('ahorro-proyectado').textContent = `${moneda}${datosAnalisis.ahorro_proyectado.toFixed(2)}`;
+                    document.getElementById('gasto-mayor').textContent = `${moneda}${datosAnalisis.mayor_gasto.toFixed(2)}`;
+                    document.getElementById('gasto-promedio').textContent = `${moneda}${datosAnalisis.gasto_promedio.toFixed(2)}`;
+                    document.getElementById('total-gastado').textContent = `${moneda}${datosAnalisis.total_gastado.toFixed(2)}`;
+
+                    if (premiumChartInstance && datosAnalisis.distribucion_gastos) {
+                        premiumChartInstance.data.labels = datosAnalisis.distribucion_gastos.etiquetas;
+                        premiumChartInstance.data.datasets[0].data = datosAnalisis.distribucion_gastos.valores;
+                        premiumChartInstance.update();
+                    }
+                }
+            }
+        } catch (e) { console.error('Error actualizando gráficos:', e); }
     };
 
     // --- 2.8. Flujo de Suscripción Premium ---
@@ -472,15 +507,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showSpinner();
         try {
-            const token = localStorage.getItem('usuarioToken'); // Obtener el token guardado
-
             // Enviar los datos al backend usando fetch
             const response = await fetch('/api/gastos', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` // Adjuntar token JWT
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(nuevoGasto)
             });
 
@@ -488,19 +518,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Error en la respuesta del servidor');
             }
 
-            const result = await response.json();
-            console.log('Respuesta del servidor:', result.message);
-
-            // Obtener fecha formateada DD/MM/YYYY para la UI local
-            const hoy = new Date();
-            const fechaFormateada = `${hoy.getDate().toString().padStart(2, '0')}/${(hoy.getMonth() + 1).toString().padStart(2, '0')}/${hoy.getFullYear()}`;
-
-            // 1. Modificar el Estado local
-            transacciones.push({ id_transaccion: result.data.id_transaccion, id_grupo, descripcion, categoria, comprobante_url, monto, pagador, pagador_nombre, participantes, fecha: fechaFormateada });
+            // Refetch inmediato a la DB para tener todos los datos limpios (incluyendo 'estado_pago' de los participantes)
+            const resRefresh = await fetch('/api/gastos');
+            if (resRefresh.ok) {
+                transacciones = await resRefresh.json();
+            }
 
             // 2. Renderizar UI
+            renderizarCategorias();
             renderizarTabla();
             calcularSaldos();
+            actualizarGraficosAnalisis();
 
             // 3. Resetear UI
             formGasto.reset();
@@ -526,19 +554,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const btn = e.target;
                 const idTransaccion = btn.getAttribute('data-id');
-                const token = localStorage.getItem('usuarioToken');
 
                 showSpinner();
                 try {
                     const response = await fetch(`/api/gastos/${idTransaccion}`, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        method: 'DELETE'
                     });
 
                     if (response.ok) {
                         transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
                         renderizarTabla();
                         calcularSaldos();
+                        actualizarGraficosAnalisis();
                     } else {
                         const data = await response.json();
                         showToast(data.error || 'Error al eliminar el gasto.', 'error');
@@ -575,12 +602,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                const token = localStorage.getItem('usuarioToken');
                 showSpinner();
                 try {
                     const response = await fetch(`/api/gastos/${idTransaccion}`, {
                         method: 'PUT',
-                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ descripcion: nuevaDescripcion, categoria: nuevaCategoria, monto: nuevoMonto })
                     });
 
@@ -591,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         renderizarCategorias();
                         renderizarTabla();
                         calcularSaldos();
+                        actualizarGraficosAnalisis();
                     } else {
                         const data = await response.json();
                         showToast(data.error || 'Error al editar el gasto.', 'error');
@@ -604,13 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inicializarApp = async () => {
         showSkeletonLoader(listaGastos, 6);
         try {
-            const token = localStorage.getItem('usuarioToken'); // Obtener el token guardado
-            
-            const response = await fetch('/api/gastos', {
-                headers: {
-                    'Authorization': `Bearer ${token}` // Adjuntar token JWT
-                }
-            });
+            const response = await fetch('/api/gastos');
             if (!response.ok) throw new Error('Error al obtener los gastos');
             
             transacciones = await response.json();
@@ -620,9 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
             calcularSaldos();
 
             // Cargar dinámicamente la lista de grupos en el <select>
-            const reqGrupos = await fetch('/api/grupos', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const reqGrupos = await fetch('/api/grupos');
             if (reqGrupos.ok) {
                 const grupos = await reqGrupos.json();
                 const selectGrupoGasto = document.getElementById('grupo-gasto');
@@ -644,9 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         showSpinner();
                         // Cargar miembros del grupo seleccionado en los inputs dinámicamente
                         try {
-                            const reqMiembros = await fetch(`/api/grupos/${idGrupo}/miembros`, {
-                                headers: { 'Authorization': `Bearer ${token}` }
-                            });
+                            const reqMiembros = await fetch(`/api/grupos/${idGrupo}/miembros`);
                             if (reqMiembros.ok) {
                                 const miembros = await reqMiembros.json();
                                 const selectPagador = document.getElementById('pagador-gasto');
@@ -666,9 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Intentar cargar las analíticas Premium
-            const reqAnalisis = await fetch('/api/finanzas/analisis', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const reqAnalisis = await fetch('/api/finanzas/analisis');
 
             if (reqAnalisis.ok) {
                 const datosAnalisis = await reqAnalisis.json();
@@ -801,9 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 showSpinner();
                 try {
-                    const res = await fetch(`/api/usuarios/${idUsuario}/banco`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                    const res = await fetch(`/api/usuarios/${idUsuario}/banco`);
                     const datos = await res.json();
                     
                     if (res.ok) {
@@ -970,8 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const ocrRes = await fetch('/api/finanzas/ocr', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('usuarioToken')}` },
-                            body: JSON.stringify({ imageUrl: comprobante_url })
+                            headers: { 'Content-Type': 'application/json'url })
                         });
                         if (ocrRes.ok) {
                             const dataOCR = await ocrRes.json();
@@ -995,10 +1007,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             showSpinner();
             try {
-                const token = localStorage.getItem('usuarioToken');
                 const response = await fetch('/api/cuotas/pagar', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id_transaccion: idTransaccion, id_usuario: idUsuario, comprobante_url })
                 });
 
@@ -1007,22 +1018,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('modal-pago-overlay').style.display = 'none';
                     formConfirmarPago.reset();
                     
-                    // Actualizar la UI
-                    const btn = document.querySelector(`.btn-pagar[data-transaccion="${idTransaccion}"][data-usuario="${idUsuario}"]`);
-                    if (btn) {
-                        const fila = btn.closest('tr');
-                        const celdaEstado = fila.querySelector('td:nth-child(3)');
-                        celdaEstado.innerHTML = '<span style="color: var(--secondary-emerald); font-weight: bold;">Pagado</span>';
-                        if (comprobante_url) celdaEstado.innerHTML += ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${comprobante_url}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>`;
-                        btn.parentElement.innerHTML = '-'; 
-                    }
-
                     if (data.archivado) {
                         showToast('¡Gasto completado y archivado en el historial!', 'success');
                         transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
-                        renderizarTabla();
-                        calcularSaldos();
-                    } else showToast('Pago confirmado con éxito.', 'success');
+                    } else {
+                        showToast('Pago confirmado con éxito.', 'success');
+                        // Actualizar estado local real
+                        const t = transacciones.find(tr => tr.id_transaccion == idTransaccion);
+                        if (t && t.participantes_detalle) {
+                            const p = t.participantes_detalle.find(pd => pd.id_usuario == idUsuario);
+                            if (p) p.estado_pago = 'Pagado';
+                        }
+                    }
+                    
+                    // Reflejar cambios visuales de inmediato
+                    renderizarTabla();
+                    calcularSaldos();
+                    actualizarGraficosAnalisis();
+
                 } else showToast((await response.json()).error, 'error');
             } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
         });
