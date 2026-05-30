@@ -829,9 +829,9 @@ cron.schedule('0 * * * *', async () => {
             where: { fecha_expiracion: { lt: new Date() } }
         });
         
-        // 2. Limpiar sesiones inactivas (más de 30 días)
+        // 2. Limpiar sesiones inactivas (más de 20 días)
         const limiteSesion = new Date();
-        limiteSesion.setDate(limiteSesion.getDate() - 30);
+        limiteSesion.setDate(limiteSesion.getDate() - 20);
         await prisma.sesiones_Activas.deleteMany({
             where: { ultimo_acceso: { lt: limiteSesion } }
         });

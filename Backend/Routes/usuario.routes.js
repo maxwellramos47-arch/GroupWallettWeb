@@ -106,7 +106,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         const { correo, password, rememberMe } = req.body;
         const { token, usuario } = await UsuarioBLL.login(correo, password, rememberMe); // Pasamos el parámetro a la BLL
         
-        const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000; // 30 días o 2 horas
+        const cookieMaxAge = rememberMe ? 20 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000; // 20 días o 2 horas
 
         const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
         res.cookie('usuarioToken', token, {
@@ -117,29 +117,32 @@ router.post('/login', loginLimiter, async (req, res) => {
         });
 
         // --- Capturar y Guardar Dispositivo e IP ---
-        try {
-            const parser = new UAParser(req.headers['user-agent']);
-            const result = parser.getResult();
-            const browser = result.browser.name ? `${result.browser.name}` : 'Navegador desconocido';
-            const os = result.os.name ? `${result.os.name}` : 'SO desconocido';
-            
-            const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'IP desconocida';
+        const parser = new UAParser(req.headers['user-agent']);
+        const result = parser.getResult();
+        const browser = result.browser.name ? `${result.browser.name}` : 'Navegador desconocido';
+        const os = result.os.name ? `${result.os.name}` : 'SO desconocido';
+        const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'IP desconocida';
 
-            await prisma.sesiones_Activas.create({
-                data: {
-                    id_usuario: usuario.id_usuario,
-                    token: token,
-                    dispositivo: `${browser} en ${os}`,
-                    ip: ip
-                }
-            });
-        } catch (err) { console.error('Error al registrar la sesión:', err); }
+        // Eliminamos el try/catch para FORZAR que el inicio de sesión falle si la DB falla (Source of Truth)
+        await prisma.sesiones_Activas.create({
+            data: {
+                id_usuario: usuario.id_usuario,
+                token: token,
+                dispositivo: `${browser} en ${os}`.substring(0, 255),
+                ip: ip.substring(0, 50)
+            }
+        });
 
         res.json({ message: 'Login exitoso', id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion });
     } catch (error) {
         const status = error.message.includes('encontrado') || error.message.includes('incorrecta') || error.message.includes('bloqueada') || error.message.includes('intento') ? 401 : 500;
         res.status(status).json({ error: error.message || 'Error en el servidor al intentar iniciar sesión' });
     }
+});
+
+// --- Validar Sesión Activa (Para redirecciones de Frontend) ---
+router.get('/validate-session', verificarToken, (req, res) => {
+    res.json({ valid: true, id_usuario: req.usuarioLogueado.id_usuario });
 });
 
 router.get('/perfil', verificarToken, async (req, res) => {
@@ -288,7 +291,7 @@ router.delete('/sesiones/:id_sesion', verificarToken, async (req, res) => {
         await prisma.tokens_Revocados.upsert({
             where: { token: sesion.token },
             update: {},
-            create: { token: sesion.token, fecha_expiracion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+            create: { token: sesion.token, fecha_expiracion: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000) }
         });
 
         await prisma.sesiones_Activas.delete({ where: { id_sesion } });

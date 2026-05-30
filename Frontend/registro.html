@@ -6,10 +6,11 @@
     <title>Registro - GroupWallet</title>
     <link rel="stylesheet" href="styles.css">
     <script>
-        if (localStorage.getItem('usuarioId')) {
-            const pendingJoin = localStorage.getItem('pendingJoinToken');
-            window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
-        }
+                if (data.valid) {
+                    const pendingJoin = localStorage.getItem('pendingJoinToken');
+                    window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
+                }
+            }).catch(() => {});
     </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>

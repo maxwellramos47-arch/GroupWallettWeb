@@ -6,10 +6,15 @@
     <title>Iniciar Sesión - GroupWallet</title>
     <link rel="stylesheet" href="styles.css">
     <script>
-        if (localStorage.getItem('usuarioId')) {
-            const pendingJoin = localStorage.getItem('pendingJoinToken');
-            window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
-        }
+        // Validación Estricta de Sesión con el Servidor (Base de Datos)
+        fetch('/api/usuarios/validate-session')
+            .then(res => res.json())
+            .then(data => {
+                if (data.valid) {
+                    const pendingJoin = localStorage.getItem('pendingJoinToken');
+                    window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
+                }
+            }).catch(() => {});
     </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
@@ -47,7 +52,7 @@
             </div>
             <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: -0.5rem; margin-bottom: 1rem;">
                 <input type="checkbox" id="remember-me" checked style="width: auto; margin: 0; transform: scale(1.2); cursor: pointer;">
-                <label for="remember-me" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">Mantener sesión iniciada por 30 días</label>
+                <label for="remember-me" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">Mantener sesión iniciada por 20 días</label>
             </div>
             <button type="submit" class="btn-primary mt-2">Ingresar al Portal</button>
         </form>

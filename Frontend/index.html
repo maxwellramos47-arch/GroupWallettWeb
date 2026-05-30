@@ -7,10 +7,15 @@
     <meta name="description" content="Divide gastos sin perder amigos. Crea grupos, registra transacciones y calcula quién debe a quién de la forma más eficiente.">
     <link rel="stylesheet" href="styles.css">
     <script>
-        if (localStorage.getItem('usuarioId')) {
-            const pendingJoin = localStorage.getItem('pendingJoinToken');
-            window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
-        }
+        // Validación Estricta de Sesión con el Servidor (Base de Datos)
+        fetch('/api/usuarios/validate-session')
+            .then(res => res.json())
+            .then(data => {
+                if (data.valid) {
+                    const pendingJoin = localStorage.getItem('pendingJoinToken');
+                    window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
+                }
+            }).catch(() => {});
     </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>

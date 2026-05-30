@@ -62,7 +62,7 @@ class UsuarioBLL {
         // Si el login es exitoso, reiniciar el contador de fallos
         await UsuarioDAL.resetFailedAttempts(usuario.id_usuario);
 
-        const expiresIn = rememberMe ? '30d' : '2h';
+        const expiresIn = rememberMe ? '20d' : '2h';
         const token = jwt.sign(
             { id_usuario: usuario.id_usuario, correo: usuario.correo },
             JWT_SECRET,
