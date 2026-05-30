@@ -1,6 +1,6 @@
 const GrupoDAL = require('../DAL/grupo.dal');
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = require('../Middleware/security.util');
+const { JWT_SECRET, safeDecrypt } = require('../Middleware/security.util');
 
 class GrupoBLL {
     static async crearGrupo(nombre_grupo, id_creador) {
@@ -115,10 +115,11 @@ class GrupoBLL {
         let enviados = 0;
 
         for (const miembro of miembros) {
-            if (miembro.telefono) {
+            const telefonoLimpio = safeDecrypt(miembro.telefono);
+            if (telefonoLimpio) {
                 try {
                     // Twilio exige el formato "whatsapp:+1234567890"
-                    const numeroLimpio = miembro.telefono.startsWith('+') ? miembro.telefono : '+' + miembro.telefono;
+                    const numeroLimpio = telefonoLimpio.startsWith('+') ? telefonoLimpio : '+' + telefonoLimpio;
                     await client.messages.create({ body: mensajeWhatsApp, from: fromWhatsApp, to: `whatsapp:${numeroLimpio}` });
                     enviados++;
                 } catch (error) { console.error(`Error Twilio a ${miembro.nombre}:`, error.message); }

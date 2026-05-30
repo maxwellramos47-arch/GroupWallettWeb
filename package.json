@@ -2,25 +2,25 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "@google-cloud/vision": "^4.3.0",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^7.1.5",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
+    "mercadopago": "^2.0.9",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.9",
     "pg": "^8.21.0",
-    "socket.io": "^4.8.3",
-    "web-push": "^3.6.7",
-    "twilio": "^5.0.0",
-    "stripe": "^14.19.0",
-    "@google-cloud/vision": "^4.3.0",
-    "ua-parser-js": "^1.0.38",
     "prisma": "^6.19.3",
-    "cors": "^2.8.5",
-    "cookie-parser": "^1.4.6"
+    "socket.io": "^4.8.3",
+    "twilio": "^5.0.0",
+    "ua-parser-js": "^1.0.38",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "jest": "^30.4.2",
@@ -29,8 +29,8 @@
   "scripts": {
     "start": "node --max-old-space-size=384 Backend/server.js",
     "dev": "nodemon Backend/server.js",
-    "build": "prisma generate && prisma db push",
-    "postinstall": "prisma generate",
+    "build": "npx prisma generate && npx prisma db push",
+    "postinstall": "npx prisma generate",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
@@ -39,5 +39,12 @@
   },
   "overrides": {
     "uuid": "^11.1.1"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "protobufjs@7.6.1": true,
+    "unrs-resolver@1.12.2": true
   }
 }

@@ -1,17 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 /* ==========================================================================
    Variables CSS y Reset Base
    ========================================================================== */
 :root {
-    --primary-slate: #2c3e50;
-    --secondary-emerald: #2ecc71;
-    --emerald-hover: #27ae60;
-    --bg-light: #f4f7f6;
+    --primary-slate: #0F172A;
+    --secondary-emerald: #26C6DA;
+    --emerald-hover: #1FAAC2;
+    --bg-light: #F8FAFC;
     --card-bg: #ffffff;
-    --text-dark: #333333;
-    --text-muted: #7f8c8d;
-    --border-color: #e0e6ed;
+    --text-dark: #0F172A;
+    --text-muted: #64748B;
+    --border-color: #E2E8F0;
     --danger-color: #e74c3c;
-    --transition: all 0.3s ease;
+    --transition: all 0.2s ease-in-out;
 }
 
 * {
@@ -21,7 +23,7 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bg-light);
     color: var(--text-dark);
     line-height: 1.6;
@@ -39,14 +41,34 @@ body {
     background: linear-gradient(135deg, var(--bg-light), #e0e6ed);
 }
 
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .login-container {
     width: 100%;
     max-width: 400px;
     padding: 2.5rem;
+    animation: fadeSlideUp 0.4s ease-out forwards;
 }
 
 .text-center {
     text-align: center;
+}
+
+.back-link {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-block;
+    transition: var(--transition);
+}
+
+.back-link:hover {
+    color: var(--secondary-emerald);
+    transform: translateX(-5px);
 }
 
 /* ==========================================================================
@@ -59,7 +81,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: none;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .logo h1 {
@@ -69,6 +92,18 @@ body {
 
 .logo span {
     color: var(--secondary-emerald);
+}
+
+.logo-menu {
+    max-height: 32px;
+    width: auto;
+    display: block;
+    transition: var(--transition);
+}
+
+.logo-menu:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 4px 6px rgba(46, 204, 113, 0.2));
 }
 
 .main-nav ul {
@@ -106,8 +141,8 @@ body {
 .card {
     background: var(--card-bg);
     padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border-radius: 4px !important;
+    box-shadow: none;
     border: 1px solid var(--border-color);
 }
 
@@ -132,7 +167,7 @@ body {
     background: linear-gradient(135deg, var(--primary-slate), #34495e);
     color: white;
     padding: 1.5rem 2rem;
-    border-radius: 8px;
+    border-radius: 4px;
     margin-bottom: 2rem;
     display: flex;
     justify-content: space-between;
@@ -170,7 +205,7 @@ select {
     width: 100%;
     padding: 0.6rem;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 4px !important;
     font-family: inherit;
 }
 
@@ -191,7 +226,7 @@ button {
     font-family: inherit;
     font-weight: 600;
     border: none;
-    border-radius: 4px;
+    border-radius: 2px !important;
     transition: var(--transition);
 }
 
@@ -234,9 +269,10 @@ button {
 .stat {
     flex: 1;
     padding: 1rem;
-    border-radius: 6px;
+    border-radius: 4px;
     background-color: var(--bg-light);
     text-align: center;
+    border: 1px solid var(--border-color);
 }
 
 .stat.positive h4 { color: var(--secondary-emerald); font-size: 1.5rem; }
@@ -279,6 +315,18 @@ button {
     font-size: 0.9rem;
     color: var(--text-muted);
     margin-top: auto;
+}
+
+.logo-footer {
+    max-height: 32px;
+    width: auto;
+    margin-bottom: 0.5rem;
+    transition: var(--transition);
+}
+
+.logo-footer:hover {
+    transform: scale(1.1);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
 .main-footer a {
@@ -324,13 +372,13 @@ button {
         background-color: rgba(255, 255, 255, 0.2);
     }
     
-    input[type="text"], input[type="number"], input[type="email"], input[type="password"], select {
+    input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="date"], select {
         font-size: 16px; /* Evita que los iPhones hagan zoom al tocar el input */
-        padding: 0.8rem;
+        padding: 0.6rem 0.8rem; /* Optimizamos la altura para móviles */
     }
     .btn-primary, .btn-upgrade {
-        padding: 1rem; /* Botones más altos y fáciles de tocar */
-        font-size: 1rem;
+        padding: 0.8rem; /* Botones ajustados para la pantalla */
+        font-size: 0.9rem;
     }
 }
 
@@ -341,7 +389,7 @@ button {
     background-color: #f1c40f;
     color: var(--primary-slate);
     padding: 0.2rem 0.5rem;
-    border-radius: 12px;
+    border-radius: 2px;
     font-size: 0.75rem;
     font-weight: bold;
     vertical-align: middle;
@@ -396,8 +444,8 @@ button {
     padding: 1rem 1.5rem;
     background-color: var(--primary-slate);
     color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
     font-weight: 500;
     animation: slideInRight 0.3s ease forwards;
     opacity: 1;
@@ -411,6 +459,13 @@ button {
 @keyframes slideInRight {
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
+}
+
+.logo-index {
+    max-height: 128px;
+    width: 100%;
+    margin: 0 auto 1.5rem auto;
+    display: block;
 }
 
 /* ==========================================================================
@@ -444,12 +499,12 @@ button {
    Modo Oscuro (Dark Mode)
    ========================================================================== */
 body.dark-mode {
-    --primary-slate: #1a252f;
-    --bg-light: #121212;
-    --card-bg: #1e1e1e;
-    --text-dark: #e0e0e0;
-    --border-color: #333333;
-    --text-muted: #95a5a6;
+    --primary-slate: #0F172A;
+    --bg-light: #0B1120;
+    --card-bg: #1E293B;
+    --text-dark: #F8FAFC;
+    --border-color: #334155;
+    --text-muted: #94A3B8;
 }
 
 body.dark-mode .gastos-table th {

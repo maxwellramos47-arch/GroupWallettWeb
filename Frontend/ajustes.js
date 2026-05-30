@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const usuarioId = localStorage.getItem('usuarioId');
     if (!usuarioId) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return; 
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad.', 'error');
-            setTimeout(() => window.location.href = 'index.html', 2000);
+            setTimeout(() => window.location.href = 'login.html', 2000);
             return Promise.reject(new Error('Sesión expirada'));
         }
         return response;
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
         });
     }
 
@@ -56,6 +56,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
+
+    // --- Medidor de Fuerza de Contraseña ---
+    const pwInput = document.getElementById('perfil-password');
+    const pwBar = document.getElementById('password-strength-bar');
+    const pwText = document.getElementById('password-strength-text');
+
+    if (pwInput && pwBar && pwText) {
+        pwInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (!val) {
+                pwBar.style.width = '0%';
+                pwText.textContent = '';
+                return;
+            }
+            let strength = 0;
+            if (val.length >= 8) strength += 1;
+            if (/[A-Z]/.test(val)) strength += 1;
+            if (/[0-9]/.test(val)) strength += 1;
+            if (/[^A-Za-z0-9]/.test(val)) strength += 1;
+
+            if (strength <= 1) { pwBar.style.width = '25%'; pwBar.style.backgroundColor = 'var(--danger-color)'; pwText.textContent = 'Débil'; }
+            else if (strength === 2) { pwBar.style.width = '50%'; pwBar.style.backgroundColor = '#f1c40f'; pwText.textContent = 'Regular'; }
+            else if (strength === 3) { pwBar.style.width = '75%'; pwBar.style.backgroundColor = '#3498db'; pwText.textContent = 'Buena'; }
+            else { pwBar.style.width = '100%'; pwBar.style.backgroundColor = 'var(--secondary-emerald)'; pwText.textContent = 'Fuerte'; }
+        });
+    }
 
     // Cargar perfil actual
     showSpinner();
@@ -93,6 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         const nombre = document.getElementById('perfil-nombre').value;
         const telefono = document.getElementById('perfil-telefono').value;
+        const password_actual = document.getElementById('perfil-password-actual').value;
         const password = document.getElementById('perfil-password').value;
 
         if (password && password.trim() !== '') {
@@ -141,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/api/usuarios/perfil', {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password })
+                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password })
             });
             if (res.ok) {
                 showToast('Perfil actualizado exitosamente.', 'success');
@@ -249,7 +276,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (response.ok) {
                     localStorage.removeItem('usuarioId');
                     localStorage.removeItem('usuarioNombre');
-                    window.location.href = 'index.html';
+                    window.location.href = 'login.html';
                 } else showToast((await response.json()).error, 'error');
             } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
         });

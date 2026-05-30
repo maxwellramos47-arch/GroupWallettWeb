@@ -5,11 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro - GroupWallet</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        if (localStorage.getItem('usuarioId')) {
+            const pendingJoin = localStorage.getItem('pendingJoinToken');
+            window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
+        }
+    </script>
 </head>
 <body class="login-body">
     <div class="login-container card">
+        <div style="text-align: left; margin-bottom: -1rem; position: relative; z-index: 10;">
+            <a href="index.html" class="back-link">
+                &larr; Volver al inicio
+            </a>
+        </div>
         <div class="logo text-center">
-            <h1>Group<span>Wallet</span></h1>
+        <a href="index.html">
+            <img src="Placeholders/LogoIndex.png" alt="GroupWallet" class="logo-index">
+        </a>
         </div>
         <h2 class="text-center mt-2">Crear Cuenta</h2>
         <form id="form-register" class="mt-2">
@@ -20,6 +33,10 @@
             <div class="form-group">
                 <label for="registro-correo" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Correo Electrónico</label>
                 <input type="email" id="registro-correo" placeholder="tu@correo.com" required style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+            </div>
+            <div class="form-group">
+                <label for="registro-telefono" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Teléfono <span style="font-weight: normal; color: var(--text-muted);">(Opcional y Encriptado)</span></label>
+                <input type="text" id="registro-telefono" placeholder="Ej. +56912345678" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
             </div>
             <div class="form-group">
                 <label for="registro-password" style="font-weight: bold; margin-bottom: 0.5rem; display: block;">Contraseña</label>

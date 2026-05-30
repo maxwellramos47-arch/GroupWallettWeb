@@ -7,6 +7,7 @@ const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
 const { logError } = require('../Middleware/logger.util');
 const UAParser = require('ua-parser-js');
+const EmailTemplates = require('../Utils/emailTemplates');
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -18,8 +19,31 @@ const loginLimiter = rateLimit({
 
 router.post('/registro', async (req, res) => {
     try {
-        const { nombre, correo, password } = req.body;
-        const id = await UsuarioBLL.registrar(nombre, correo, password);
+        const { nombre, correo, telefono, password } = req.body;
+        const id = await UsuarioBLL.registrar(nombre, correo, telefono, password);
+        
+        // --- Enviar correo de bienvenida (Background Task) ---
+        try {
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: process.env.SMTP_PORT || 587,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            });
+
+            const mailOptions = {
+                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+                to: correo,
+                subject: '¡Bienvenido a GroupWallet!',
+                html: EmailTemplates.bienvenida(nombre)
+            };
+            
+            transporter.sendMail(mailOptions).catch(err => console.error('Error enviando correo de bienvenida:', err));
+        } catch (mailError) { console.error('Error configurando correo de bienvenida:', mailError); }
+        
         res.status(201).json({ message: 'Usuario registrado con seguridad', id });
     } catch (error) { 
         logError('Registro de Usuario POST /registro', error);
@@ -41,7 +65,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         res.cookie('usuarioToken', token, {
             httpOnly: true,
             secure: isSecure, // Detecta dinámicamente HTTP local o HTTPS en Render
-            sameSite: 'Strict',
+            sameSite: 'Lax', // Permite conservar la sesión al regresar de sitios externos o marcadores web
             maxAge: cookieMaxAge
         });
 
@@ -80,10 +104,12 @@ router.get('/perfil', verificarToken, async (req, res) => {
 
 router.put('/perfil', verificarToken, async (req, res) => {
     try {
-        const { nombre, telefono, foto_url, password } = req.body;
-        await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password);
+        const { nombre, telefono, foto_url, password_actual, nueva_password } = req.body;
+        await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password_actual, nueva_password);
         res.json({ message: 'Perfil actualizado exitosamente' });
-    } catch (error) { res.status(500).json({ error: 'Error al actualizar el perfil' }); }
+    } catch (error) { 
+        res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 
+    }
 });
 
 router.post('/recuperar-password', async (req, res) => {
@@ -100,16 +126,21 @@ router.post('/recuperar-password', async (req, res) => {
             }
         });
 
+        // Generar enlace dinámico hacia el frontend
+        const clientUrl = req.headers.origin || process.env.FRONTEND_URL || `${req.secure ? 'https://' : 'http://'}${req.headers.host}`;
+        const recoveryLink = `${clientUrl}/login.html?reset_token=${token}`;
+
         const mailOptions = {
             from: `"GroupWallet" <${process.env.SMTP_USER}>`,
             to: req.body.correo,
-            subject: 'Recuperación de Contraseña - GroupWallet',
-            html: `<h2>Recuperación de Cuenta</h2><p>Has solicitado restablecer tu contraseña en GroupWallet.</p><p>Tu token de seguridad es: <strong style="font-size: 1.2rem; color: #2ecc71;">${token}</strong></p><p>Cópialo y pégalo en la aplicación para crear tu nueva contraseña.</p><p><em>Si no solicitaste esto, puedes ignorar este correo.</em></p>`
+            subject: 'Restablecer Contraseña - GroupWallet',
+            html: EmailTemplates.recuperacionPassword(recoveryLink)
         };
         await transporter.sendMail(mailOptions);
         
-        res.json({ message: 'Se ha enviado un correo con las instrucciones.' });
+        res.json({ message: 'Se ha enviado un enlace de recuperación a tu correo.' });
     } catch (error) {
+        console.error('Error al enviar correo de recuperación:', error);
         res.status(error.message.includes('no encontrado') ? 404 : 500).json({ error: error.message });
     }
 });
@@ -252,6 +283,18 @@ router.post('/godmode', verificarToken, async (req, res) => {
         await UsuarioBLL.activarGodMode(req.usuarioLogueado.id_usuario);
         res.json({ message: 'God Mode activado exitosamente' });
     } catch (error) { res.status(500).json({ error: 'Error al activar God Mode' }); }
+});
+
+// --- Endpoint: Historial de Pagos Recibidos In-App ---
+router.get('/pagos-recibidos', verificarToken, async (req, res) => {
+    try {
+        const pagos = await prisma.pagos_InApp.findMany({
+            where: { id_usuario_receptor: parseInt(req.usuarioLogueado.id_usuario) },
+            include: { pagador: { select: { nombre: true } } },
+            orderBy: { fecha_pago: 'desc' }
+        });
+        res.json(pagos);
+    } catch (error) { res.status(500).json({ error: 'Error al obtener pagos recibidos' }); }
 });
 
 module.exports = router;

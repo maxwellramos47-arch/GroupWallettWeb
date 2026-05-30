@@ -25,9 +25,25 @@ function generarFirmaHMAC(datos) {
     return crypto.createHmac('sha256', HMAC_SECRET).update(datos).digest('hex');
 }
 
+function safeEncrypt(text) {
+    if (!text) return null;
+    const res = encriptarDatoSensible(text);
+    return `${res.iv}:${res.data}`;
+}
+
+function safeDecrypt(text) {
+    if (!text || !text.includes(':')) return text; // Si no está encriptado (legacy), devuelve tal cual
+    try {
+        const [iv, data] = text.split(':');
+        return desencriptarDatoSensible(data, iv);
+    } catch (e) { return text; }
+}
+
 module.exports = {
     encriptarDatoSensible,
     desencriptarDatoSensible,
     generarFirmaHMAC,
-    JWT_SECRET
+    JWT_SECRET,
+    safeEncrypt,
+    safeDecrypt
 };

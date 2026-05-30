@@ -12,7 +12,7 @@ const cookieParser = require('cookie-parser');
 const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Inicializar Stripe
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 const vision = require('@google-cloud/vision'); // Inicializar Google Vision AI
 
 const prisma = require('./Config/prisma'); // Importar el Singleton de Prisma
@@ -24,12 +24,23 @@ const gastoRoutes = require('./Routes/gasto.routes');
 const cuotaRoutes = require('./Routes/cuota.routes');
 const uploadRoutes = require('./Routes/upload.routes');
 const { logError } = require('./Middleware/logger.util');
+const GastoBLL = require('./BLL/gasto.bll');
+const EmailTemplates = require('./Utils/emailTemplates');
 
 const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
+
+const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+
+// --- Métricas de Uso del Servidor ---
+let totalRequests = 0;
+app.use((req, res, next) => {
+    totalRequests++;
+    next();
+});
 
 // Configurar Web Push para notificaciones
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -107,6 +118,54 @@ app.use((req, res, next) => {
 });
 
 // ==========================================
+// Webhooks de MercadoPago (Notificaciones IPN)
+// ==========================================
+app.post('/api/webhooks/mercadopago', async (req, res) => {
+    const { type, data } = req.query; // MP envía type y data.id por query params
+    const body = req.body;
+    
+    const action = type || body.action || body.type;
+    const paymentId = (data && data.id) || (body.data && body.data.id);
+
+    if (action === 'payment' && paymentId) {
+        try {
+            const payment = new Payment(mpClient);
+            const payInfo = await payment.get({ id: paymentId });
+            
+            if (payInfo.status === 'approved') {
+                const refId = payInfo.external_reference;
+                if (refId) {
+                    if (refId.includes('-')) {
+                        // 1. Es un pago de cuota In-App (Formato: id_usuario-id_transaccion)
+                        const [id_usuario, id_transaccion] = refId.split('-');
+                        try {
+                            const transaccion = await prisma.transacciones.findUnique({ where: { id_transaccion: parseInt(id_transaccion) } });
+                            if (transaccion) {
+                                const resultado = await GastoBLL.pagarCuotaInApp(parseInt(id_transaccion), parseInt(id_usuario), transaccion.id_usuario_pagador);
+                                io.emit('cuota_pagada', { id_transaccion: parseInt(id_transaccion), id_usuario: parseInt(id_usuario), archivado: resultado?.archivado || false });
+                                console.log(`✅ Webhook: Cuota ${id_transaccion} procesada exitosamente vía MercadoPago.`);
+                            }
+                        } catch (error) { console.error('Aviso Webhook Cuota (Ya procesada):', error.message); }
+                    } else {
+                        // 2. Es una suscripción Premium
+                        try {
+                            const treintaDias = new Date();
+                            treintaDias.setDate(treintaDias.getDate() + 30);
+                            await prisma.usuarios.update({
+                                where: { id_usuario: parseInt(refId) },
+                                data: { id_plan: 2, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: treintaDias }
+                            });
+                            console.log(`✅ Webhook: Suscripción Premium activada para el usuario ${refId}.`);
+                        } catch (error) { console.error('Error Webhook Suscripción:', error.message); }
+                    }
+                }
+            }
+        } catch (err) { console.error(`⚠️  Webhook Error MP: ${err.message}`); }
+    }
+    res.status(200).send('OK');
+});
+
+// ==========================================
 // Limitador de Peticiones (Rate Limiting) contra DDoS
 // ==========================================
 const apiLimiter = rateLimit({
@@ -122,6 +181,7 @@ app.use('/api/', apiLimiter);
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, '../Frontend')));
+app.use('/Placeholders', express.static(path.join(__dirname, 'Placeholders')));
 
 // ==========================================
 // API REST Simulada
@@ -303,6 +363,46 @@ app.get('/api/finanzas/analisis', verificarToken, verificarPremium, async (req, 
     }
 });
 
+// 1.8.5 NUEVO Endpoint GET: Exportar Gastos Mensuales a Excel (Requiere Premium)
+app.get('/api/finanzas/exportar-mensual', verificarToken, verificarPremium, async (req, res) => {
+    try {
+        const id_usuario = req.usuarioLogueado.id_usuario;
+        const { mes, anio } = req.query; 
+        
+        if (mes === undefined || !anio) return res.status(400).json({ error: 'Faltan parámetros de fecha.' });
+
+        const m = parseInt(mes);
+        const a = parseInt(anio);
+        
+        const fechaInicio = new Date(a, m, 1);
+        const fechaFin = new Date(a, m + 1, 0, 23, 59, 59, 999);
+
+        const transacciones = await prisma.transacciones.findMany({
+            where: { 
+                id_usuario_pagador: parseInt(id_usuario),
+                fecha_gasto: { gte: fechaInicio, lte: fechaFin }
+            },
+            include: { grupo: { select: { nombre_grupo: true } } },
+            orderBy: { fecha_gasto: 'desc' }
+        });
+
+        // Construir el CSV
+        let csv = 'Fecha,Grupo,Categoria,Descripcion,Monto Total\n';
+        transacciones.forEach(t => {
+            const fechaFormat = t.fecha_gasto ? t.fecha_gasto.toLocaleDateString('es-ES') : '';
+            const grupo = t.grupo ? t.grupo.nombre_grupo : 'General';
+            csv += `${fechaFormat},"${grupo}","${t.categoria}","${t.descripcion}",${t.monto}\n`;
+        });
+
+        res.header('Content-Type', 'text/csv; charset=utf-8');
+        res.attachment(`Reporte_Mensual_${m+1}_${a}.csv`);
+        res.send(csv);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al exportar los datos mensuales.' });
+    }
+});
+
 // 1.9 NUEVO Endpoint POST: Leer comprobantes (OCR) con Google Vision AI
 app.post('/api/finanzas/ocr', verificarToken, async (req, res) => {
     try {
@@ -360,41 +460,46 @@ app.post('/api/finanzas/ocr', verificarToken, async (req, res) => {
     }
 });
 
-// 3. Endpoint POST: Generar Enlace de Pago Seguro (Stripe Checkout)
+// 3. Endpoint POST: Generar Enlace de Pago Seguro (MercadoPago Checkout)
 app.post('/api/suscripciones/checkout', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
 
     try {
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [{
-                price_data: {
-                    currency: 'usd',
-                    product_data: { name: 'Plan Premium GroupWallet', description: 'Grupos ilimitados y análisis avanzado.' },
-                    unit_amount: 500, // $5.00 USD
-                    recurring: { interval: 'month' }
+        const preference = new Preference(mpClient);
+        const result = await preference.create({
+            body: {
+                items: [{
+                    id: 'PREMIUM_PLAN',
+                    title: 'Plan Premium GroupWallet (1 Mes)',
+                    description: 'Grupos ilimitados y análisis avanzado.',
+                    quantity: 1,
+                    unit_price: 5000, // $5000 CLP (~$5 USD)
+                    currency_id: 'CLP'
+                }],
+                back_urls: {
+                    success: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=success`,
+                    failure: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=canceled`,
+                    pending: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=canceled`
                 },
-                quantity: 1,
-            }],
-            mode: 'subscription',
-            success_url: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=canceled`,
-            client_reference_id: id_usuario.toString()
+                auto_return: 'approved',
+                external_reference: id_usuario.toString()
+            }
         });
-        res.json({ url: session.url });
+        res.json({ url: result.init_point });
     } catch (error) {
-        console.error('Error de Stripe:', error);
+        console.error('Error de MercadoPago:', error);
         res.status(500).json({ error: 'Error al conectar con la pasarela de pagos.' });
     }
 });
 
 // 3.1 Endpoint POST: Confirmar Pago Exitoso
 app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
-    const { session_id } = req.body;
+    const { payment_id } = req.body;
     const id_usuario = req.usuarioLogueado.id_usuario;
     try {
-        const session = await stripe.checkout.sessions.retrieve(session_id);
-        if (session.payment_status === 'paid') {
+        const payment = new Payment(mpClient);
+        const payInfo = await payment.get({ id: payment_id });
+        if (payInfo.status === 'approved') {
             const treintaDias = new Date();
             treintaDias.setDate(treintaDias.getDate() + 30);
             await prisma.usuarios.update({
@@ -404,7 +509,7 @@ app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
             res.json({ message: '¡Pago verificado exitosamente! Ya eres Premium.' });
         } else { res.status(400).json({ error: 'El pago no ha sido completado.' }); }
     } catch (error) {
-        res.status(500).json({ error: 'Error verificando la transacción en Stripe.' });
+        res.status(500).json({ error: 'Error verificando la transacción en MercadoPago.' });
     }
 });
 
@@ -428,14 +533,51 @@ app.get('/api/admin/stats', verificarToken, verificarSuperAdmin, async (req, res
     try {
         const totalUsuarios = await prisma.usuarios.count();
         const usuariosPremium = await prisma.usuarios.count({ where: { id_plan: 2 } });
+        const usuariosVencidos = await prisma.usuarios.count({ where: { estado_suscripcion: 'vencido' } });
         
-        // Ganancia estimada: Usuarios Premium * $5.00
-        const gananciaEstimada = usuariosPremium * 5.00;
+        // --- Métricas SaaS Puras (Sin Custodia de Fondos) ---
+        const mrr = usuariosPremium * 5000; // MRR: Solo ingresos por membresías
+        
+        const totalHistoricoPremium = usuariosPremium + usuariosVencidos;
+        const churnRate = totalHistoricoPremium > 0 ? (usuariosVencidos / totalHistoricoPremium) * 100 : 0;
+        
+        const arpa = 5000; // Ingreso Promedio por Cuenta
+        
+        // --- Cálculo Dinámico del LTV (Basado en duración real de clientes) ---
+        const historialPremium = await prisma.usuarios.findMany({
+            where: { OR: [{ id_plan: 2 }, { estado_suscripcion: 'vencido' }] },
+            select: { fecha_registro: true, fecha_vencimiento_suscripcion: true, estado_suscripcion: true }
+        });
+
+        let totalMesesSuscritos = 0;
+        historialPremium.forEach(u => {
+            if (u.fecha_registro) {
+                const fechaFin = (u.estado_suscripcion === 'vencido' && u.fecha_vencimiento_suscripcion) ? new Date(u.fecha_vencimiento_suscripcion) : new Date();
+                const diffTime = fechaFin.getTime() - new Date(u.fecha_registro).getTime();
+                let diffMeses = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Convertir ms a meses
+                totalMesesSuscritos += Math.max(1, diffMeses); // Asumimos al menos 1 mes de retención mínima
+            }
+        });
+        const vidaPromedioMeses = historialPremium.length > 0 ? totalMesesSuscritos / historialPremium.length : 12; // Promedio de 12 si no hay métricas aún
+        const ltv = arpa * vidaPromedioMeses;
+
+        // Obtener la sumatoria de todos los gastos de marketing desde Prisma para un CAC exacto
+        const mktData = await prisma.gastos_Marketing.aggregate({ _sum: { monto: true } });
+        const marketingSpendTotal = mktData._sum.monto ? parseFloat(mktData._sum.monto) : 0;
+        const cac = totalUsuarios > 0 ? marketingSpendTotal / totalUsuarios : 0;
+        
+        const burnRate = 15000; // Costo base servidores y DB (Estimado fijo en CLP)
+
+        const memory = process.memoryUsage();
 
         res.json({
             total_usuarios: totalUsuarios,
-            usuarios_premium: usuariosPremium,
-            ganancia_estimada: gananciaEstimada
+            saas_metrics: { mrr, churn_rate: churnRate, ltv, cac, burn_rate: burnRate },
+            server_metrics: {
+                total_requests: totalRequests,
+                uptime_minutes: Math.floor(process.uptime() / 60),
+                ram_mb: Math.round(memory.rss / 1024 / 1024)
+            }
         });
     } catch (error) {
         console.error('Error obteniendo stats:', error);
@@ -443,11 +585,92 @@ app.get('/api/admin/stats', verificarToken, verificarSuperAdmin, async (req, res
     }
 });
 
+// 3.8.1 NUEVO Endpoint POST: Registrar Inversión en Marketing (Súper Admin)
+app.post('/api/admin/marketing', verificarToken, verificarSuperAdmin, async (req, res) => {
+    try {
+        const { monto, descripcion } = req.body;
+        if (!monto || isNaN(monto) || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
+        
+        await prisma.gastos_Marketing.create({ data: { monto: parseFloat(monto), descripcion: descripcion || 'Campaña publicitaria' } });
+        res.status(201).json({ message: 'Inversión en marketing registrada exitosamente.' });
+    } catch (error) {
+        console.error('Error registrando gasto de marketing:', error);
+        res.status(500).json({ error: 'Error interno al registrar el gasto publicitario.' });
+    }
+});
+
+// 3.8.2 NUEVO Endpoint GET: Obtener datos para gráficos (Súper Admin)
+app.get('/api/admin/chart-data', verificarToken, verificarSuperAdmin, async (req, res) => {
+    try {
+        const meses = [];
+        const cacData = [];
+        const mrrData = [];
+        
+        // Generar los últimos 6 meses
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const mesNombre = d.toLocaleString('es-ES', { month: 'short', year: 'numeric' });
+            meses.push(mesNombre);
+            
+            const primerDia = new Date(d.getFullYear(), d.getMonth(), 1);
+            const ultimoDia = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+
+            const mktMes = await prisma.gastos_Marketing.aggregate({ _sum: { monto: true }, where: { fecha_gasto: { gte: primerDia, lte: ultimoDia } } });
+            const spend = mktMes._sum.monto ? parseFloat(mktMes._sum.monto) : 0;
+
+            const nuevosUsuarios = await prisma.usuarios.count({ where: { fecha_registro: { gte: primerDia, lte: ultimoDia } } });
+            
+            cacData.push(nuevosUsuarios > 0 ? Math.round(spend / nuevosUsuarios) : 0);
+
+            const premiumHastaMes = await prisma.usuarios.count({ where: { fecha_registro: { lte: ultimoDia }, id_plan: 2 } });
+            mrrData.push(premiumHastaMes * 5000); 
+        }
+
+        res.json({ labels: meses, cac: cacData, mrr: mrrData });
+    } catch (error) {
+        console.error('Error generando chart data:', error);
+        res.status(500).json({ error: 'Error al obtener datos del gráfico.' });
+    }
+});
+
+// 3.8.3 NUEVO Endpoint GET: Obtener Logs del Sistema (Súper Admin)
+app.get('/api/admin/logs', verificarToken, verificarSuperAdmin, async (req, res) => {
+    try {
+        const logPath = path.join(__dirname, '../error.log');
+        if (fs.existsSync(logPath)) {
+            const logs = fs.readFileSync(logPath, 'utf8');
+            res.send(logs || 'No hay logs registrados actualmente.');
+        } else {
+            res.send('El archivo de logs aún no ha sido creado.');
+        }
+    } catch (error) {
+        console.error('Error leyendo logs:', error);
+        res.status(500).send('Error interno al leer los logs del sistema.');
+    }
+});
+
+// 3.8.4 NUEVO Endpoint DELETE: Limpiar Logs del Sistema (Súper Admin)
+app.delete('/api/admin/logs', verificarToken, verificarSuperAdmin, async (req, res) => {
+    try {
+        const logPath = path.join(__dirname, '../error.log');
+        if (fs.existsSync(logPath)) {
+            fs.writeFileSync(logPath, '');
+            res.json({ message: 'Logs limpiados exitosamente.' });
+        } else {
+            res.json({ message: 'No hay logs para limpiar.' });
+        }
+    } catch (error) {
+        console.error('Error limpiando logs:', error);
+        res.status(500).json({ error: 'Error interno al limpiar los logs.' });
+    }
+});
+
 // 3.9 NUEVO Endpoint GET: Obtener lista de usuarios para gestión (Súper Admin)
 app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, async (req, res) => {
     try {
         const result = await prisma.usuarios.findMany({
-            select: { id_usuario: true, nombre: true, correo: true, id_plan: true, estado_suscripcion: true, fecha_registro: true },
+            select: { id_usuario: true, nombre: true, correo: true, id_plan: true, estado_suscripcion: true, fecha_registro: true, bloqueado_hasta: true },
             orderBy: { id_usuario: 'asc' }
         });
         const formattedResult = result.map(u => ({ ...u, fecha: u.fecha_registro ? u.fecha_registro.toLocaleDateString('es-ES') : null }));
@@ -502,6 +725,34 @@ app.post('/api/admin/usuarios/:id/forzar-logout', verificarToken, verificarSuper
     } catch (error) {
         console.error('Error forzando logout:', error);
         res.status(500).json({ error: 'Error al intentar forzar el cierre de sesión.' });
+    }
+});
+
+// 3.12 NUEVO Endpoint PUT: Bloquear usuario temporalmente (Súper Admin)
+app.put('/api/admin/usuarios/:id/bloquear', verificarToken, verificarSuperAdmin, async (req, res) => {
+    const id_objetivo = req.params.id;
+    const { horas } = req.body;
+    
+    try {
+        let bloqueado_hasta = null;
+        if (horas && horas > 0) {
+            bloqueado_hasta = new Date(Date.now() + horas * 60 * 60 * 1000);
+        }
+        
+        await prisma.usuarios.update({
+            where: { id_usuario: parseInt(id_objetivo) },
+            data: { bloqueado_hasta }
+        });
+        
+        if (bloqueado_hasta) {
+            req.io.emit('forzar_logout', { id_usuario: parseInt(id_objetivo) }); // Expulsarlo en tiempo real si está conectado
+            res.json({ message: `Usuario bloqueado por ${horas} horas y expulsado del sistema.` });
+        } else {
+            res.json({ message: 'Usuario desbloqueado exitosamente. Ya puede iniciar sesión.' });
+        }
+    } catch (error) {
+        console.error('Error bloqueando usuario:', error);
+        res.status(500).json({ error: 'Error al actualizar el estado de bloqueo del usuario.' });
     }
 });
 
@@ -620,10 +871,7 @@ cron.schedule('50 23 * * *', async () => {
                     from: `"GroupWallet" <${process.env.SMTP_USER}>`,
                     to: row.correo,
                     subject: 'Tu Resumen Mensual de Finanzas en GroupWallet',
-                    html: `<h2>Hola ${row.nombre},</h2>
-                           <p>Este mes has gastado un total de <strong>$${row.total_gastado}</strong>.</p>
-                           <p>Atención: de ese total, <strong>$${row.total_hormiga}</strong> se fueron en "Gastos Hormiga" (compras menores a $15).</p>
-                           <p><em>💡 Tip: ${tip}</em></p>`
+                    html: EmailTemplates.resumenMensual(row.nombre, row.total_gastado, row.total_hormiga, tip)
                 };
                 
                 await transporter.sendMail(mailOptions);
@@ -673,15 +921,19 @@ cron.schedule('0 8 * * 1', async () => {
                 from: `"GroupWallet" <${process.env.SMTP_USER}>`,
                 to: row.correo,
                 subject: 'Recordatorio: Tienes cuotas pendientes en GroupWallet',
-                html: `<h2>Hola ${row.nombre},</h2>
-                       <p>Este es un recordatorio de que actualmente tienes <strong style="color: #e74c3c;">${row.cantidad_cuotas} cuota(s) pendiente(s)</strong> en tus grupos.</p>
-                       <p>El total acumulado estimado de tu deuda es de <strong>$${parseFloat(row.deuda_total).toFixed(2)}</strong>.</p>
-                       <p>Ingresa a la aplicación para revisar el detalle y saldar tus deudas. ¡Mantén tus finanzas al día!</p>`
+                html: EmailTemplates.recordatorioDeudas(row.nombre, row.cantidad_cuotas, row.deuda_total)
             };
             await transporter.sendMail(mailOptions);
         }
         console.log(`[CRON] Se enviaron ${deudasPorUsuario.length} recordatorios de deuda.`);
     } catch (error) { console.error('[CRON] Error al enviar recordatorios semanales:', error); }
+});
+
+// Auto-Ping: Algoritmo para mantener Render encendido (Evitar Sleep en Free Tier)
+cron.schedule('*/14 * * * *', async () => {
+    try {
+        await fetch(`http://localhost:${PORT}/api/status`);
+    } catch (error) { console.error('[CRON] Auto-ping fallido', error.message); }
 });
 
 // ==========================================

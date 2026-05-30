@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioId = localStorage.getItem('usuarioId');
     if (!usuarioId) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return; 
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad con fetch
@@ -16,11 +16,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof showToast === 'function') {
                 showToast('Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.', 'error');
             }
-            setTimeout(() => window.location.href = 'index.html', 2000);
+            setTimeout(() => window.location.href = 'login.html', 2000);
             return Promise.reject(new Error('Sesión expirada'));
         }
         return response;
     };
+
+    // --- Cierre de Sesión (Logout) ---
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await fetch('/api/usuarios/logout', { method: 'POST' });
+            } catch (err) { console.error('Error cerrando sesión', err); }
+            
+            localStorage.removeItem('usuarioId');
+            localStorage.removeItem('usuarioNombre');
+            window.location.href = 'login.html';
+        });
+    }
 
     let currentDate = new Date();
     let transacciones = [];
@@ -381,4 +396,68 @@ document.addEventListener('DOMContentLoaded', () => {
             return publicUrl;
         } catch (e) { showToast('No se pudo subir el archivo.', 'error'); return null; } finally { hideSpinner(); }
     };
+
+    // --- 7. Exportar Reportes Mensuales (Exclusivo Premium) ---
+    const scriptPdf = document.createElement('script');
+    scriptPdf.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    document.head.appendChild(scriptPdf);
+
+    const initExportButtons = () => {
+        const chartContainer = document.getElementById('grafico-mensual')?.closest('.card');
+        if (!chartContainer) return;
+
+        const divBotones = document.createElement('div');
+        divBotones.style = "display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; justify-content: center;";
+
+        const btnPdf = document.createElement('button');
+        btnPdf.className = 'btn-primary';
+        btnPdf.style.backgroundColor = 'var(--danger-color)'; 
+        btnPdf.style.width = 'auto';
+        btnPdf.textContent = '📄 Exportar a PDF';
+        
+        const btnCsv = document.createElement('button');
+        btnCsv.className = 'btn-primary';
+        btnCsv.style.backgroundColor = '#27ae60'; 
+        btnCsv.style.width = 'auto';
+        btnCsv.textContent = '📊 Exportar a Excel';
+
+        divBotones.appendChild(btnPdf);
+        divBotones.appendChild(btnCsv);
+        chartContainer.appendChild(divBotones);
+
+        const validarPremium = async () => {
+            const res = await fetch('/api/finanzas/analisis'); // Ruta protegida por verificarPremium en el Backend
+            if (res.status === 403) {
+                showToast('La exportación de reportes es exclusiva de Premium. Descubre sus beneficios...', 'info');
+                setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);
+                return false;
+            }
+            return true;
+        };
+
+        btnPdf.addEventListener('click', async () => {
+            showSpinner();
+            if (!await validarPremium()) { hideSpinner(); return; }
+            
+            divBotones.style.display = 'none'; // Ocultar botones para que no salgan en la foto del PDF
+            const element = document.querySelector('.dashboard-container');
+            const nombreMes = document.getElementById('label-mes-actual').textContent.replace(/ /g, '_');
+            
+            const opt = { margin: 0.3, filename: `Reporte_Mensual_${nombreMes}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
+            
+            if (window.html2pdf) await html2pdf().set(opt).from(element).save();
+            else showToast('La librería PDF aún se está cargando...', 'error');
+            
+            divBotones.style.display = 'flex';
+            hideSpinner();
+        });
+
+        btnCsv.addEventListener('click', async () => {
+            if (!await validarPremium()) return;
+            const m = currentDate.getMonth(); const a = currentDate.getFullYear();
+            window.location.href = `/api/finanzas/exportar-mensual?mes=${m}&anio=${a}`; // El navegador manda tu Cookie Segura automáticamente
+        });
+    };
+
+    setTimeout(initExportButtons, 1500); // Esperar a que rendericen los gráficos en el DOM
 });

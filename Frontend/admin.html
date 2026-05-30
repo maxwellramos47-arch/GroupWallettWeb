@@ -8,8 +8,11 @@
 </head>
 <body>
     <header class="main-header" style="background-color: #8e44ad;">
-        <div class="logo">
-            <h1>Group<span>Wallet</span> <span style="font-size: 0.8rem; color: #ecf0f1;">ADMIN</span></h1>
+        <div class="logo" style="display: flex; align-items: center; gap: 0.5rem;">
+            <a href="dashboard.html">
+                <img src="Placeholders/LogoMenu.png" alt="GroupWallet" class="logo-menu">
+            </a>
+            <span style="font-size: 0.8rem; color: #ecf0f1; font-weight: bold; padding-top: 0.2rem;">ADMIN</span>
         </div>
         <nav class="main-nav">
             <ul>
@@ -20,18 +23,78 @@
 
     <main class="dashboard-container" style="max-width: 800px;">
         <div class="card" style="border-left: 5px solid #8e44ad;">
-            <h3 style="color: #8e44ad; border-bottom-color: #f3e5f5;">Métricas Globales del Sistema (SaaS)</h3>
-            <div class="balance-stats" style="margin-top: 1.5rem;">
-                <div class="stat" style="background-color: #f8f9fa;">
-                    <span>Total de Usuarios Registrados</span>
-                    <h4 id="stat-usuarios" style="color: var(--primary-slate); font-size: 2rem;">0</h4>
+            <h3 style="color: #8e44ad; border-bottom-color: #f3e5f5;">Métricas SaaS (Viabilidad del Proyecto)</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Modelo legal sin custodia de fondos (Conciliación). Ingresos puros por Suscripción.</p>
+            <div class="balance-stats" style="margin-top: 1.5rem; flex-wrap: wrap;">
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 30%;">
+                    <span title="Monthly Recurring Revenue">4. MRR</span>
+                    <h4 id="stat-mrr" style="color: var(--secondary-emerald); font-size: 1.8rem;">$0</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Suscripciones Activas</span>
                 </div>
-                <div class="stat" style="background-color: #f8f9fa;">
-                    <span>Ingreso Mensual Estimado (MRR)</span>
-                    <h4 id="stat-ganancia" style="color: var(--secondary-emerald); font-size: 2rem;">$0.00</h4>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">De <span id="stat-premium">0</span> usuarios Premium</span>
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 30%;">
+                    <span title="Tasa de Cancelación">3. Churn Rate</span>
+                    <h4 id="stat-churn" style="color: var(--danger-color); font-size: 1.8rem;">0%</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Usuarios perdidos</span>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 30%;">
+                    <span title="Lifetime Value (Valor proyectado por cliente)">2. LTV</span>
+                    <h4 id="stat-ltv" style="color: #3498db; font-size: 1.8rem;">$0</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Valor vida cliente</span>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 30%;">
+                    <span title="Costo de Adquisición (Marketing)">1. CAC</span>
+                    <h4 id="stat-cac" style="color: #e67e22; font-size: 1.8rem;">$0</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Gasto Marketing</span>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa; flex: 1 1 30%;">
+                    <span title="Tasa de Consumo de Efectivo (Costo Servidores)">5. Burn Rate</span>
+                    <h4 id="stat-burn" style="color: #c0392b; font-size: 1.8rem;">$0</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Costos Operativos</span>
                 </div>
             </div>
+        </div>
+
+        <div class="card mt-2" style="border-left: 5px solid #2ecc71;">
+            <h3 style="color: #27ae60; border-bottom-color: #eafaf1;">Evolución de Crecimiento (Últimos 6 Meses)</h3>
+            <canvas id="admin-growth-chart" style="max-height: 300px; margin-top: 1rem; width: 100%;"></canvas>
+        </div>
+
+        <div class="card mt-2" style="border-left: 5px solid #e74c3c;">
+            <h3 style="color: #c0392b; border-bottom-color: #fadbd8;">Métricas del Servidor (En Vivo)</h3>
+            <div class="balance-stats" style="margin-top: 1.5rem;">
+                <div class="stat" style="background-color: #f8f9fa;">
+                    <span>Peticiones a la API</span>
+                    <h4 id="stat-requests" style="color: var(--primary-slate); font-size: 2rem;">0</h4>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa;">
+                    <span>Tiempo Activo (Uptime)</span>
+                    <h4 id="stat-uptime" style="color: var(--secondary-emerald); font-size: 2rem;">0 min</h4>
+                </div>
+                <div class="stat" style="background-color: #f8f9fa;">
+                    <span>Memoria RAM Usada</span>
+                    <h4 id="stat-ram" style="color: #e74c3c; font-size: 2rem;">0 MB</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-2" style="border-left: 5px solid #34495e;">
+            <h3 style="color: #34495e; border-bottom-color: #ebedef;">Visor de Logs (Errores del Sistema)</h3>
+            <div style="margin-top: 1rem;">
+                <button id="btn-cargar-logs" class="btn-primary" style="background-color: #34495e; width: auto; padding: 0.6rem 1.2rem; margin-bottom: 1rem;">🔄 Actualizar Logs</button>
+                <button id="btn-limpiar-logs" class="btn-primary" style="background-color: var(--danger-color); width: auto; padding: 0.6rem 1.2rem; margin-bottom: 1rem; margin-left: 0.5rem;">🗑️ Limpiar Logs</button>
+                <pre id="log-viewer" style="background-color: #1e1e1e; color: #a6e22e; padding: 1rem; border-radius: 6px; max-height: 400px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; font-size: 0.85rem;">Esperando cargar logs...</pre>
+            </div>
+        </div>
+
+        <div class="card mt-2" style="border-left: 5px solid #f39c12;">
+            <h3 style="color: #f39c12; border-bottom-color: #fef5e6;">Registro de Inversión (Marketing)</h3>
+            <form id="form-admin-marketing" class="mt-2">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <input type="text" id="mkt-desc" placeholder="Ej. Facebook Ads - Campaña Estudiantes" required style="flex: 2; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-light);">
+                    <input type="number" id="mkt-monto" placeholder="Monto Total Invertido ($)" min="1" step="0.01" required style="flex: 1; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-light);">
+                    <button type="submit" class="btn-primary" style="flex: 1; background-color: #f39c12; width: auto; padding: 0.6rem 1.2rem;">Registrar Gasto</button>
+                </div>
+            </form>
         </div>
 
         <div class="card mt-2" style="border-left: 5px solid #3498db;">
@@ -53,7 +116,7 @@
                             <th>Correo</th>
                             <th>Estado / Rol actual</th>
                             <th>Cambiar a</th>
-                            <th>Acción</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="lista-admin-usuarios">
@@ -64,6 +127,7 @@
         </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="toast.js"></script>
     <script src="admin.js"></script>
 </body>

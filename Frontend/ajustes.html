@@ -9,7 +9,9 @@
 <body>
     <header class="main-header">
         <div class="logo">
-            <h1>Group<span>Wallet</span></h1>
+            <a href="dashboard.html">
+                <img src="Placeholders/LogoMenu.png" alt="GroupWallet" class="logo-menu">
+            </a>
         </div>
         <nav class="main-nav">
             <ul>
@@ -44,11 +46,20 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Nueva Contraseña <span style="font-weight: normal; color: var(--text-muted);">(Opcional)</span></label>
+                <label>Contraseña Actual <span style="font-weight: normal; color: var(--text-muted);">(Requerida si vas a cambiarla)</span></label>
+                <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                    <input type="password" id="perfil-password-actual" placeholder="Tu contraseña actual" style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Nueva Contraseña <span style="font-weight: normal; color: var(--text-muted);">(Opcional)</span></label>
                 <div style="display: flex; gap: 0.5rem; align-items: stretch;">
                     <input type="password" id="perfil-password" placeholder="Deja en blanco para no cambiar" style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
                     <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
                 </div>
+                <div id="password-strength" style="height: 5px; background: var(--border-color); border-radius: 3px; margin-top: 5px; overflow: hidden;"><div id="password-strength-bar" style="height: 100%; width: 0%; transition: 0.3s;"></div></div>
+                <p id="password-strength-text" style="font-size: 0.8rem; margin-top: 2px; color: var(--text-muted);"></p>
                 </div>
                 <button type="submit" class="btn-primary mt-2">Guardar Cambios</button>
             </form>
@@ -79,6 +90,11 @@
                 </div>
                 <button type="submit" class="btn-primary mt-2">Guardar Datos Bancarios</button>
             </form>
+            
+            <div id="mp-info-container" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                <h4 style="color: #009EE3; margin-bottom: 0.5rem;">💳 Recibir Pagos Automáticos</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0;">Los pagos que te hagan tus amigos dentro de la App son recolectados centralmente. Llena tus datos bancarios arriba y nosotros te transferiremos tu dinero acumulado de forma periódica.</p>
+            </div>
         </div>
         
         <div class="card mt-2" id="suscripcion-container" style="display: none;">
@@ -96,7 +112,7 @@
     <footer class="main-footer">
         <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 1.5rem; max-width: 1200px; margin: 0 auto; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem; text-align: left;">
             <div>
-                <h4 style="color: var(--primary-slate); margin-bottom: 0.5rem;">GroupWallet</h4>
+                <a href="dashboard.html"><img src="Placeholders/LogoFooter.png" alt="GroupWallet" class="logo-footer"></a>
                 <p style="font-size: 0.85rem; margin-bottom: 0.2rem;">Gestión Inteligente de Finanzas compartidas.</p>
             </div>
             <div>

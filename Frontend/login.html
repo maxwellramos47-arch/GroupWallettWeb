@@ -5,11 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - GroupWallet</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        if (localStorage.getItem('usuarioId')) {
+            const pendingJoin = localStorage.getItem('pendingJoinToken');
+            window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
+        }
+    </script>
 </head>
 <body class="login-body">
     <div class="login-container card">
+        <div style="text-align: left; margin-bottom: -1rem; position: relative; z-index: 10;">
+            <a href="index.html" class="back-link">
+                &larr; Volver al inicio
+            </a>
+        </div>
         <div class="logo text-center">
-            <h1>Group<span>Wallet</span></h1>
+        <a href="index.html">
+            <img src="Placeholders/LogoIndex.png" alt="GroupWallet" class="logo-index">
+        </a>
         </div>
         <h2 class="text-center mt-2">Iniciar Sesión</h2>
         <form id="form-login" class="mt-2">
@@ -25,7 +38,7 @@
                 </div>
             </div>
             <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: -0.5rem; margin-bottom: 1rem;">
-                <input type="checkbox" id="remember-me" style="width: auto; margin: 0; transform: scale(1.2); cursor: pointer;">
+                <input type="checkbox" id="remember-me" checked style="width: auto; margin: 0; transform: scale(1.2); cursor: pointer;">
                 <label for="remember-me" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">Mantener sesión iniciada por 30 días</label>
             </div>
             <button type="submit" class="btn-primary mt-2">Ingresar al Portal</button>

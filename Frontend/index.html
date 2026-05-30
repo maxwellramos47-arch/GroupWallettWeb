@@ -6,11 +6,17 @@
     <title>GroupWallet - Gestión Inteligente de Finanzas Compartidas</title>
     <meta name="description" content="Divide gastos sin perder amigos. Crea grupos, registra transacciones y calcula quién debe a quién de la forma más eficiente.">
     <link rel="stylesheet" href="styles.css">
+    <script>
+        if (localStorage.getItem('usuarioId')) {
+            const pendingJoin = localStorage.getItem('pendingJoinToken');
+            window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
+        }
+    </script>
 </head>
 <body>
     <header class="main-header">
         <div class="logo">
-            <h1>Group<span>Wallet</span></h1>
+            <a href="index.html"><img src="Placeholders/LogoMenu.png" alt="GroupWallet" class="logo-menu"></a>
         </div>
         <nav class="main-nav">
             <ul style="align-items: center;">
@@ -45,7 +51,8 @@
     </main>
 
     <footer class="main-footer" style="margin-top: 2rem;">
-        <p style="font-size: 0.85rem;">&copy; 2024 GroupWallet. Todos los derechos reservados.</p>
+        <a href="index.html"><img src="Placeholders/LogoFooter.png" alt="GroupWallet" class="logo-footer"></a>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem;">&copy; 2024 GroupWallet. Todos los derechos reservados.</p>
     </footer>
 </body>
 </html>

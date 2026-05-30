@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 0. Protección de Ruta ---
     const usuarioId = localStorage.getItem('usuarioId');
     if (!usuarioId) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return; 
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad.', 'error');
-            setTimeout(() => window.location.href = 'index.html', 2000);
+            setTimeout(() => window.location.href = 'login.html', 2000);
             return Promise.reject(new Error('Sesión expirada'));
         }
         return response;
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
         });
     }
 
@@ -165,12 +165,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         let htmlMiembros = '<ul style="list-style: none; padding: 0; margin: 0;">';
                         miembros.forEach(m => {
                             let btnExpulsar = '';
+                            let btnBanco = '';
+                            if (m.id_usuario != miId) {
+                                btnBanco = `<button class="btn-ver-banco-modal btn-primary" data-usuario="${m.id_usuario}" style="background-color: var(--primary-slate); padding: 0.2rem 0.5rem; font-size: 0.75rem; width: auto; margin-left: 0.5rem;">🏦 Banco</button>`;
+                            }
                             if (miRol === 'Administrador' && m.id_usuario != miId) {
-                                btnExpulsar = `<button class="btn-expulsar-miembro btn-primary" data-grupo="${idGrupo}" data-usuario="${m.id_usuario}" style="background-color: var(--danger-color); padding: 0.2rem 0.5rem; font-size: 0.75rem; width: auto; margin-left: 1rem;">Expulsar</button>`;
+                                btnExpulsar = `<button class="btn-expulsar-miembro btn-primary" data-grupo="${idGrupo}" data-usuario="${m.id_usuario}" style="background-color: var(--danger-color); padding: 0.2rem 0.5rem; font-size: 0.75rem; width: auto; margin-left: 0.5rem;">Expulsar</button>`;
                             }
                             htmlMiembros += `<li style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color);">
-                                <span style="font-weight: 500;">${m.nombre} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
-                                ${btnExpulsar}
+                                <div style="display: flex; align-items: center;">
+                                    <span style="font-weight: 500;">${m.nombre} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
+                                </div>
+                                <div style="display: flex; align-items: center;">
+                                    ${btnBanco}
+                                    ${btnExpulsar}
+                                </div>
                             </li>`;
                         });
                         htmlMiembros += '</ul>';
@@ -211,6 +220,110 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         ev.target.closest('li').remove();
                                     } else { showToast(dataRes.error, 'error'); ev.target.disabled = false; ev.target.textContent = 'Expulsar'; }
                                 } catch (err) { showToast('Error de conexión', 'error'); ev.target.disabled = false; ev.target.textContent = 'Expulsar'; }
+                            });
+                        });
+
+                        modalBox.querySelectorAll('.btn-ver-banco-modal').forEach(btn => {
+                            btn.addEventListener('click', async (ev) => {
+                                const idUsuarioTarget = ev.target.getAttribute('data-usuario');
+                                showSpinner();
+                                try {
+                                    const res = await fetch(`/api/usuarios/${idUsuarioTarget}/banco`);
+                                    const datos = await res.json();
+                                    
+                                    if (res.ok) {
+                                        const bancoOverlay = document.createElement('div');
+                                        bancoOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 10005; padding: 1rem;";
+                                        const bancoBox = document.createElement('div');
+                                        bancoBox.className = "card";
+                                        bancoBox.style = "max-width: 350px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative;";
+                                        
+                                        // --- Detectar Celular y Generar Deep Link de App Bancaria ---
+                                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                        let btnAbrirApp = '';
+                                        if (isMobile && datos.banco) {
+                                            let appScheme = '';
+                                            const bancoStr = datos.banco.toLowerCase();
+                                            if (bancoStr.includes('estado')) appScheme = 'bancoestado://';
+                                            else if (bancoStr.includes('santander')) appScheme = 'santander://';
+                                            else if (bancoStr.includes('chile')) appScheme = 'bancochile://';
+                                            else if (bancoStr.includes('mach')) appScheme = 'mach://';
+                                            else if (bancoStr.includes('tenpo')) appScheme = 'tenpo://';
+                                            else if (bancoStr.includes('mercado pago')) appScheme = 'mercadopago://';
+                                            
+                                            if (appScheme) {
+                                                btnAbrirApp = `<a href="${appScheme}" class="btn-primary" style="display: block; text-align: center; text-decoration: none; margin-top: 1rem; background-color: var(--primary-slate); padding: 0.6rem;">📱 Abrir App de ${datos.banco}</a>`;
+                                            }
+                                        }
+
+                                        bancoBox.innerHTML = `
+                                            <button id="btn-cerrar-banco" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
+                                            <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--primary-slate);">🏦 Datos para Transferir</h3>
+                                            <p style="margin: 0; font-size: 0.9rem;"><strong>Banco:</strong> ${datos.banco || 'No especificado'}</p>
+                                            <p style="margin: 0; font-size: 0.9rem;"><strong>Tipo:</strong> ${datos.tipo_cuenta || 'No especificado'}</p>
+                                            <p style="margin: 0; font-size: 0.9rem;"><strong>Correo:</strong> ${datos.correo || 'No especificado'}</p>
+                                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+                                                <input type="text" readonly value="${datos.rut || ''}" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: var(--bg-light);" placeholder="RUT no registrado">
+                                                <button class="btn-copiar-dato btn-primary" data-valor="${datos.rut || ''}" style="width: auto; padding: 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald);">Copiar RUT</button>
+                                            </div>
+                                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center;">
+                                                <input type="text" readonly value="${datos.numero_cuenta || ''}" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: var(--bg-light);" placeholder="N° Cuenta no registrado">
+                                                <button class="btn-copiar-dato btn-primary" data-valor="${datos.numero_cuenta || ''}" style="width: auto; padding: 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald);">Copiar N°</button>
+                                            </div>
+                                            <button id="btn-copiar-todos-datos" class="btn-primary" style="display: block; margin-top: 1rem; width: 100%; background-color: var(--primary-slate); padding: 0.6rem;">📋 Copiar Todos los Datos</button>
+                                            ${btnAbrirApp}
+                                        `;
+                                        bancoOverlay.appendChild(bancoBox);
+                                        document.body.appendChild(bancoOverlay);
+
+                                        document.getElementById('btn-cerrar-banco').addEventListener('click', () => document.body.removeChild(bancoOverlay));
+                                        
+                                        bancoBox.querySelectorAll('.btn-copiar-dato').forEach(btnCopiar => {
+                                            btnCopiar.addEventListener('click', async (eCopiar) => {
+                                                const btn = eCopiar.target;
+                                                const val = btn.getAttribute('data-valor');
+                                                if (val) {
+                                                    await navigator.clipboard.writeText(val);
+                                                    showToast('Copiado al portapapeles', 'success');
+                                                    
+                                                    const originalText = btn.textContent;
+                                                    const originalBg = btn.style.backgroundColor;
+                                                    btn.textContent = '✔️ Copiado';
+                                                    btn.style.backgroundColor = '#27ae60';
+                                                    setTimeout(() => {
+                                                        btn.textContent = originalText;
+                                                        btn.style.backgroundColor = originalBg;
+                                                    }, 2000);
+                                                } else {
+                                                    showToast('El usuario no registró este dato.', 'error');
+                                                }
+                                            });
+                                        });
+                                        
+                                        const btnCopiarTodos = document.getElementById('btn-copiar-todos-datos');
+                                        if (btnCopiarTodos) {
+                                            btnCopiarTodos.addEventListener('click', async (e) => {
+                                                const btn = e.target;
+                                                const textoCompleto = `🏦 *Datos de Transferencia*\n*Banco:* ${datos.banco || 'No especificado'}\n*Tipo:* ${datos.tipo_cuenta || 'No especificado'}\n*RUT:* ${datos.rut || 'No especificado'}\n*N° Cuenta:* ${datos.numero_cuenta || 'No especificado'}\n*Correo:* ${datos.correo || 'No especificado'}`;
+                                                try {
+                                                    await navigator.clipboard.writeText(textoCompleto);
+                                                    showToast('Todos los datos copiados al portapapeles', 'success');
+                                                    
+                                                    const originalText = btn.textContent;
+                                                    const originalBg = btn.style.backgroundColor;
+                                                    btn.textContent = '✔️ ¡Copiados!';
+                                                    btn.style.backgroundColor = 'var(--secondary-emerald)';
+                                                    setTimeout(() => {
+                                                        btn.textContent = originalText;
+                                                        btn.style.backgroundColor = originalBg;
+                                                    }, 2000);
+                                                } catch (err) {
+                                                    showToast('Error al copiar los datos', 'error');
+                                                }
+                                            });
+                                        }
+                                    } else showToast(datos.error || 'No se encontraron datos.', 'error');
+                                } catch (error) { console.error(error); showToast('Error de conexión.', 'error'); } finally { hideSpinner(); }
                             });
                         });
                     }
@@ -259,6 +372,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const formParticipante = document.getElementById('form-participante');
 
     if (formParticipante) {
+        // Añadir dinámicamente campo de correo si no existe
+        if (!document.getElementById('correo-invitar')) {
+            const btnSubmit = formParticipante.querySelector('button[type="submit"]');
+            if (btnSubmit) {
+                const emailDiv = document.createElement('div');
+                emailDiv.style.marginBottom = '1rem';
+                emailDiv.innerHTML = `
+                    <label style="font-weight: bold; margin-bottom: 0.5rem; display: block; color: var(--text-color);">Enviar invitación al correo (Opcional):</label>
+                    <input type="email" id="correo-invitar" placeholder="ejemplo@correo.com" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                `;
+                btnSubmit.parentNode.insertBefore(emailDiv, btnSubmit);
+            }
+        }
+
         formParticipante.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -268,13 +395,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const idGrupo = document.getElementById('grupo-invitar').value;
+            const correo = document.getElementById('correo-invitar') ? document.getElementById('correo-invitar').value : '';
             if (!idGrupo) return;
 
             showSpinner();
             try {
                 const response = await fetch(`/api/grupos/${idGrupo}/invitacion`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ correo })
                 });
                 const data = await response.json();
                 if (response.ok) {
@@ -334,12 +466,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (formParticipante) formParticipante.reset();
                             });
 
-                            document.getElementById('btn-modal-copiar').addEventListener('click', async () => {
+                            const btnModalCopiar = document.getElementById('btn-modal-copiar');
+                            btnModalCopiar.addEventListener('click', async () => {
                                 try {
                                     const linkInput = document.getElementById('modal-invite-link');
                                     await navigator.clipboard.writeText(linkInput.value);
                                     linkInput.select();
                                     showToast('Enlace copiado al portapapeles.', 'success');
+                                    
+                                    const originalText = btnModalCopiar.textContent;
+                                    btnModalCopiar.textContent = '✔️ Copiado';
+                                    setTimeout(() => {
+                                        btnModalCopiar.textContent = originalText;
+                                    }, 2000);
                                 } catch (err) {
                                     showToast('No se pudo copiar el enlace.', 'error');
                                 }

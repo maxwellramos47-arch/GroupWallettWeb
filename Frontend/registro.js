@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const nombre = document.getElementById('registro-nombre').value;
             const correo = document.getElementById('registro-correo').value;
+            const telefono = document.getElementById('registro-telefono') ? document.getElementById('registro-telefono').value : null;
             const password = document.getElementById('registro-password').value;
             const confirmPassword = document.getElementById('registro-password-confirm').value;
             const tosCheckbox = document.getElementById('registro-tos');
@@ -67,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/usuarios/registro', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, correo, password })
+                    body: JSON.stringify({ nombre, correo, telefono, password })
                 });
                 const data = await res.json();
                 

@@ -2,9 +2,9 @@ const prisma = require('../Config/prisma');
 const Usuario = require('../Entities/Usuario');
 
 class UsuarioDAL {
-    static async create(nombre, correo, passwordHash) {
+    static async create(nombre, correo, telefono, passwordHash) {
         const user = await prisma.usuarios.create({
-            data: { nombre, correo, password_hash: passwordHash }
+            data: { nombre, correo, telefono, password_hash: passwordHash }
         });
         return user.id_usuario;
     }
@@ -20,11 +20,18 @@ class UsuarioDAL {
     }
 
     static async updateProfile(id_usuario, nombre, telefono, foto_url = null, passwordHash = null) {
-        const data = { nombre, telefono: telefono || null };
+        const data = {};
+        if (nombre) data.nombre = nombre;
+        if (telefono !== undefined) data.telefono = telefono || null;
         if (foto_url) data.foto_url = foto_url;
         if (passwordHash) data.password_hash = passwordHash;
         
         await prisma.usuarios.update({ where: { id_usuario }, data });
+    }
+
+    static async getPasswordHash(id_usuario) {
+        const user = await prisma.usuarios.findUnique({ where: { id_usuario }, select: { password_hash: true } });
+        return user ? user.password_hash : null;
     }
 
     static async setResetToken(correo, token, expireDate) {

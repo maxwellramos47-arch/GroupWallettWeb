@@ -12,34 +12,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    const usuarioToken = localStorage.getItem('usuarioToken');
+    const usuarioId = localStorage.getItem('usuarioId');
 
     // Si no ha iniciado sesión, guardamos el intento y lo mandamos al login
-    if (!usuarioToken) {
+    if (!usuarioId) {
         localStorage.setItem('pendingJoinToken', tokenInvitacion);
-        showToast('Debes iniciar sesión o registrarte para unirte al grupo.', 'success');
-        setTimeout(() => window.location.href = 'index.html', 2000);
+        
+        joinTitle.textContent = '¡Has sido invitado!';
+        joinTitle.style.color = 'var(--primary-slate)';
+        joinMessage.innerHTML = 'Para unirte a este grupo y dividir gastos, necesitas <strong style="color: var(--secondary-emerald);">iniciar sesión</strong> o <strong style="color: var(--primary-slate);">crear una cuenta</strong>.';
+        
+        const spinner = document.getElementById('join-spinner');
+        if (spinner) spinner.style.display = 'none';
+        
+        const actions = document.getElementById('join-actions');
+        if (actions) actions.style.display = 'flex';
         return;
     }
-
-    // --- Verificación Proactiva de Expiración del Token ---
-    try {
-        const payload = JSON.parse(atob(usuarioToken.split('.')[1]));
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-            localStorage.removeItem('usuarioToken');
-            localStorage.removeItem('usuarioNombre');
-            localStorage.setItem('pendingJoinToken', tokenInvitacion);
-            if (typeof showToast === 'function') {
-                showToast('Tu sesión ha expirado. Inicia sesión para unirte al grupo.', 'error');
-            }
-            setTimeout(() => window.location.href = 'index.html', 2000);
-            return;
-        }
-    } catch (e) {
-        localStorage.removeItem('usuarioToken');
-        window.location.href = 'index.html';
-        return;
-    }
+    const usuarioToken = 'http-only-cookie';
 
     // Ya limpiamos cualquier intento pendiente para que no se quede atascado a futuro
     localStorage.removeItem('pendingJoinToken');
@@ -52,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${usuarioToken}`
             },
+            credentials: 'same-origin',
             body: JSON.stringify({ token_invitacion: tokenInvitacion })
         });
 

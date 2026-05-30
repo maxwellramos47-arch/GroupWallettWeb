@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const GrupoBLL = require('../BLL/grupo.bll');
 const { verificarToken } = require('../Middleware/auth.middleware');
+const nodemailer = require('nodemailer');
+const prisma = require('../Config/prisma');
+const EmailTemplates = require('./emailTemplates');
 
 router.post('/', verificarToken, async (req, res) => {
     try {
@@ -37,6 +40,30 @@ router.post('/:id/invitacion', verificarToken, async (req, res) => {
     try {
         const inviteToken = await GrupoBLL.generarInvitacion(req.params.id, req.usuarioLogueado.id_usuario);
         const inviteUrl = `${req.protocol}://${req.get('host')}/join.html?token=${inviteToken}`;
+        
+        // --- Enviar correo de invitación (Background Task) ---
+        const { correo } = req.body || {};
+        if (correo) {
+            try {
+                const grupo = await prisma.grupos.findUnique({ where: { id_grupo: parseInt(req.params.id) } });
+                const usuario = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) } });
+                
+                const transporter = nodemailer.createTransport({
+                    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                    port: process.env.SMTP_PORT || 587,
+                    secure: false,
+                    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+                });
+                const mailOptions = {
+                    from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+                    to: correo,
+                    subject: `Invitación para unirte a "${grupo.nombre_grupo}"`,
+                    html: EmailTemplates.invitacionGrupo(usuario.nombre, grupo.nombre_grupo, inviteUrl)
+                };
+                transporter.sendMail(mailOptions).catch(err => console.error('Error enviando invitación por correo:', err));
+            } catch (err) { console.error('Error configurando correo de invitación:', err); }
+        }
+
         res.json({ enlace: inviteUrl });
     } catch (error) {
         res.status(error.message.includes('administradores') ? 403 : 500).json({ error: error.message });

@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 0. Protección de Ruta ---
     const usuarioId = localStorage.getItem('usuarioId');
     if (!usuarioId) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return; 
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad con fetch
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad.', 'error');
-            setTimeout(() => window.location.href = 'index.html', 2000);
+            setTimeout(() => window.location.href = 'login.html', 2000);
             return Promise.reject(new Error('Sesión expirada'));
         }
         return response;
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
         });
     }
 

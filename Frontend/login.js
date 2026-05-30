@@ -63,6 +63,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const formRecovery = document.getElementById('form-recovery');
     const formReset = document.getElementById('form-reset');
 
+    // Cambiar dinámicamente el texto del botón para mejor UX
+    if (formRecovery) {
+        const btnSubmitRecovery = formRecovery.querySelector('button[type="submit"]');
+        if (btnSubmitRecovery) btnSubmitRecovery.textContent = 'Enviar Recuperación';
+    }
+
+    // Detectar si venimos desde un enlace de recuperación en el correo
+    const urlParamsLogin = new URLSearchParams(window.location.search);
+    const urlResetToken = urlParamsLogin.get('reset_token');
+
+    if (urlResetToken && recoverySection && formRecovery && formReset) {
+        recoverySection.style.display = 'block';
+        formRecovery.style.display = 'none';
+        formReset.style.display = 'block';
+        
+        const tokenInput = document.getElementById('reset-token');
+        if (tokenInput) {
+            tokenInput.value = urlResetToken;
+            tokenInput.style.display = 'none'; // Ocultamos el campo del token visualmente
+            if (tokenInput.previousElementSibling && tokenInput.previousElementSibling.tagName === 'LABEL') {
+                tokenInput.previousElementSibling.style.display = 'none';
+            }
+        }
+        
+        const tokenMsg = document.getElementById('token-msg');
+        if (tokenMsg) tokenMsg.textContent = 'Enlace verificado. Ingresa tu nueva contraseña.';
+    }
+
     linkForgot.addEventListener('click', (e) => {
         e.preventDefault();
         recoverySection.style.display = recoverySection.style.display === 'none' ? 'block' : 'none';
@@ -82,8 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 showToast(data.message, 'success');
                 formRecovery.style.display = 'none';
-                formReset.style.display = 'block';
-                document.getElementById('token-msg').textContent = `Revisa tu bandeja de entrada para obtener el token.`;
+                document.getElementById('token-msg').textContent = `Revisa tu bandeja de entrada y haz clic en el enlace enviado.`;
             } else {
                 showToast(data.error, 'error');
             }
@@ -104,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (res.ok) { 
                 showToast(data.message, 'success'); 
-                setTimeout(() => window.location.reload(), 1500); 
+                setTimeout(() => window.location.href = 'login.html', 1500); // Limpia los parámetros de la URL
             } else {
                 showToast(data.error, 'error');
                 hideSpinner();

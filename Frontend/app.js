@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 0. Protección de Ruta (Autenticación Front-end) ---
     const usuarioId = localStorage.getItem('usuarioId');
     if (!usuarioId) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return; 
     }
     const token = 'http-only-cookie'; // Dummy token temporal para no romper código fetch heredado
@@ -41,12 +41,62 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             showToast('Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.', 'error');
-            setTimeout(() => window.location.href = 'index.html', 2000);
+            setTimeout(() => window.location.href = 'login.html', 2000);
             return Promise.reject(new Error('Sesión expirada')); // Detiene la ejecución del fetch local
         }
         
         return response;
     };
+
+    // --- 0.8. Lógica de Confirmación de Pagos (Retorno desde Stripe) ---
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. Confirmación de Suscripción Premium
+    if (urlParams.get('upgrade') === 'success') {
+        const paymentId = urlParams.get('payment_id');
+        if (paymentId) {
+            showSpinner();
+            fetch('/api/suscripciones/confirmar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payment_id: paymentId })
+            }).then(res => res.json()).then(data => {
+                hideSpinner();
+                if (data.message) {
+                    showToast(data.message, 'success');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    setTimeout(() => window.location.reload(), 2000);
+                } else showToast(data.error, 'error');
+            }).catch(() => { hideSpinner(); showToast('Error verificando pago.', 'error'); });
+        }
+    } else if (urlParams.get('upgrade') === 'canceled') {
+        showToast('El pago de la suscripción fue cancelado.', 'info');
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // 2. Confirmación de Pago In-App de Cuotas
+    if (urlParams.get('pago_cuota') === 'success') {
+        const paymentId = urlParams.get('payment_id');
+        const idTransaccion = urlParams.get('id_t');
+        if (paymentId && idTransaccion) {
+            showSpinner();
+            fetch('/api/cuotas/confirmar-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payment_id: paymentId, id_transaccion: idTransaccion })
+            }).then(res => res.json()).then(data => {
+                hideSpinner();
+                if (data.message) {
+                    showToast(data.message, 'success');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    // Nota: No hace falta recargar la web. WebSockets (cuota_pagada) actualizará la tabla solo.
+                } else showToast(data.error, 'error');
+            }).catch(() => { hideSpinner(); showToast('Error verificando pago de cuota.', 'error'); });
+        }
+    } else if (urlParams.get('pago_cuota') === 'canceled') {
+        showToast('El pago de la cuota fue cancelado.', 'info');
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     // --- 1. Variables y Nodos del DOM ---
     const formGasto = document.getElementById('form-gasto');
@@ -105,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (transacciones.length < prevLength) {
                 renderizarTabla();
                 calcularSaldos();
+                actualizarGraficosAnalisis();
             }
         });
 
@@ -118,6 +169,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.removeItem('usuarioNombre');
                     window.location.href = 'login.html'; // Expulsado al login instantáneamente
                 }
+            }
+        });
+
+        // NUEVO: Escuchar cuando alguien paga una cuota
+        socket.on('cuota_pagada', (data) => {
+            const { id_transaccion, id_usuario, archivado } = data;
+            const t = transacciones.find(tr => tr.id_transaccion == id_transaccion);
+
+            if (t) {
+                let nombrePagador = 'Un miembro';
+                if (t.participantes_detalle) {
+                    const p = t.participantes_detalle.find(pd => pd.id_usuario == id_usuario);
+                    if (p && p.estado_pago !== 'Pagado') {
+                        p.estado_pago = 'Pagado';
+                        nombrePagador = p.nombre;
+                    }
+                }
+
+                // Si yo soy el acreedor (al que le debían el dinero), me emociono y muestro notificación
+                if (t.pagador == miIdUsuarioGlobal && id_usuario != miIdUsuarioGlobal) {
+                    showToast(`🔔 ¡${nombrePagador} ha pagado su cuota de "${t.descripcion}"!`, 'success');
+                    
+                    try {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContext) {
+                            const ctx = new AudioContext();
+                            const osc = ctx.createOscillator();
+                            const gainNode = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(880, ctx.currentTime);
+                            gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+                            osc.connect(gainNode);
+                            gainNode.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.15);
+                        }
+                    } catch (e) {} // Fallback silencioso si el navegador bloquea el audio
+                }
+
+                if (archivado) transacciones = transacciones.filter(tr => tr.id_transaccion != id_transaccion);
+                
+                renderizarTabla();
+                calcularSaldos();
+                actualizarGraficosAnalisis();
             }
         });
     }
@@ -213,7 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 botonesHtml = `<button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${idUsuarioOtro}" data-monto="${monto}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem;">Marcar Pagado</button>`;
             } else {
                 botonesHtml = `
-                    <button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${miIdUsuario}" data-monto="${monto}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; background-color: var(--primary-slate);">Marcar Pagado (Manual)</button>
+                    <button class="btn-primary btn-pagar" data-transaccion="${idTransaccion}" data-usuario="${miIdUsuario}" data-monto="${monto}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; background-color: var(--primary-slate);">Pagado (Manual)</button>
+                    <button class="btn-primary btn-pago-inapp" data-transaccion="${idTransaccion}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; background-color: #6772E5;">💳 Pagar Tarjeta</button>
                 `;
             }
         }
@@ -439,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok && data.url) {
                     window.location.href = data.url; // Redirigir a Stripe
                 } else {
-                    showToast(data.error || 'Error conectando a Stripe.', 'error');
+                    showToast(data.error || 'Error conectando a MercadoPago.', 'error');
                     hideSpinner();
                 }
             } catch (error) { showToast('Problema de conexión.', 'error'); hideSpinner(); }
@@ -627,6 +723,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- 3.9. Cargar Historial de Pagos In-App Recibidos ---
+    const cargarPagosRecibidos = async () => {
+        const listaPagos = document.getElementById('lista-pagos-recibidos');
+        if (!listaPagos) return;
+
+        try {
+            const response = await fetch('/api/usuarios/pagos-recibidos');
+            if (response.ok) {
+                const pagos = await response.json();
+                listaPagos.innerHTML = '';
+                
+                if (pagos.length === 0) {
+                    listaPagos.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No has recibido pagos in-app aún.</td></tr>';
+                    return;
+                }
+                
+                pagos.forEach(p => {
+                    const tr = document.createElement('tr');
+                    const fecha = new Date(p.fecha_pago).toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                    tr.innerHTML = `<td>${fecha}</td><td>${p.pagador.nombre}</td><td style="color: var(--secondary-emerald); font-weight: bold;">${moneda}${parseFloat(p.monto_original).toFixed(2)}</td>`;
+                    listaPagos.appendChild(tr);
+                });
+            }
+        } catch (error) { console.error('Error al cargar pagos recibidos:', error); }
+    };
+
     // --- 4. Inicialización (Cargar datos del servidor) ---
     const inicializarApp = async () => {
         showSkeletonLoader(listaGastos, 6);
@@ -639,6 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarCategorias();
             renderizarTabla();
             calcularSaldos();
+            cargarPagosRecibidos();
 
             // Cargar dinámicamente la lista de grupos en el <select>
             const reqGrupos = await fetch('/api/grupos');
@@ -812,7 +935,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.classList.contains('btn-ver-banco')) {
                 const btn = e.target;
                 const idUsuario = btn.getAttribute('data-usuario');
-                const token = localStorage.getItem('usuarioToken');
 
                 showSpinner();
                 try {
@@ -820,19 +942,95 @@ document.addEventListener('DOMContentLoaded', () => {
                     const datos = await res.json();
                     
                     if (res.ok) {
-                        const mensaje = `🏦 DATOS BANCARIOS:\n\n` +
-                                        `RUT: ${datos.rut || 'No especificado'}\n` +
-                                        `Banco: ${datos.banco || 'No especificado'}\n` +
-                                        `Tipo de Cuenta: ${datos.tipo_cuenta || 'No especificado'}\n` +
-                                        `N° de Cuenta: ${datos.numero_cuenta || 'No especificado'}\n` +
-                                        `Correo: ${datos.correo || 'No especificado'}\n\n` +
-                                        `Selecciona "Aceptar" para copiar el Número de Cuenta al portapapeles.`;
-                        if (confirm(mensaje)) {
-                            const datoACopiar = datos.numero_cuenta || datos.rut;
-                            if (datoACopiar) {
-                                await navigator.clipboard.writeText(datoACopiar);
-                                showToast('Dato copiado al portapapeles.', 'success');
+                        const bancoOverlay = document.createElement('div');
+                        bancoOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 10005; padding: 1rem;";
+                        const bancoBox = document.createElement('div');
+                        bancoBox.className = "card";
+                        bancoBox.style = "max-width: 350px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative;";
+                        
+                        // --- Detectar Celular y Generar Deep Link de App Bancaria ---
+                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                        let btnAbrirApp = '';
+                        if (isMobile && datos.banco) {
+                            let appScheme = '';
+                            const bancoStr = datos.banco.toLowerCase();
+                            if (bancoStr.includes('estado')) appScheme = 'bancoestado://';
+                            else if (bancoStr.includes('santander')) appScheme = 'santander://';
+                            else if (bancoStr.includes('chile')) appScheme = 'bancochile://';
+                            else if (bancoStr.includes('mach')) appScheme = 'mach://';
+                            else if (bancoStr.includes('tenpo')) appScheme = 'tenpo://';
+                            else if (bancoStr.includes('mercado pago')) appScheme = 'mercadopago://';
+                            
+                            if (appScheme) {
+                                btnAbrirApp = `<a href="${appScheme}" class="btn-primary" style="display: block; text-align: center; text-decoration: none; margin-top: 1rem; background-color: var(--primary-slate); padding: 0.6rem;">📱 Abrir App de ${datos.banco}</a>`;
                             }
+                        }
+
+                        bancoBox.innerHTML = `
+                            <button id="btn-cerrar-banco" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
+                            <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--primary-slate);">🏦 Datos para Transferir</h3>
+                            <p style="margin: 0; font-size: 0.9rem;"><strong>Banco:</strong> ${datos.banco || 'No especificado'}</p>
+                            <p style="margin: 0; font-size: 0.9rem;"><strong>Tipo:</strong> ${datos.tipo_cuenta || 'No especificado'}</p>
+                            <p style="margin: 0; font-size: 0.9rem;"><strong>Correo:</strong> ${datos.correo || 'No especificado'}</p>
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="text" readonly value="${datos.rut || ''}" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: var(--bg-light);" placeholder="RUT no registrado">
+                                <button class="btn-copiar-dato btn-primary" data-valor="${datos.rut || ''}" style="width: auto; padding: 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald);">Copiar RUT</button>
+                            </div>
+                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="text" readonly value="${datos.numero_cuenta || ''}" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: var(--bg-light);" placeholder="N° Cuenta no registrado">
+                                <button class="btn-copiar-dato btn-primary" data-valor="${datos.numero_cuenta || ''}" style="width: auto; padding: 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald);">Copiar N°</button>
+                            </div>
+                            <button id="btn-copiar-todos-datos" class="btn-primary" style="display: block; margin-top: 1rem; width: 100%; background-color: var(--primary-slate); padding: 0.6rem;">📋 Copiar Todos los Datos</button>
+                            ${btnAbrirApp}
+                        `;
+                        bancoOverlay.appendChild(bancoBox);
+                        document.body.appendChild(bancoOverlay);
+
+                        document.getElementById('btn-cerrar-banco').addEventListener('click', () => document.body.removeChild(bancoOverlay));
+                        
+                        bancoBox.querySelectorAll('.btn-copiar-dato').forEach(btnCopiar => {
+                            btnCopiar.addEventListener('click', async (eCopiar) => {
+                                const btn = eCopiar.target;
+                                const val = btn.getAttribute('data-valor');
+                                if (val) {
+                                    await navigator.clipboard.writeText(val);
+                                    showToast('Copiado al portapapeles', 'success');
+                                    
+                                    const originalText = btn.textContent;
+                                    const originalBg = btn.style.backgroundColor;
+                                    btn.textContent = '✔️ Copiado';
+                                    btn.style.backgroundColor = '#27ae60';
+                                    setTimeout(() => {
+                                        btn.textContent = originalText;
+                                        btn.style.backgroundColor = originalBg;
+                                    }, 2000);
+                                } else {
+                                    showToast('El usuario no registró este dato.', 'error');
+                                }
+                            });
+                        });
+                        
+                        const btnCopiarTodos = document.getElementById('btn-copiar-todos-datos');
+                        if (btnCopiarTodos) {
+                            btnCopiarTodos.addEventListener('click', async (e) => {
+                                const btn = e.target;
+                                const textoCompleto = `🏦 *Datos de Transferencia*\n*Banco:* ${datos.banco || 'No especificado'}\n*Tipo:* ${datos.tipo_cuenta || 'No especificado'}\n*RUT:* ${datos.rut || 'No especificado'}\n*N° Cuenta:* ${datos.numero_cuenta || 'No especificado'}\n*Correo:* ${datos.correo || 'No especificado'}`;
+                                try {
+                                    await navigator.clipboard.writeText(textoCompleto);
+                                    showToast('Todos los datos copiados al portapapeles', 'success');
+                                    
+                                    const originalText = btn.textContent;
+                                    const originalBg = btn.style.backgroundColor;
+                                    btn.textContent = '✔️ ¡Copiados!';
+                                    btn.style.backgroundColor = 'var(--secondary-emerald)';
+                                    setTimeout(() => {
+                                        btn.textContent = originalText;
+                                        btn.style.backgroundColor = originalBg;
+                                    }, 2000);
+                                } catch (err) {
+                                    showToast('Error al copiar los datos', 'error');
+                                }
+                            });
                         }
                     } else showToast(datos.error || 'No se encontraron datos.', 'error');
                 } catch (error) { console.error(error); showToast('Error de conexión.', 'error'); } finally { hideSpinner(); }
@@ -855,6 +1053,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(lblMonto) lblMonto.textContent = `${moneda}${parseFloat(montoEsperado).toFixed(2)}`;
                     modalPago.style.display = 'flex';
                 }
+            }
+            
+            // --- Pagar Cuota vía Stripe In-App ---
+            if (e.target.classList.contains('btn-pago-inapp')) {
+                const btn = e.target;
+                const idTransaccion = btn.getAttribute('data-transaccion');
+                
+                showSpinner();
+                try {
+                    const response = await fetch('/api/cuotas/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_transaccion })
+                    });
+                    const data = await response.json();
+                    if (response.ok && data.url) window.location.href = data.url; // Redirigir a MercadoPago
+                    else showToast(data.error || 'Error conectando con MercadoPago.', 'error');
+                } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
             }
         });
     }
@@ -887,6 +1103,12 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await navigator.clipboard.writeText(textoResumen);
                 showToast('Resumen copiado. ¡Pégalo en tu grupo de WhatsApp!', 'success');
+                
+                const originalText = btnCopiarResumen.innerHTML;
+                btnCopiarResumen.innerHTML = '✔️ ¡Copiado!';
+                setTimeout(() => {
+                    btnCopiarResumen.innerHTML = originalText;
+                }, 2000);
             } catch (err) { showToast('Error al copiar al portapapeles.', 'error'); }
         });
     }
