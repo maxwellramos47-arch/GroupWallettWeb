@@ -10,6 +10,10 @@ class UsuarioBLL {
     static async generarTokenVerificacion(telefono) {
         const regexTelefono = /^\+[1-9]\d{7,14}$/;
         if (!regexTelefono.test(telefono.trim())) throw new Error('Formato de teléfono inválido.');
+        
+        const telefonoHash = generarFirmaHMAC(telefono.trim());
+        const exists = await UsuarioDAL.findByIdentifier(telefonoHash);
+        if (exists) throw new Error('El teléfono ya está registrado.');
 
         const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
         const codeHash = generarFirmaHMAC(codigoVerificacion);
@@ -36,40 +40,62 @@ class UsuarioBLL {
         return { token };
     }
 
-    static async registrar(nombre, correo, telefono, password, verificationToken, codigoSms) {
+    static async generarTokenVerificacionEmail(correo) {
         const correoNormalizado = correo.toLowerCase().trim();
+        const exists = await UsuarioDAL.findByIdentifier(correoNormalizado);
+        if (exists) throw new Error('El correo ya está registrado.');
+
+        const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
+        const codeHash = generarFirmaHMAC(codigoVerificacion);
+        const token = jwt.sign({ correo: correoNormalizado, codeHash, type: 'email_verification' }, JWT_SECRET, { expiresIn: '10m' });
+
+        const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+        await transporter.sendMail({
+            from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+            to: correoNormalizado,
+            subject: 'Tu código de verificación - GroupWallet',
+            html: `<h2>Código de Verificación</h2><p>Tu código es: <strong style="font-size: 24px;">${codigoVerificacion}</strong></p>`
+        });
+        return { token };
+    }
+
+    static async registrar(nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion) {
         const passwordHash = await bcrypt.hash(password, 10);
         let telefonoSeguro = null;
+        let telefonoHash = null;
         let telefono_verificado = false;
+        let correoNormalizado = null;
+        let correo_verificado = false;
 
-        if (telefono && telefono.trim() !== '') {
-            const regexTelefono = /^\+[1-9]\d{7,14}$/;
-            if (!regexTelefono.test(telefono.trim())) throw new Error('Formato de teléfono inválido.');
-            if (!verificationToken || !codigoSms) throw new Error('Falta la verificación del teléfono por SMS.');
-
-            try {
-                const decoded = jwt.verify(verificationToken, JWT_SECRET);
-                if (decoded.type !== 'sms_verification' || decoded.telefono !== telefono) {
-                    throw new Error('El token de verificación está corrupto o no pertenece a este número.');
-                }
-                const expectedHash = generarFirmaHMAC(codigoSms);
-                if (decoded.codeHash !== expectedHash) {
-                    throw new Error('El código de verificación SMS es incorrecto.');
-                }
-            } catch (err) { throw new Error('El código de verificación expiró o es inválido.'); }
-
-            telefonoSeguro = safeEncrypt(telefono);
+        if (metodo === 'sms') {
+            if (!telefono) throw new Error('Falta el teléfono.');
+            const decoded = jwt.verify(verificationToken, JWT_SECRET);
+            if (decoded.type !== 'sms_verification' || decoded.telefono !== telefono.trim()) throw new Error('Token de SMS inválido.');
+            if (decoded.codeHash !== generarFirmaHMAC(codigoVerificacion)) throw new Error('Código SMS incorrecto.');
+            telefonoSeguro = safeEncrypt(telefono.trim());
+            telefonoHash = generarFirmaHMAC(telefono.trim());
             telefono_verificado = true;
+        } else if (metodo === 'email') {
+            if (!correo) throw new Error('Falta el correo.');
+            correoNormalizado = correo.toLowerCase().trim();
+            const decoded = jwt.verify(verificationToken, JWT_SECRET);
+            if (decoded.type !== 'email_verification' || decoded.correo !== correoNormalizado) throw new Error('Token de correo inválido.');
+            if (decoded.codeHash !== generarFirmaHMAC(codigoVerificacion)) throw new Error('Código de correo incorrecto.');
+            correo_verificado = true;
         }
 
-        // Guardado único, final y limpio en base de datos
-        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, telefonoSeguro, passwordHash, telefono_verificado);
+        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, correo_verificado, telefonoSeguro, telefonoHash, passwordHash, telefono_verificado);
         return { id_usuario };
     }
 
-    static async login(correo, password, rememberMe = false) {
-        const correoNormalizado = correo.toLowerCase().trim();
-        const usuario = await UsuarioDAL.findByEmail(correoNormalizado);
+    static async login(identificador, password, rememberMe = false) {
+        const idNormalizado = identificador.toLowerCase().trim();
+        let target = idNormalizado;
+        if (/^\+?[0-9]+$/.test(idNormalizado)) {
+            const phone = idNormalizado.startsWith('+') ? idNormalizado : '+' + idNormalizado;
+            target = generarFirmaHMAC(phone);
+        }
+        const usuario = await UsuarioDAL.findByIdentifier(target);
         if (!usuario) throw new Error('Usuario no encontrado o credenciales inválidas.');
 
         // Verificar si la cuenta está bloqueada temporalmente
@@ -104,7 +130,7 @@ class UsuarioBLL {
     static async obtenerPerfil(id_usuario) {
         const usuario = await UsuarioDAL.findById(id_usuario);
         if (!usuario) throw new Error('Usuario no encontrado');
-        return { nombre: usuario.nombre, correo: usuario.correo, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
+        return { nombre: usuario.nombre, correo: usuario.correo, correo_verificado: usuario.correo_verificado || false, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
     }
 
     static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto) {
@@ -138,12 +164,41 @@ class UsuarioBLL {
         let fotoUrlFinal = foto_url;
         if (eliminar_foto) fotoUrlFinal = null;
 
-        await UsuarioDAL.updateProfile(id_usuario, nombre, telefonoSeguro, fotoUrlFinal, hash);
+        await UsuarioDAL.updateProfile(id_usuario, nombre, undefined, fotoUrlFinal, hash);
+    }
+
+    static async verificarMetodoContactoExtra(id_usuario, metodo, valor, verificationToken, codigo) {
+        const usuario = await UsuarioDAL.findById(id_usuario);
+        if (!usuario) throw new Error('Usuario no encontrado.');
+
+        if (metodo === 'email') {
+            const correoNormalizado = valor.toLowerCase().trim();
+            const exists = await UsuarioDAL.findByIdentifier(correoNormalizado);
+            if (exists) throw new Error('El correo ya está en uso por otra cuenta.');
+
+            const decoded = jwt.verify(verificationToken, JWT_SECRET);
+            if (decoded.type !== 'email_verification' || decoded.correo !== correoNormalizado) throw new Error('Token inválido.');
+            if (decoded.codeHash !== generarFirmaHMAC(codigo)) throw new Error('Código incorrecto.');
+
+            await UsuarioDAL.updateContactMethod(id_usuario, { correo: correoNormalizado, correo_verificado: true });
+        } else if (metodo === 'sms') {
+            const telefonoHash = generarFirmaHMAC(valor.trim());
+            const exists = await UsuarioDAL.findByIdentifier(telefonoHash);
+            if (exists) throw new Error('El teléfono ya está en uso por otra cuenta.');
+
+            const decoded = jwt.verify(verificationToken, JWT_SECRET);
+            if (decoded.type !== 'sms_verification' || decoded.telefono !== valor.trim()) throw new Error('Token inválido.');
+            if (decoded.codeHash !== generarFirmaHMAC(codigo)) throw new Error('Código incorrecto.');
+
+            await UsuarioDAL.updateContactMethod(id_usuario, { telefono: safeEncrypt(valor.trim()), telefono_hash: telefonoHash, telefono_verificado: true });
+        }
     }
 
     static async solicitarRecuperacion(correo) {
         const correoNormalizado = correo.toLowerCase().trim();
-        const usuario = await UsuarioDAL.findByEmail(correoNormalizado);
+        let target = correoNormalizado;
+        if (/^\+?[0-9]+$/.test(correoNormalizado)) target = generarFirmaHMAC(correoNormalizado.startsWith('+') ? correoNormalizado : '+' + correoNormalizado);
+        const usuario = await UsuarioDAL.findByIdentifier(target);
 
         // Para prevenir enumeración de correos, no lanzamos error si el usuario no existe.
         // La lógica de rate-limiting solo se aplica si el usuario es encontrado.

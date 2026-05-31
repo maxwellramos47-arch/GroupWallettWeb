@@ -22,8 +22,10 @@ model Planes_Suscripcion {
 model Usuarios {
   id_usuario                    Int       @id @default(autoincrement())
   nombre                        String
-  correo                        String    @unique
+  correo                        String?   @unique
+  correo_verificado             Boolean?  @default(false)
   telefono                      String?   @db.Text
+  telefono_hash                 String?   @unique
   password_hash                 String
   fecha_registro                DateTime? @default(now())
   id_plan                       Int?      @default(1)

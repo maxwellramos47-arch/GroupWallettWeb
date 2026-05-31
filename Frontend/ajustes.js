@@ -92,8 +92,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (res.ok) {
             const perfil = await res.json();
             document.getElementById('perfil-nombre').value = perfil.nombre;
-            document.getElementById('perfil-telefono').value = perfil.telefono || '';
+            document.getElementById('perfil-correo').value = perfil.correo || 'No registrado';
+            document.getElementById('perfil-telefono').value = perfil.telefono || 'No registrado';
             
+            const btnEmail = document.getElementById('btn-agregar-correo');
+            const btnPhone = document.getElementById('btn-agregar-telefono');
+            if (!perfil.correo || !perfil.correo_verificado) btnEmail.style.display = 'block';
+            if (!perfil.telefono || !perfil.telefono_verificado) btnPhone.style.display = 'block';
+
             if (perfil.estado_suscripcion) {
                 const suscripcionContainer = document.getElementById('suscripcion-container');
                 if (suscripcionContainer) suscripcionContainer.style.display = 'block';
@@ -106,6 +112,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (btnEliminarFoto) btnEliminarFoto.style.display = 'block';
             }
 
+            if (perfil.correo) {
+                const lblCorreo = document.getElementById('label-correo');
+                if (lblCorreo) lblCorreo.innerHTML = `Correo Electrónico <span style="color: ${perfil.correo_verificado ? 'var(--secondary-emerald)' : 'var(--danger-color)'}; font-size: 0.8rem; font-weight: bold; margin-left: 0.5rem;">${perfil.correo_verificado ? '✔️ Verificado' : '⚠️ No verificado'}</span>`;
+            }
             if (perfil.telefono) {
                 const labelTelefono = document.getElementById('label-telefono');
                 if (labelTelefono) {
@@ -140,10 +150,75 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // --- Agregar Contacto Faltante ---
+    const modalContacto = document.getElementById('modal-agregar-contacto');
+    const btnEmail = document.getElementById('btn-agregar-correo');
+    const btnPhone = document.getElementById('btn-agregar-telefono');
+    let currentContactMethod = null;
+    let tempContactToken = null;
+
+    const openContactModal = (method) => {
+        currentContactMethod = method;
+        modalContacto.style.display = 'flex';
+        document.getElementById('step-contacto-1').style.display = 'block';
+        document.getElementById('step-contacto-2').style.display = 'none';
+        document.getElementById('contacto-input').value = '';
+        document.getElementById('contacto-codigo').value = '';
+        
+        if (method === 'email') {
+            document.getElementById('modal-contacto-title').textContent = 'Agregar Correo';
+            document.getElementById('contacto-input').placeholder = 'tu@correo.com';
+        } else {
+            document.getElementById('modal-contacto-title').textContent = 'Agregar Teléfono';
+            document.getElementById('contacto-input').placeholder = '+569...';
+        }
+    };
+
+    if (btnEmail) btnEmail.addEventListener('click', () => openContactModal('email'));
+    if (btnPhone) btnPhone.addEventListener('click', () => openContactModal('sms'));
+    document.getElementById('btn-cerrar-modal-contacto')?.addEventListener('click', () => modalContacto.style.display = 'none');
+
+    document.getElementById('btn-enviar-codigo-contacto')?.addEventListener('click', async () => {
+        const valor = document.getElementById('contacto-input').value;
+        if (!valor) return;
+        showSpinner();
+        try {
+            const isEmail = currentContactMethod === 'email';
+            const url = isEmail ? '/api/usuarios/enviar-codigo-email' : '/api/usuarios/enviar-codigo-registro';
+            const payload = isEmail ? { correo: valor } : { telefono: valor };
+            const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) {
+                tempContactToken = data.verificationToken;
+                document.getElementById('step-contacto-1').style.display = 'none';
+                document.getElementById('step-contacto-2').style.display = 'block';
+                showToast('Código enviado', 'success');
+            } else showToast(data.error, 'error');
+        } catch (err) {} finally { hideSpinner(); }
+    });
+
+    document.getElementById('btn-verificar-contacto')?.addEventListener('click', async () => {
+        const valor = document.getElementById('contacto-input').value;
+        const codigo = document.getElementById('contacto-codigo').value;
+        showSpinner();
+        try {
+            const res = await fetch('/api/usuarios/verificar-metodo-contacto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ metodo: currentContactMethod, valor, verificationToken: tempContactToken, codigo })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.message, 'success');
+                modalContacto.style.display = 'none';
+                setTimeout(() => location.reload(), 1500);
+            } else showToast(data.error, 'error');
+        } catch (err) {} finally { hideSpinner(); }
+    });
+
     document.getElementById('form-perfil').addEventListener('submit', async (e) => {
         e.preventDefault();
         const nombre = document.getElementById('perfil-nombre').value;
-        const telefono = document.getElementById('perfil-telefono').value;
         const password_actual = document.getElementById('perfil-password-actual').value;
         const password = document.getElementById('perfil-password').value;
 

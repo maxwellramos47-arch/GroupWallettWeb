@@ -2,15 +2,24 @@ const prisma = require('../Config/prisma');
 const Usuario = require('../Entities/Usuario');
 
 class UsuarioDAL {
-    static async create(nombre, correo, telefono, passwordHash, telefonoVerificado) {
-        const user = await prisma.usuarios.create({
-            data: { nombre, correo, telefono, password_hash: passwordHash, telefono_verificado: telefonoVerificado }
-        });
+    static async create(nombre, correo, correoVerificado, telefono, telefonoHash, passwordHash, telefonoVerificado) {
+        const data = { nombre, password_hash: passwordHash };
+        if (correo) { data.correo = correo; data.correo_verificado = correoVerificado; }
+        if (telefono) { data.telefono = telefono; data.telefono_hash = telefonoHash; data.telefono_verificado = telefonoVerificado; }
+        
+        const user = await prisma.usuarios.create({ data });
         return user.id_usuario;
     }
 
-    static async findByEmail(correo) {
-        const user = await prisma.usuarios.findUnique({ where: { correo } });
+    static async findByIdentifier(identificador) {
+        const user = await prisma.usuarios.findFirst({
+            where: {
+                OR: [
+                    { correo: identificador },
+                    { telefono_hash: identificador }
+                ]
+            }
+        });
         return user ? new Usuario(user) : null;
     }
 
@@ -22,10 +31,14 @@ class UsuarioDAL {
     static async updateProfile(id_usuario, nombre, telefono, foto_url, passwordHash = null) {
         const data = {};
         if (nombre) data.nombre = nombre;
-        if (telefono !== undefined) data.telefono = telefono || null;
+        // Nota: el teléfono se actualiza en el método dedicado de contacto para mantener su encriptación y Hash
         if (foto_url !== undefined) data.foto_url = foto_url; // Permite almacenar explícitamente "null"
         if (passwordHash) data.password_hash = passwordHash;
         
+        await prisma.usuarios.update({ where: { id_usuario }, data });
+    }
+
+    static async updateContactMethod(id_usuario, data) {
         await prisma.usuarios.update({ where: { id_usuario }, data });
     }
 

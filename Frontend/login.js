@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const correoFromRegister = urlParams.get('correo');
     if (correoFromRegister) {
-        document.getElementById('correo').value = decodeURIComponent(correoFromRegister);
+        document.getElementById('identificador').value = decodeURIComponent(correoFromRegister);
     }
 
     // Manejo de mostrar/ocultar contraseñas
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     formLogin.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const correo = document.getElementById('correo').value;
+        const identificador = document.getElementById('identificador').value;
         const password = document.getElementById('password').value;
         const rememberMe = document.getElementById('remember-me')?.checked || false;
 
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/usuarios/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ correo, password, rememberMe })
+                body: JSON.stringify({ identificador, password, rememberMe })
             });
 
             const data = await response.json();

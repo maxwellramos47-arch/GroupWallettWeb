@@ -62,9 +62,25 @@ router.post('/enviar-codigo-registro', smsLimiter, async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+router.post('/enviar-codigo-email', async (req, res) => {
+    try {
+        const { correo, oldToken } = req.body;
+        if (!correo) return res.status(400).json({ error: 'Falta el correo electrónico.' });
+        if (oldToken) {
+            try {
+                const decoded = jwt.decode(oldToken);
+                if (decoded && decoded.exp) await prisma.tokens_Revocados.createMany({ data: [{ token: oldToken, fecha_expiracion: new Date(decoded.exp * 1000) }], skipDuplicates: true });
+            } catch (e) {}
+        }
+        const { token } = await UsuarioBLL.generarTokenVerificacionEmail(correo);
+        res.json({ message: 'Código enviado a tu correo.', verificationToken: token });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // 1. Definición del Esquema Zod para validar el Registro
 const registroSchema = z.object({
     nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres").max(100, "El nombre es demasiado largo"),
+    metodo: z.enum(['email', 'sms']),
     correo: z.string().email("El formato del correo electrónico es inválido"),
     telefono: z.string().nullable().optional(),
     password: z.string()
@@ -73,8 +89,8 @@ const registroSchema = z.object({
         .regex(/[0-9]/, "La contraseña debe contener al menos un número"),
     captchaAnswer: z.string().min(1, "Debes resolver el CAPTCHA"),
     captchaToken: z.string().min(1, "Falta el token del CAPTCHA"),
-    verificationToken: z.string().nullable().optional(),
-    codigoSms: z.string().nullable().optional()
+    verificationToken: z.string().min(1, "Falta el token de verificación"),
+    codigoVerificacion: z.string().min(1, "Falta el código de validación")
 });
 
 router.post('/registro', async (req, res) => {
@@ -87,7 +103,7 @@ router.post('/registro', async (req, res) => {
         }
         
         // 3. Usar los datos ya validados y limpios (sanitizados)
-        const { nombre, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoSms } = validacion.data;
+        const { nombre, metodo, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoVerificacion } = validacion.data;
         
         // --- Validación Estricta de CAPTCHA en Backend ---
         if (!captchaToken || !captchaAnswer) return res.status(400).json({ error: 'Falta la verificación de seguridad (CAPTCHA).' });
@@ -106,7 +122,7 @@ router.post('/registro', async (req, res) => {
             }
         }
 
-        const { id_usuario } = await UsuarioBLL.registrar(nombre, correo, telefono, password, verificationToken, codigoSms);
+        const { id_usuario } = await UsuarioBLL.registrar(nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion);
         
         // --- Quemar el token usado (Single-Use Token) ---
         if (verificationToken) {
@@ -121,27 +137,10 @@ router.post('/registro', async (req, res) => {
             } catch (err) {}
         }
 
-        // --- Enviar correo de bienvenida (Background Task) ---
-        try {
-            const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: process.env.SMTP_PORT || 587,
-                secure: false,
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            });
-
-            const mailOptions = {
-                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
-                to: correo,
-                subject: '¡Bienvenido a GroupWallet!',
-                html: EmailTemplates.bienvenida(nombre)
-            };
-            
-            transporter.sendMail(mailOptions).catch(err => console.error('Error enviando correo de bienvenida:', err));
-        } catch (mailError) { console.error('Error configurando correo de bienvenida:', mailError); }
+        if (metodo === 'email' && correo) {
+            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+            transporter.sendMail({ from: `"GroupWallet" <${process.env.SMTP_USER}>`, to: correo, subject: '¡Bienvenido a GroupWallet!', html: EmailTemplates.bienvenida(nombre) }).catch(()=>{});
+        }
         
         res.status(201).json({ message: 'Usuario registrado con seguridad', id_usuario });
     } catch (error) { 
@@ -155,7 +154,7 @@ router.post('/registro', async (req, res) => {
 
 // --- Definición del Esquema Zod para validar el Login ---
 const loginSchema = z.object({
-    correo: z.string().email("El formato del correo electrónico es inválido"),
+    identificador: z.string().min(1, "El correo o teléfono es obligatorio"),
     password: z.string().min(1, "La contraseña es obligatoria"),
     rememberMe: z.boolean().optional().default(false)
 });
@@ -168,8 +167,8 @@ router.post('/login', loginLimiter, async (req, res) => {
             return res.status(400).json({ error: validacion.error.errors[0].message });
         }
         
-        const { correo, password, rememberMe } = validacion.data;
-        const { token, usuario } = await UsuarioBLL.login(correo, password, rememberMe); // Pasamos el parámetro a la BLL
+        const { identificador, password, rememberMe } = validacion.data;
+        const { token, usuario } = await UsuarioBLL.login(identificador, password, rememberMe);
         
         const cookieMaxAge = rememberMe ? 20 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000; // 20 días o 2 horas
 
@@ -225,6 +224,14 @@ router.put('/perfil', verificarToken, async (req, res) => {
     } catch (error) { 
         res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 
     }
+});
+
+router.post('/verificar-metodo-contacto', verificarToken, async (req, res) => {
+    try {
+        const { metodo, valor, verificationToken, codigo } = req.body;
+        await UsuarioBLL.verificarMetodoContactoExtra(req.usuarioLogueado.id_usuario, metodo, valor, verificationToken, codigo);
+        res.json({ message: 'Método de contacto verificado y agregado exitosamente.' });
+    } catch (error) { res.status(400).json({ error: error.message }); }
 });
 
 router.post('/recuperar-password', async (req, res) => {

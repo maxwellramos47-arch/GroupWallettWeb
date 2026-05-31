@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let captchaTokenActual = '';
     let pendingRegistrationData = null;
     let currentVerificationToken = null;
+    let selectedMethod = null;
 
     const cargarCaptcha = async () => {
         try {
@@ -33,6 +34,38 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (formRegister) cargarCaptcha();
+
+    const methodSelection = document.getElementById('method-selection');
+    const btnMethodEmail = document.getElementById('btn-method-email');
+    const btnMethodSms = document.getElementById('btn-method-sms');
+    const btnBackMethod = document.getElementById('btn-back-method');
+    const groupCorreo = document.getElementById('group-correo');
+    const groupTelefono = document.getElementById('group-telefono');
+
+    const selectMethod = (method) => {
+        selectedMethod = method;
+        methodSelection.style.display = 'none';
+        formRegister.style.display = 'block';
+        if (method === 'email') {
+            groupCorreo.style.display = 'block';
+            document.getElementById('registro-correo').required = true;
+            groupTelefono.style.display = 'none';
+            document.getElementById('registro-telefono').required = false;
+        } else {
+            groupTelefono.style.display = 'block';
+            document.getElementById('registro-telefono').required = true;
+            groupCorreo.style.display = 'none';
+            document.getElementById('registro-correo').required = false;
+        }
+    };
+
+    if (btnMethodEmail) btnMethodEmail.addEventListener('click', () => selectMethod('email'));
+    if (btnMethodSms) btnMethodSms.addEventListener('click', () => selectMethod('sms'));
+    if (btnBackMethod) btnBackMethod.addEventListener('click', () => {
+        formRegister.style.display = 'none';
+        methodSelection.style.display = 'block';
+        selectedMethod = null;
+    });
 
     // Manejo de mostrar/ocultar contraseñas
     document.addEventListener('click', (e) => {
@@ -105,19 +138,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) { showToast('Error de conexión al solicitar SMS.', 'error'); } 
                 finally { hideSpinner(); }
-            } else {
-                ejecutarRegistroFinal();
-            }
         });
     }
 
-    async function ejecutarRegistroFinal(codigoSms = null) {
+    async function ejecutarRegistroFinal(codigo = null) {
         showSpinner();
         try {
             const payload = { ...pendingRegistrationData };
-            if (codigoSms) {
+            if (codigo) {
                 payload.verificationToken = currentVerificationToken;
-                payload.codigoSms = codigoSms;
+                payload.codigoVerificacion = codigo;
             }
 
             const res = await fetch('/api/usuarios/registro', {
@@ -129,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (res.ok) {
                 showToast('Registro exitoso. Redirigiendo...', 'success');
-                setTimeout(() => { window.location.href = `login.html?correo=${encodeURIComponent(payload.correo)}`; }, 1500);
+                setTimeout(() => { window.location.href = `login.html?correo=${encodeURIComponent(payload.correo || payload.telefono)}`; }, 1500);
             } else {
                 showToast(data.error || 'Error al registrar', 'error');
                 cargarCaptcha();
@@ -139,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         finally { hideSpinner(); }
     }
 
-    const formVerificacion = document.getElementById('form-verificacion-telefono');
+    const formVerificacion = document.getElementById('form-verificacion');
     if (formVerificacion) {
         formVerificacion.onsubmit = async (eVerif) => {
             eVerif.preventDefault();
@@ -152,20 +182,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnReenviar) {
         btnReenviar.onclick = async (eReenviar) => {
             eReenviar.preventDefault();
-            if (!pendingRegistrationData || !pendingRegistrationData.telefono) return;
+            if (!pendingRegistrationData) return;
 
             const originalText = btnReenviar.textContent;
             btnReenviar.textContent = 'Enviando...';
             btnReenviar.style.pointerEvents = 'none';
 
             try {
-                const resReenvio = await fetch('/api/usuarios/enviar-codigo-registro', {
+                const isEmail = pendingRegistrationData.metodo === 'email';
+                const url = isEmail ? '/api/usuarios/enviar-codigo-email' : '/api/usuarios/enviar-codigo-registro';
+                const payload = isEmail ? { correo: pendingRegistrationData.correo, oldToken: currentVerificationToken } : { telefono: pendingRegistrationData.telefono, oldToken: currentVerificationToken };
+                const resReenvio = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        telefono: pendingRegistrationData.telefono,
-                        oldToken: currentVerificationToken
-                    })
+                    body: JSON.stringify(payload)
                 });
                 const dataReenvio = await resReenvio.json();
                 if (resReenvio.ok) {
