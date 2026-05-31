@@ -18,6 +18,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const miIdUsuarioGlobal = usuarioId.toString();
     const moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
 
+    // --- Función de Escape HTML para prevenir inyecciones XSS ---
+    const escapeHTML = (str) => {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
+    };
+
     // Interceptor Global de Fetch para expirar token
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
@@ -54,7 +62,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 2. Cargar Historial ---
     const listaHistorial = document.getElementById('lista-historial');
     let datosHistorial = []; // Almacenará los datos crudos
+    let chartDataGlobal = []; // Almacenará los totales agrupados para el gráfico
     let historialChartInstance = null;
+    
+    // --- Estado de Paginación Backend ---
+    let currentPage = 1;
+    let totalPages = 1;
 
     let sortColumn = 'fecha_archivado';
     let sortAsc = false;
@@ -109,24 +122,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const renderizarHistorial = () => {
-        const filtroDesc = document.getElementById('filtro-desc').value.toLowerCase();
-        const filtroInicio = document.getElementById('filtro-fecha-inicio').value;
-        const filtroFin = document.getElementById('filtro-fecha-fin').value;
-        
         listaHistorial.innerHTML = '';
-        const totalesPorPagador = {};
 
-        let datosFiltrados = datosHistorial.filter(h => {
-            const partesFecha = h.fecha_gasto.split('/');
-            const fechaGasto = new Date(`${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}T00:00:00`);
-            const pasaFiltroDesc = h.descripcion.toLowerCase().includes(filtroDesc);
-            let pasaFiltroInicio = true;
-            if (filtroInicio) pasaFiltroInicio = fechaGasto >= new Date(`${filtroInicio}T00:00:00`);
-            let pasaFiltroFin = true;
-            if (filtroFin) pasaFiltroFin = fechaGasto <= new Date(`${filtroFin}T23:59:59`);
-            
-            return pasaFiltroDesc && pasaFiltroInicio && pasaFiltroFin;
-        });
+        // Los datos ya vienen filtrados del backend
+        let datosFiltrados = [...datosHistorial];
 
         datosFiltrados.sort((a, b) => {
             let valA = a[sortColumn];
@@ -144,9 +143,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         datosFiltrados.forEach(h => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${h.fecha_gasto}</td><td>${h.fecha_archivado}</td><td><span style="font-weight: 500;">${h.nombre_grupo}</span></td><td>${h.descripcion}${h.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${h.comprobante_url}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ''}</td><td>${h.pagador_nombre}</td><td>${moneda}${h.monto.toFixed(2)}</td>`;
+            tr.innerHTML = `<td>${escapeHTML(h.fecha_gasto)}</td><td>${escapeHTML(h.fecha_archivado)}</td><td><span style="font-weight: 500;">${escapeHTML(h.nombre_grupo)}</span></td><td>${escapeHTML(h.descripcion)}${h.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(h.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${h.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td><td>${escapeHTML(h.pagador_nombre)}</td><td>${moneda}${h.monto.toFixed(2)}</td>`;
             listaHistorial.appendChild(tr);
-            totalesPorPagador[h.pagador_nombre] = (totalesPorPagador[h.pagador_nombre] || 0) + h.monto;
+        });
+
+        // Reconstruir los totales usando los datos globales de la base de datos
+        const totalesPorPagador = {};
+        chartDataGlobal.forEach(item => {
+            totalesPorPagador[item.pagador_nombre] = item.total_monto;
         });
 
         // Renderizar gráfico para el PDF
@@ -169,6 +173,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (chartContainer) {
             chartContainer.style.display = 'none';
         }
+
+    // Renderizar botones de paginación
+    let paginationContainer = document.getElementById('pagination-container');
+    if (!paginationContainer) {
+        paginationContainer = document.createElement('div');
+        paginationContainer.id = 'pagination-container';
+        paginationContainer.style = 'display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;';
+        listaHistorial.closest('.card').appendChild(paginationContainer);
+    }
+    paginationContainer.innerHTML = '';
+    
+    if (totalPages > 1) {
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.textContent = i;
+            btn.className = 'btn-primary';
+            btn.style.width = 'auto';
+            btn.style.padding = '0.3rem 0.6rem';
+            if (i !== currentPage) btn.style.backgroundColor = 'var(--text-muted)';
+            btn.addEventListener('click', () => { currentPage = i; cargarHistorial(); });
+            paginationContainer.appendChild(btn);
+        }
+    }
     };
 
     // Inyectar los filtros dinámicamente antes de la tabla
@@ -187,9 +214,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         tableResponsive.parentNode.insertBefore(controlesDiv, tableResponsive);
         
-        document.getElementById('filtro-desc').addEventListener('input', renderizarHistorial);
-        document.getElementById('filtro-fecha-inicio').addEventListener('change', renderizarHistorial);
-        document.getElementById('filtro-fecha-fin').addEventListener('change', renderizarHistorial);
+        let debounceTimeout;
+        document.getElementById('filtro-desc').addEventListener('input', () => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                currentPage = 1;
+                cargarHistorial();
+            }, 400); // 400ms de retardo para no saturar la API al escribir
+        });
+        document.getElementById('filtro-fecha-inicio').addEventListener('change', () => { currentPage = 1; cargarHistorial(); });
+        document.getElementById('filtro-fecha-fin').addEventListener('change', () => { currentPage = 1; cargarHistorial(); });
     }
 
     // --- Atajo de teclado (Ctrl + K / Cmd + K) para búsqueda rápida ---
@@ -204,17 +238,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    showSkeletonLoader(listaHistorial, 6);
-    try {
-        const response = await fetch('/api/historial', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Error al cargar historial');
-        
-        const archivados = await response.json();
-        datosHistorial = archivados;
-        renderizarHistorial(); // Renderizar por primera vez con los filtros vacíos
-    } catch (error) { console.error(error); }
+    const cargarHistorial = async () => {
+        showSkeletonLoader(listaHistorial, 6);
+        try {
+            const search = document.getElementById('filtro-desc')?.value || '';
+            const startDate = document.getElementById('filtro-fecha-inicio')?.value || '';
+            const endDate = document.getElementById('filtro-fecha-fin')?.value || '';
+
+            const queryParams = new URLSearchParams({
+                page: currentPage,
+                limit: 20
+            });
+            if (search) queryParams.append('search', search);
+            if (startDate) queryParams.append('startDate', startDate);
+            if (endDate) queryParams.append('endDate', endDate);
+
+            const response = await fetch(`/api/historial?${queryParams.toString()}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Error al cargar historial');
+            
+            const result = await response.json();
+            datosHistorial = result.data;
+            chartDataGlobal = result.chartData || [];
+            totalPages = result.pagination.totalPages;
+            renderizarHistorial(); 
+            
+            // --- Precarga de comprobantes (Background Preloading) ---
+            // Guarda las imágenes en caché para que el icono 📎 las abra al instante
+            const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
+            idleCallback(() => {
+                datosHistorial.forEach(h => {
+                    if (h.comprobante_url && h.comprobante_url.includes('amazonaws.com')) {
+                        const preloadedImg = new Image();
+                        preloadedImg.src = h.comprobante_url;
+                    }
+                });
+            });
+        } catch (error) { console.error(error); }
+    };
+    cargarHistorial();
 
     // --- 3. Cargar Grupos para Exportación ---
     try {
@@ -226,7 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const selectExportar = document.getElementById('grupo-exportar');
             if (selectExportar) {
                 grupos.forEach(g => {
-                    selectExportar.innerHTML += `<option value="${g.id_grupo}">${g.nombre_grupo}</option>`;
+                    selectExportar.innerHTML += `<option value="${g.id_grupo}">${escapeHTML(g.nombre_grupo)}</option>`;
                 });
             }
         }

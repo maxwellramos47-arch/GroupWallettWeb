@@ -10,6 +10,7 @@ const UAParser = require('ua-parser-js');
 const EmailTemplates = require('./emailTemplates');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../Middleware/security.util');
+const { z } = require('zod');
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -61,9 +62,32 @@ router.post('/enviar-codigo-registro', smsLimiter, async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// 1. Definición del Esquema Zod para validar el Registro
+const registroSchema = z.object({
+    nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres").max(100, "El nombre es demasiado largo"),
+    correo: z.string().email("El formato del correo electrónico es inválido"),
+    telefono: z.string().nullable().optional(),
+    password: z.string()
+        .min(8, "La contraseña debe tener mínimo 8 caracteres")
+        .regex(/[A-Z]/, "La contraseña debe contener al menos una letra mayúscula")
+        .regex(/[0-9]/, "La contraseña debe contener al menos un número"),
+    captchaAnswer: z.string().min(1, "Debes resolver el CAPTCHA"),
+    captchaToken: z.string().min(1, "Falta el token del CAPTCHA"),
+    verificationToken: z.string().nullable().optional(),
+    codigoSms: z.string().nullable().optional()
+});
+
 router.post('/registro', async (req, res) => {
     try {
-        const { nombre, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoSms } = req.body;
+        // 2. Ejecutar la validación de Zod contra el JSON entrante
+        const validacion = registroSchema.safeParse(req.body);
+        if (!validacion.success) {
+            // Si falla, retornamos el primer error amigable que encuentre Zod
+            return res.status(400).json({ error: validacion.error.errors[0].message });
+        }
+        
+        // 3. Usar los datos ya validados y limpios (sanitizados)
+        const { nombre, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoSms } = validacion.data;
         
         // --- Validación Estricta de CAPTCHA en Backend ---
         if (!captchaToken || !captchaAnswer) return res.status(400).json({ error: 'Falta la verificación de seguridad (CAPTCHA).' });
@@ -129,9 +153,22 @@ router.post('/registro', async (req, res) => {
     }
 });
 
+// --- Definición del Esquema Zod para validar el Login ---
+const loginSchema = z.object({
+    correo: z.string().email("El formato del correo electrónico es inválido"),
+    password: z.string().min(1, "La contraseña es obligatoria"),
+    rememberMe: z.boolean().optional().default(false)
+});
+
 router.post('/login', loginLimiter, async (req, res) => {
     try {
-        const { correo, password, rememberMe } = req.body;
+        // --- Validación estricta con Zod ---
+        const validacion = loginSchema.safeParse(req.body);
+        if (!validacion.success) {
+            return res.status(400).json({ error: validacion.error.errors[0].message });
+        }
+        
+        const { correo, password, rememberMe } = validacion.data;
         const { token, usuario } = await UsuarioBLL.login(correo, password, rememberMe); // Pasamos el parámetro a la BLL
         
         const cookieMaxAge = rememberMe ? 20 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000; // 20 días o 2 horas
@@ -182,8 +219,8 @@ router.get('/perfil', verificarToken, async (req, res) => {
 
 router.put('/perfil', verificarToken, async (req, res) => {
     try {
-        const { nombre, telefono, foto_url, password_actual, nueva_password } = req.body;
-        await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password_actual, nueva_password);
+        const { nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto } = req.body;
+        await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto);
         res.json({ message: 'Perfil actualizado exitosamente' });
     } catch (error) { 
         res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 

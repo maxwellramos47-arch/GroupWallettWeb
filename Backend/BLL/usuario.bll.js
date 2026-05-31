@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const UsuarioDAL = require('../DAL/usuario.dal');
 const { JWT_SECRET, safeEncrypt, safeDecrypt, generarFirmaHMAC } = require('../Middleware/security.util');
 const twilio = require('twilio');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 class UsuarioBLL {
     static async generarTokenVerificacion(telefono) {
@@ -106,7 +107,7 @@ class UsuarioBLL {
         return { nombre: usuario.nombre, correo: usuario.correo, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
     }
 
-    static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password_actual, nueva_password) {
+    static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto) {
         let hash = null;
         if (nueva_password && nueva_password.trim() !== '') {
             const hashActualDb = await UsuarioDAL.getPasswordHash(id_usuario);
@@ -115,7 +116,29 @@ class UsuarioBLL {
             hash = await bcrypt.hash(nueva_password, 10);
         }
         const telefonoSeguro = safeEncrypt(telefono);
-        await UsuarioDAL.updateProfile(id_usuario, nombre, telefonoSeguro, foto_url, hash);
+        
+        // --- Eliminar foto antigua de S3 si se subió una nueva o se solicitó su eliminación ---
+        if (foto_url || eliminar_foto) {
+            const oldUser = await UsuarioDAL.findById(id_usuario);
+            if (oldUser && oldUser.foto_url && oldUser.foto_url.includes('amazonaws.com')) {
+                try {
+                    const urlObj = new URL(oldUser.foto_url);
+                    const fileKey = decodeURIComponent(urlObj.pathname.substring(1));
+                    const s3Client = new S3Client({ region: process.env.AWS_REGION });
+                    await s3Client.send(new DeleteObjectCommand({
+                        Bucket: process.env.AWS_BUCKET_NAME,
+                        Key: fileKey
+                    }));
+                } catch (s3Error) {
+                    console.error('⚠️ Error al eliminar foto de perfil antigua en S3:', s3Error.message);
+                }
+            }
+        }
+
+        let fotoUrlFinal = foto_url;
+        if (eliminar_foto) fotoUrlFinal = null;
+
+        await UsuarioDAL.updateProfile(id_usuario, nombre, telefonoSeguro, fotoUrlFinal, hash);
     }
 
     static async solicitarRecuperacion(correo) {

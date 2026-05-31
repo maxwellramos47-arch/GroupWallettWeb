@@ -88,13 +88,33 @@ class GrupoBLL {
         while (i < deudores.length && j < acreedores.length) {
             const deudor = deudores[i], acreedor = acreedores[j];
             const montoTransferir = Math.min(deudor.monto, acreedor.monto);
-            transferencias.push({ deudor: deudor.nombre, acreedor: acreedor.nombre, monto: montoTransferir });
+            transferencias.push({ id_deudor: deudor.id, deudor: deudor.nombre, id_acreedor: acreedor.id, acreedor: acreedor.nombre, monto: montoTransferir });
             deudor.monto -= montoTransferir;
             acreedor.monto -= montoTransferir;
             if (deudor.monto < 0.01) i++;
             if (acreedor.monto < 0.01) j++;
         }
         return transferencias;
+    }
+
+    static async registrarPagoTransferencia(id_grupo, id_deudor, id_acreedor, monto, id_solicitante) {
+        const rol = await GrupoDAL.getMemberRole(id_grupo, id_solicitante);
+        if (!rol) throw new Error('No tienes acceso a este grupo.');
+        if (id_solicitante != id_deudor && id_solicitante != id_acreedor && rol !== 'Administrador') {
+            throw new Error('Solo los involucrados o un administrador pueden marcar esta deuda como pagada.');
+        }
+
+        // Para nivelar los saldos sin perder el historial, creamos una contra-transacción de "Ajuste"
+        // Si Deudor paga $X, y Acreedor es el participante de la contra-transacción, Acreedor le "debe" a Deudor $X. 
+        // Matemáticamente esto anula la deuda de $X que tenía el Deudor originalmente.
+        const descripcion = `Liquidación de deuda`;
+        const categoria = `General`;
+        const firma = generarFirmaHMAC(`${id_deudor}-${monto}-${descripcion}-${categoria}`);
+        
+        const GastoDAL = require('../DAL/gasto.dal');
+        const nuevaTx = await GastoDAL.createGastoTransaction(id_grupo, id_deudor, monto, descripcion, categoria, null, firma, new Date().toISOString(), [id_acreedor]);
+        await GastoDAL.updateCuotaPagada(nuevaTx.id_transaccion, id_acreedor);
+        await GastoDAL.archiveGasto(nuevaTx.id_transaccion);
     }
 
     static async enviarResumenWhatsApp(id_grupo, id_solicitante, transferencias) {

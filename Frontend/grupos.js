@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad
 
+    // --- Función de Escape HTML para prevenir inyecciones XSS ---
+    const escapeHTML = (str) => {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
+    };
+
     // --- Mostrar el nombre del usuario ---
     const nombreUsuario = localStorage.getItem('usuarioNombre');
     if (nombreUsuario) {
@@ -96,12 +104,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         gruposFiltrados.forEach(g => {
             const tr = document.createElement('tr');
-            let acciones = `<button class="btn-ver-miembros btn-primary" data-id="${g.id_grupo}" data-nombre="${g.nombre_grupo}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--primary-slate); width: auto; margin-right: 0.5rem;">👥 Miembros</button>`;
+            let acciones = `<button class="btn-ver-miembros btn-primary" data-id="${g.id_grupo}" data-nombre="${escapeHTML(g.nombre_grupo)}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--primary-slate); width: auto; margin-right: 0.5rem;">👥 Miembros</button>`;
             if (g.rol === 'Administrador') {
-                acciones += `<button class="btn-editar-grupo btn-primary" data-id="${g.id_grupo}" data-nombre="${g.nombre_grupo}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald); width: auto;">✏️ Editar</button>`;
-                if (selectInvitar) selectInvitar.innerHTML += `<option value="${g.id_grupo}">${g.nombre_grupo}</option>`;
+                acciones += `<button class="btn-editar-grupo btn-primary" data-id="${g.id_grupo}" data-nombre="${escapeHTML(g.nombre_grupo)}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald); width: auto;">✏️ Editar</button>`;
+                if (selectInvitar) selectInvitar.innerHTML += `<option value="${g.id_grupo}">${escapeHTML(g.nombre_grupo)}</option>`;
             }
-            tr.innerHTML = `<td>${g.id_grupo}</td><td><strong>${g.nombre_grupo}</strong></td><td>${g.rol}</td><td>${acciones}</td>`;
+            tr.innerHTML = `<td>${g.id_grupo}</td><td><strong>${escapeHTML(g.nombre_grupo)}</strong></td><td>${escapeHTML(g.rol)}</td><td>${acciones}</td>`;
             listaGrupos.appendChild(tr);
         });
     };
@@ -179,7 +187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                             htmlMiembros += `<li style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color);">
                                 <div style="display: flex; align-items: center;">
-                                    <span style="font-weight: 500;">${m.nombre} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
+                                <span style="font-weight: 500;">${escapeHTML(m.nombre)} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 0.8rem;">
                                     ${btnWhatsapp}
@@ -197,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         modalBox.style = "max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto;";
                         modalBox.innerHTML = `
                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
-                                <h3 style="margin: 0; border: none; padding: 0;">👥 Miembros de ${nombreGrupo}</h3>
+                            <h3 style="margin: 0; border: none; padding: 0;">👥 Miembros de ${escapeHTML(nombreGrupo)}</h3>
                                 <button id="btn-cerrar-modal-miembros" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
                             </div>
                             ${htmlMiembros}

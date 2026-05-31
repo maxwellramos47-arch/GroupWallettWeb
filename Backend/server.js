@@ -13,6 +13,7 @@ const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const crypto = require('crypto');
 const vision = require('@google-cloud/vision'); // Inicializar Google Vision AI
 
 const prisma = require('./Config/prisma'); // Importar el Singleton de Prisma
@@ -70,11 +71,26 @@ app.use(helmet({
             imgSrc: ["'self'", "data:", "https://upload.wikimedia.org", "*.s3.amazonaws.com", "*.supabase.co"],
             connectSrc: ["'self'", "*.s3.amazonaws.com", "*.supabase.co"], // Permite subir a S3 y conectar con Supabase
             fontSrc: ["'self'"],
-            objectSrc: ["'self'"],
+            objectSrc: ["'none'"], // Mejorado: Bloquea inserción de Flash/Java/plugins antiguos
             mediaSrc: ["'self'"],
             frameSrc: ["'self'"],
+            formAction: ["'self'"], // Protege contra inyecciones que cambien a dónde se envían los formularios
+            baseUri: ["'self'"],    // Previene la inyección de etiquetas <base> maliciosas
         },
-    }
+    },
+    // Fuerza a usar HTTPS durante 1 año y lo aplica a subdominios
+    hsts: {
+        maxAge: 31536000, 
+        includeSubDomains: true,
+        preload: true
+    },
+    // Protege contra filtración de URLs sensibles al navegar a sitios externos
+    referrerPolicy: { 
+        policy: "strict-origin-when-cross-origin" 
+    },
+    // Aislamiento contra ataques tipo Spectre (Cross-Origin)
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "same-site" }
 }));
 
 // ==========================================
@@ -127,6 +143,27 @@ app.post('/api/webhooks/mercadopago', async (req, res) => {
     const action = type || body.action || body.type;
     const paymentId = (data && data.id) || (body.data && body.data.id);
 
+    // ==========================================
+    // Validación de Firma (El Escudo Definitivo)
+    // ==========================================
+    const signature = req.headers['x-signature'];
+    const requestId = req.headers['x-request-id'];
+    if (signature && requestId && paymentId && process.env.MP_WEBHOOK_SECRET) {
+        const parts = signature.split(',');
+        let ts, hash;
+        parts.forEach(part => {
+            const [key, value] = part.split('=');
+            if (key === 'ts') ts = value;
+            if (key === 'v1') hash = value;
+        });
+        const manifest = `id:${paymentId};request-id:${requestId};ts:${ts};`;
+        const hmac = crypto.createHmac('sha256', process.env.MP_WEBHOOK_SECRET).update(manifest).digest('hex');
+        if (hmac !== hash) {
+            console.error('⚠️ Intento de falsificación de Webhook bloqueado por x-signature.');
+            return res.status(403).send('Firma inválida');
+        }
+    }
+
     if (action === 'payment' && paymentId) {
         try {
             const payment = new Payment(mpClient);
@@ -166,28 +203,8 @@ app.post('/api/webhooks/mercadopago', async (req, res) => {
 });
 
 // ==========================================
-// Limitador de Peticiones (Rate Limiting) contra DDoS
+// Health Check para Render (Sin Rate Limit)
 // ==========================================
-const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: { error: 'Demasiadas peticiones desde esta IP. Por favor, intenta de nuevo en 15 minutos.' },
-    standardHeaders: true, 
-    legacyHeaders: false, 
-});
-
-app.use('/api/', apiLimiter);
-
-app.use(express.json());
-
-app.use(express.static(path.join(__dirname, '../Frontend')));
-app.use('/Placeholders', express.static(path.join(__dirname, 'Placeholders')));
-
-// ==========================================
-// API REST Simulada
-// ==========================================
-
-// 1. Endpoint GET: Estado de salud del servidor
 app.get('/api/status', async (req, res) => {
     try {
         // Verificar que la base de datos responde correctamente
@@ -216,6 +233,36 @@ app.get('/api/status', async (req, res) => {
     }
 });
 
+// ==========================================
+// Limitador de Peticiones (Rate Limiting) contra DDoS
+// ==========================================
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: 'Demasiadas peticiones desde esta IP. Por favor, intenta de nuevo en 15 minutos.' },
+    standardHeaders: true, 
+    legacyHeaders: false, 
+    skip: (req, res) => {
+        // Eximir de los límites a los Health Checks automáticos de Render
+        const userAgent = req.get('User-Agent') || '';
+        if (userAgent.includes('Render')) {
+            return true; // Retornar true ignora el rate limit para esta petición
+        }
+        return false; // Retornar false aplica el bloqueo normal a los usuarios
+    }
+});
+
+app.use('/api/', apiLimiter);
+
+app.use(express.json({ limit: '10kb' })); // Protege la RAM limitando el tamaño del payload
+
+app.use(express.static(path.join(__dirname, '../Frontend')));
+app.use('/Placeholders', express.static(path.join(__dirname, 'Placeholders')));
+
+// ==========================================
+// API REST Simulada
+// ==========================================
+
 // Endpoint para proveer configuración pública al frontend (Supabase, etc.)
 app.get('/api/config', (req, res) => {
     res.json({
@@ -227,7 +274,49 @@ app.get('/api/config', (req, res) => {
 // 1.6 NUEVO Endpoint GET: Obtener historial de gastos archivados
 app.get('/api/historial', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
+    
+    // Paginación Segura
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20)); // Protegemos el servidor fijando un máx de 100
+    const offset = (page - 1) * limit;
+
+    // Filtros dinámicos de Búsqueda y Fechas
+    const { search, startDate, endDate } = req.query;
+    const searchParam = search ? `%${search}%` : null;
+    const startParam = startDate ? startDate + ' 00:00:00' : null;
+    const endParam = endDate ? endDate + ' 23:59:59' : null;
+
     try {
+        // Consulta de Total (Para que el Frontend dibuje la botonera de páginas)
+        const totalResult = await prisma.$queryRaw`
+            SELECT COUNT(*)::int as total
+            FROM Transacciones_Historial th
+            JOIN Miembros_Grupo mg ON th.id_grupo = mg.id_grupo
+            JOIN Grupos g ON th.id_grupo = g.id_grupo
+            JOIN Usuarios u ON th.id_usuario_pagador = u.id_usuario
+            WHERE mg.id_usuario = ${parseInt(id_usuario)}
+            AND (${searchParam}::text IS NULL OR th.descripcion ILIKE ${searchParam} OR th.categoria ILIKE ${searchParam} OR u.nombre ILIKE ${searchParam} OR g.nombre_grupo ILIKE ${searchParam})
+            AND (${startParam}::timestamp IS NULL OR th.fecha_gasto >= ${startParam}::timestamp)
+            AND (${endParam}::timestamp IS NULL OR th.fecha_gasto <= ${endParam}::timestamp)
+        `;
+        const total = totalResult[0].total || 0;
+        const totalPages = Math.ceil(total / limit);
+
+        // Consulta de Agrupación (Para el gráfico circular de TODOS los datos filtrados)
+        const chartDataResult = await prisma.$queryRaw`
+            SELECT u.nombre as pagador_nombre, SUM(th.monto)::float as total_monto
+            FROM Transacciones_Historial th
+            JOIN Miembros_Grupo mg ON th.id_grupo = mg.id_grupo
+            JOIN Grupos g ON th.id_grupo = g.id_grupo
+            JOIN Usuarios u ON th.id_usuario_pagador = u.id_usuario
+            WHERE mg.id_usuario = ${parseInt(id_usuario)}
+            AND (${searchParam}::text IS NULL OR th.descripcion ILIKE ${searchParam} OR th.categoria ILIKE ${searchParam} OR u.nombre ILIKE ${searchParam} OR g.nombre_grupo ILIKE ${searchParam})
+            AND (${startParam}::timestamp IS NULL OR th.fecha_gasto >= ${startParam}::timestamp)
+            AND (${endParam}::timestamp IS NULL OR th.fecha_gasto <= ${endParam}::timestamp)
+            GROUP BY u.nombre
+        `;
+
+        // Consulta paginada usando LIMIT y OFFSET
         const result = await prisma.$queryRaw`
             SELECT 
                 th.id_transaccion, 
@@ -242,9 +331,14 @@ app.get('/api/historial', verificarToken, async (req, res) => {
             JOIN Usuarios u ON th.id_usuario_pagador = u.id_usuario
             JOIN Miembros_Grupo mg ON th.id_grupo = mg.id_grupo
             WHERE mg.id_usuario = ${parseInt(id_usuario)}
+            AND (${searchParam}::text IS NULL OR th.descripcion ILIKE ${searchParam} OR th.categoria ILIKE ${searchParam} OR u.nombre ILIKE ${searchParam} OR g.nombre_grupo ILIKE ${searchParam})
+            AND (${startParam}::timestamp IS NULL OR th.fecha_gasto >= ${startParam}::timestamp)
+            AND (${endParam}::timestamp IS NULL OR th.fecha_gasto <= ${endParam}::timestamp)
             ORDER BY th.fecha_archivado DESC
+            LIMIT ${limit} OFFSET ${offset}
         `;
-        res.json(result);
+        // Retornamos el objeto estructurado
+        res.json({ data: result, pagination: { total, page, limit, totalPages }, chartData: chartDataResult });
     } catch (error) {
         console.error('Error al obtener historial:', error);
         res.status(500).json({ error: 'Error interno del servidor' });

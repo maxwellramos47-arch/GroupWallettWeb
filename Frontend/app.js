@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const token = 'http-only-cookie'; // Dummy token temporal para no romper código fetch heredado
 
+    // --- Función de Escape HTML para prevenir inyecciones XSS ---
+    const escapeHTML = (str) => {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
+    };
+
     // --- Extraer configuración de moneda ---
     const miIdUsuarioGlobal = usuarioId.toString();
     const moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
@@ -317,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnBanco = `<button class="btn-ver-banco" data-usuario="${idUsuarioOtro}" title="Ver Datos Bancarios" style="margin-left: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.7rem; background-color: var(--primary-slate); color: white; border: none; border-radius: 4px; cursor: pointer;">🏦 Banco</button>`;
 
         tr.innerHTML = `
-            <td>${nombreCol} ${btnBanco}</td>
+            <td>${escapeHTML(nombreCol)} ${btnBanco}</td>
             <td>${moneda}${monto.toFixed(2)}</td>
             <td>${estadoHtml}</td>
             <td>${botonesHtml}</td>
@@ -419,10 +427,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             tr.innerHTML = `
-                <td>${t.fecha}</td>
-                <td><span style="background-color: var(--bg-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${t.categoria || 'General'}</span></td>
-                <td>${t.descripcion}${t.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${t.comprobante_url}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ''}</td>
-                <td>${t.pagador_nombre}</td>
+                <td>${escapeHTML(t.fecha)}</td>
+                <td><span style="background-color: var(--bg-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${escapeHTML(t.categoria || 'General')}</span></td>
+                <td>${escapeHTML(t.descripcion)}${t.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(t.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${t.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td>
+                <td>${escapeHTML(t.pagador_nombre)}</td>
                 <td>${moneda}${t.monto.toFixed(2)}</td>
                 <td>${botonEditarHTML}${botonEliminarHTML}</td>
             `;
@@ -1134,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let mensajeHtml = `<div style="text-align: left; margin-bottom: 1rem;"><p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Para resolver todas las deudas con la menor cantidad de transferencias posibles, sigan este plan:</p><ul style="list-style: none; padding: 0;">`;
                     
                     data.forEach(t => {
-                        mensajeHtml += `<li style="background: var(--bg-light); padding: 0.8rem; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border-color);"><strong style="color: var(--danger-color);">${t.deudor}</strong> debe pagarle a <strong style="color: var(--secondary-emerald);">${t.acreedor}</strong> la suma de <strong>${moneda}${t.monto.toFixed(2)}</strong></li>`;
+                        mensajeHtml += `<li style="background: var(--bg-light); padding: 0.8rem; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border-color);"><strong style="color: var(--danger-color);">${escapeHTML(t.deudor)}</strong> debe pagarle a <strong style="color: var(--secondary-emerald);">${escapeHTML(t.acreedor)}</strong> la suma de <strong>${moneda}${t.monto.toFixed(2)}</strong></li>`;
                     });
                     mensajeHtml += `</ul></div>`;
                     
@@ -1205,7 +1213,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const ocrRes = await fetch('/api/finanzas/ocr', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json'url })
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageUrl: comprobante_url })
                         });
                         if (ocrRes.ok) {
                             const dataOCR = await ocrRes.json();
@@ -1261,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             notifBox.style = "max-width: 400px; width: 100%;";
                             notifBox.innerHTML = `
                                 <h3 style="margin-top: 0;">💬 Notificar Pago</h3>
-                                <p>¿Quieres avisarle a <strong>${acreedor}</strong> que ya pagaste?</p>
+                                <p>¿Quieres avisarle a <strong>${escapeHTML(acreedor)}</strong> que ya pagaste?</p>
                                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                                     <button id="btn-si-notificar-ws" class="btn-primary" style="background-color: #25D366; flex: 1;">📱 WhatsApp</button>
                                     <button id="btn-si-notificar-email" class="btn-primary" style="background-color: var(--primary-slate); flex: 1;">✉️ Correo</button>
@@ -1318,9 +1327,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Compresión al vuelo (Solo si es imagen)
             if (archivo.type.startsWith('image/') && typeof imageCompression === 'function') {
                 const options = { 
-                    maxSizeMB: 1,            // Límite máximo de peso (1 MB)
+                    maxSizeMB: 0.5,          // Límite máximo de peso (500 KB)
                     maxWidthOrHeight: 1280,  // Resolución máxima (HD)
-                    useWebWorker: true       // Evita que la interfaz se congele
+                    useWebWorker: true,      // Evita que la interfaz se congele
+                    fileType: 'image/webp'   // Convertir a WebP para máximo ahorro en S3
                 };
                 archivoFinal = await imageCompression(archivo, options);
             }
@@ -1354,4 +1364,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         } finally { hideSpinner(); }
     };
+
+    // --- 9. Event Listener Global para Subir Comprobante a Gasto Existente ---
+    document.addEventListener('click', async (e) => {
+        const btnSubir = e.target.closest('.btn-subir-comprobante');
+        if (btnSubir) {
+            const idTransaccion = btnSubir.getAttribute('data-id');
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/jpeg, image/png, application/pdf';
+            input.onchange = async (ev) => {
+                const file = ev.target.files[0];
+                if (!file) return;
+                
+                const url = await window.subirArchivoDirecto(file);
+                if (url) {
+                    showSpinner();
+                    try {
+                        const tokenStr = localStorage.getItem('usuarioToken') || 'http-only-cookie';
+                        const res = await fetch(`/api/gastos/${idTransaccion}/comprobante`, {
+                            method: 'PUT',
+                            headers: { 'Authorization': `Bearer ${tokenStr}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ comprobante_url: url })
+                        });
+                        if (res.ok) {
+                            showToast('Comprobante asociado exitosamente', 'success');
+                            setTimeout(() => location.reload(), 1000);
+                        } else showToast('Error al asociar el comprobante', 'error');
+                    } catch (err) { showToast('Error de red', 'error'); } finally { hideSpinner(); }
+                }
+            };
+            input.click();
+        }
+    });
 });

@@ -21,20 +21,33 @@ function showToast(message, type = 'success') {
 
 document.addEventListener('DOMContentLoaded', () => {
     const btnDarkMode = document.getElementById('theme-toggle');
-    const prefersDark = localStorage.getItem('darkMode') === 'true';
 
-    if (prefersDark) {
+    // 1. Detectar preferencia del usuario o del sistema (Modo Oscuro Automático)
+    const localTheme = localStorage.getItem('darkMode');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = localTheme !== null ? localTheme === 'true' : systemPrefersDark;
+
+    if (isDark) {
         document.body.classList.add('dark-mode');
         if (btnDarkMode) btnDarkMode.textContent = '☀️';
     }
+
+    // 2. Escuchar cambios automáticos en el sistema operativo en tiempo real
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        // Solo aplicar si el usuario no ha forzado un tema manualmente
+        if (localStorage.getItem('darkMode') === null) {
+            document.body.classList.toggle('dark-mode', e.matches);
+            if (btnDarkMode) btnDarkMode.textContent = e.matches ? '☀️' : '🌙';
+        }
+    });
 
     if (btnDarkMode) {
         btnDarkMode.addEventListener('click', (e) => {
             e.preventDefault();
             document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('darkMode', isDark);
-            btnDarkMode.textContent = isDark ? '☀️' : '🌙';
+            const isNowDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isNowDark);
+            btnDarkMode.textContent = isNowDark ? '☀️' : '🌙';
         });
     }
 

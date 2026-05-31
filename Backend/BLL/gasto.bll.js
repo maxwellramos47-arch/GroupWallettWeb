@@ -6,10 +6,11 @@ const webpush = require('web-push');
 const { safeDecrypt } = require('../Middleware/security.util');
 const EmailTemplates = require('../Routes/emailTemplates');
 const nodemailer = require('nodemailer');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 class GastoBLL {
-    static async obtenerGastos() {
-        return await GastoDAL.getAll();
+    static async obtenerGastos(id_usuario) {
+        return await GastoDAL.getAll(id_usuario);
     }
 
     static async crearGasto(id_grupo, descripcion, categoria, monto, pagador, participantes, fecha, comprobante_url, id_solicitante) {
@@ -51,6 +52,26 @@ class GastoBLL {
         
         if (await GastoDAL.countPagos(id_transaccion) > 0) throw new Error('No se puede eliminar porque uno o más participantes ya han pagado.');
         await GastoDAL.delete(id_transaccion);
+
+        // --- Eliminar el comprobante de AWS S3 si existe ---
+        if (info.comprobante_url && info.comprobante_url.includes('amazonaws.com')) {
+            try {
+                // Extraer el 'Key' (ruta interna del archivo) de la URL pública
+                // Ej: https://mi-bucket.../archivos_adjuntos/img.jpg -> archivos_adjuntos/img.jpg
+                const urlObj = new URL(info.comprobante_url);
+                const fileKey = decodeURIComponent(urlObj.pathname.substring(1)); // Quitar el '/' inicial
+
+                const s3Client = new S3Client({ region: process.env.AWS_REGION });
+                const command = new DeleteObjectCommand({
+                    Bucket: process.env.AWS_BUCKET_NAME,
+                    Key: fileKey
+                });
+                
+                await s3Client.send(command);
+            } catch (s3Error) {
+                console.error('⚠️ Error al intentar eliminar archivo huérfano de S3:', s3Error.message);
+            }
+        }
     }
 
     static async editarGasto(id_transaccion, descripcion, categoria, monto, id_solicitante) {
@@ -63,6 +84,22 @@ class GastoBLL {
         
         if (await GastoDAL.countPagos(id_transaccion) > 0) throw new Error('No se puede editar porque uno o más participantes ya han pagado.');
         await GastoDAL.update(id_transaccion, descripcion, categoria, parseFloat(monto), generarFirmaHMAC(`${info.id_usuario_pagador}-${parseFloat(monto)}-${descripcion}-${categoria}`));
+    }
+
+    static async actualizarComprobante(id_transaccion, comprobante_url, id_solicitante) {
+        if (!comprobante_url) throw new Error('Falta la URL del comprobante.');
+        const info = await GastoDAL.getGastoInfoAuth(id_transaccion, id_solicitante);
+        
+        if (!info) {
+            const inGroup = await GastoDAL.checkUserInGroupTransaccion(id_transaccion, id_solicitante);
+            if (!inGroup) throw new Error('Acceso denegado o transacción no encontrada.');
+        } else {
+            const user = await UsuarioDAL.findById(id_solicitante);
+            const isGod = user.estado_suscripcion === 'GOD_MODE';
+            if (info.rol !== 'Administrador' && info.id_usuario_pagador != id_solicitante && !isGod) throw new Error('Solo el pagador o el administrador pueden adjuntar comprobantes.');
+        }
+
+        await GastoDAL.updateComprobante(id_transaccion, comprobante_url);
     }
 
     static async pagarCuota(id_transaccion, id_usuario, id_solicitante) {

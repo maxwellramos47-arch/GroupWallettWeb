@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.innerHTML = `
                 <td><span style="font-weight: bold; color: var(--secondary-emerald);">${t.fecha.split('/')[0]}</span></td>
                 <td><span style="background-color: var(--bg-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${t.categoria || 'General'}</span></td>
-                <td>${t.descripcion}${t.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${t.comprobante_url}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ''}</td>
+                <td>${escapeHTML(t.descripcion)}${t.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(t.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${t.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td>
                 <td>${t.pagador_nombre}</td>
                 <td>${moneda}${t.monto.toFixed(2)}</td>
                 <td>${botones}</td>
@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let archivoFinal = archivo;
             
             if (archivo.type.startsWith('image/') && typeof imageCompression === 'function') {
-                const options = { maxSizeMB: 1, maxWidthOrHeight: 1280, useWebWorker: true };
+                const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true, fileType: 'image/webp' };
                 archivoFinal = await imageCompression(archivo, options);
             }
 

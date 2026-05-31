@@ -8,7 +8,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 router.get('/presigned-url', verificarToken, async (req, res) => {
     try {
         const contentType = req.query.type || 'image/jpeg';
-        const extension = contentType === 'application/pdf' ? 'pdf' : (contentType === 'image/png' ? 'png' : 'jpg');
+        const extension = contentType === 'application/pdf' ? 'pdf' : (contentType === 'image/png' ? 'png' : (contentType === 'image/webp' ? 'webp' : 'jpg'));
         const id_usuario = req.usuarioLogueado.id_usuario;
         const fileName = `${id_usuario}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
 

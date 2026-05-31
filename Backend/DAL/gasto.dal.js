@@ -1,9 +1,8 @@
 const prisma = require('../Config/prisma');
 
 class GastoDAL {
-    static async getAll() {
-        const query = `
-            SELECT 
+    static async getAll(id_usuario) {
+        return await prisma.$queryRaw`SELECT 
                 t.id_transaccion, t.id_grupo, TO_CHAR(t.fecha_gasto, 'DD/MM/YYYY') as fecha,
                 t.descripcion, t.categoria, t.comprobante_url, CAST(t.monto AS FLOAT) as monto, t.id_usuario_pagador::text as pagador,
                 u.nombre as pagador_nombre, 
@@ -17,15 +16,14 @@ class GastoDAL {
             JOIN Usuarios u ON t.id_usuario_pagador = u.id_usuario
             LEFT JOIN Transaccion_Participantes tp ON t.id_transaccion = tp.id_transaccion
             LEFT JOIN Usuarios up ON tp.id_usuario = up.id_usuario
+            WHERE t.id_grupo IN (SELECT id_grupo FROM Miembros_Grupo WHERE id_usuario = ${parseInt(id_usuario)})
             GROUP BY t.id_transaccion, t.id_grupo, t.fecha_gasto, t.descripcion, t.categoria, t.comprobante_url, t.monto, t.id_usuario_pagador, u.nombre
-            ORDER BY t.fecha_gasto ASC
-        `;
-        return await prisma.$queryRawUnsafe(query);
+            ORDER BY t.fecha_gasto ASC`;
     }
 
     static async getGastoInfoAuth(id_transaccion, id_usuario) {
         const result = await prisma.$queryRaw`
-            SELECT t.id_usuario_pagador, mg.rol
+            SELECT t.id_usuario_pagador, t.comprobante_url, mg.rol
             FROM Transacciones t
             LEFT JOIN Miembros_Grupo mg ON t.id_grupo = mg.id_grupo AND mg.id_usuario = ${parseInt(id_usuario)}
             WHERE t.id_transaccion = ${parseInt(id_transaccion)}
@@ -77,6 +75,13 @@ class GastoDAL {
 
     static async update(id_transaccion, descripcion, categoria, monto, firma_hmac) {
         await prisma.$executeRaw`UPDATE Transacciones SET descripcion = ${descripcion}, categoria = ${categoria}, monto = ${parseFloat(monto)}, firma_hmac = ${firma_hmac} WHERE id_transaccion = ${parseInt(id_transaccion)}`;
+    }
+
+    static async updateComprobante(id_transaccion, comprobante_url) {
+        const res = await prisma.$executeRaw`UPDATE Transacciones SET comprobante_url = ${comprobante_url} WHERE id_transaccion = ${parseInt(id_transaccion)}`;
+        if (res === 0) {
+            await prisma.$executeRaw`UPDATE Transacciones_Historial SET comprobante_url = ${comprobante_url} WHERE id_transaccion = ${parseInt(id_transaccion)}`;
+        }
     }
 
     static async checkUserInGroupTransaccion(id_transaccion, id_usuario) {

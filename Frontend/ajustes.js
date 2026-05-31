@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    let eliminarFotoFlag = false;
+
     // Cargar perfil actual
     showSpinner();
     try {
@@ -100,6 +102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (perfil.foto_url) {
                 const fotoPreview = document.getElementById('perfil-foto-preview');
                 if (fotoPreview) fotoPreview.src = perfil.foto_url;
+                const btnEliminarFoto = document.getElementById('btn-eliminar-foto');
+                if (btnEliminarFoto) btnEliminarFoto.style.display = 'block';
             }
 
             if (perfil.telefono) {
@@ -126,6 +130,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const btnEliminarFoto = document.getElementById('btn-eliminar-foto');
+    if (btnEliminarFoto) {
+        btnEliminarFoto.addEventListener('click', () => {
+            if (perfilFotoPreview) perfilFotoPreview.src = 'https://via.placeholder.com/60';
+            if (perfilFotoInput) perfilFotoInput.value = '';
+            btnEliminarFoto.style.display = 'none';
+            eliminarFotoFlag = true;
+        });
+    }
+
     document.getElementById('form-perfil').addEventListener('submit', async (e) => {
         e.preventDefault();
         const nombre = document.getElementById('perfil-nombre').value;
@@ -144,7 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showSpinner();
         
         let fileKey = null;
-        let foto_url_final = null;
+        let foto_url_final = eliminarFotoFlag ? null : undefined;
         const archivoFoto = perfilFotoInput ? perfilFotoInput.files[0] : null;
         
         if (archivoFoto) {
@@ -153,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 // Súper-Compresión para fotos de perfil
                 if (archivoFoto.type.startsWith('image/') && typeof imageCompression === 'function') {
-                    const options = { maxSizeMB: 0.5, maxWidthOrHeight: 800, useWebWorker: true };
+                    const options = { maxSizeMB: 0.2, maxWidthOrHeight: 800, useWebWorker: true, fileType: 'image/webp' };
                     archivoFinal = await imageCompression(archivoFoto, options);
                 }
 
@@ -169,6 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                     if (resUpload.ok) {
                     foto_url_final = dataFirma.publicUrl;
+                        eliminarFotoFlag = false;
                         console.log('¡Foto subida a AWS S3 exitosamente! Ruta:', dataFirma.fileKey);
                     } else { showToast('Error al procesar la imagen en el Storage.', 'error'); }
                 }
@@ -179,7 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/api/usuarios/perfil', {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password })
+                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password, eliminar_foto: eliminarFotoFlag })
             });
             if (res.ok) {
                 showToast('Perfil actualizado exitosamente.', 'success');

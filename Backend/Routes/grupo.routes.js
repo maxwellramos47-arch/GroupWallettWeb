@@ -5,10 +5,19 @@ const { verificarToken } = require('../Middleware/auth.middleware');
 const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
 const EmailTemplates = require('./emailTemplates');
+const { z } = require('zod');
+
+// --- Esquemas de Validación Zod ---
+const grupoSchema = z.object({
+    nombre_grupo: z.string().min(1, "El nombre del grupo es obligatorio").max(100, "El nombre es demasiado largo")
+});
 
 router.post('/', verificarToken, async (req, res) => {
     try {
-        const id_grupo = await GrupoBLL.crearGrupo(req.body.nombre_grupo, req.usuarioLogueado.id_usuario);
+        const validacion = grupoSchema.safeParse(req.body);
+        if (!validacion.success) return res.status(400).json({ error: validacion.error.errors[0].message });
+        
+        const id_grupo = await GrupoBLL.crearGrupo(validacion.data.nombre_grupo, req.usuarioLogueado.id_usuario);
         res.status(201).json({ message: 'Grupo creado con éxito', id_grupo });
     } catch (error) {
         res.status(error.message.includes('límite') ? 403 : 500).json({ error: error.message || 'Error al crear el grupo' });
@@ -29,7 +38,10 @@ router.get('/:id/miembros', verificarToken, async (req, res) => {
 
 router.put('/:id', verificarToken, async (req, res) => {
     try {
-        await GrupoBLL.editarGrupo(req.params.id, req.usuarioLogueado.id_usuario, req.body.nombre_grupo);
+        const validacion = grupoSchema.safeParse(req.body);
+        if (!validacion.success) return res.status(400).json({ error: validacion.error.errors[0].message });
+        
+        await GrupoBLL.editarGrupo(req.params.id, req.usuarioLogueado.id_usuario, validacion.data.nombre_grupo);
         res.json({ message: 'Nombre del grupo actualizado exitosamente.' });
     } catch (error) {
         res.status(error.message.includes('denegado') ? 403 : 400).json({ error: error.message });
@@ -94,6 +106,16 @@ router.post('/:id/liquidar/whatsapp', verificarToken, async (req, res) => {
         const enviados = await GrupoBLL.enviarResumenWhatsApp(req.params.id, req.usuarioLogueado.id_usuario, transferencias);
         res.json({ message: `Resumen enviado a ${enviados} miembro(s) por WhatsApp automatizado.` });
     } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.post('/:id/liquidar/pagar', verificarToken, async (req, res) => {
+    try {
+        const { id_deudor, id_acreedor, monto } = req.body;
+        await GrupoBLL.registrarPagoTransferencia(req.params.id, id_deudor, id_acreedor, monto, req.usuarioLogueado.id_usuario);
+        res.json({ message: 'Pago de liquidación registrado exitosamente.' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 });
 
 router.delete('/:id/miembros/:idUsuario', verificarToken, async (req, res) => {

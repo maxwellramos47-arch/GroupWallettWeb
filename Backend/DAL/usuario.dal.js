@@ -19,11 +19,11 @@ class UsuarioDAL {
         return user ? new Usuario(user) : null;
     }
 
-    static async updateProfile(id_usuario, nombre, telefono, foto_url = null, passwordHash = null) {
+    static async updateProfile(id_usuario, nombre, telefono, foto_url, passwordHash = null) {
         const data = {};
         if (nombre) data.nombre = nombre;
         if (telefono !== undefined) data.telefono = telefono || null;
-        if (foto_url) data.foto_url = foto_url;
+        if (foto_url !== undefined) data.foto_url = foto_url; // Permite almacenar explícitamente "null"
         if (passwordHash) data.password_hash = passwordHash;
         
         await prisma.usuarios.update({ where: { id_usuario }, data });
@@ -51,14 +51,13 @@ class UsuarioDAL {
 
     static async incrementFailedAttempts(id_usuario) {
         // En operaciones condicionales muy complejas, Prisma permite inyectar SQL crudo cuando es estrictamente necesario
-        const query = `
+        const result = await prisma.$queryRaw`
             UPDATE Usuarios 
             SET intentos_fallidos = intentos_fallidos + 1,
                 bloqueado_hasta = CASE WHEN intentos_fallidos + 1 >= 5 THEN NOW() + INTERVAL '15 minutes' ELSE bloqueado_hasta END
-            WHERE id_usuario = $1
+            WHERE id_usuario = ${parseInt(id_usuario)}
             RETURNING intentos_fallidos, bloqueado_hasta
         `;
-        const result = await prisma.$queryRawUnsafe(query, id_usuario);
         return result[0];
     }
 

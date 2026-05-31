@@ -10,7 +10,7 @@ generator client {
 
 model Planes_Suscripcion {
   id_plan       Int        @id @default(autoincrement())
-  nombre_plan   String     @db.VarChar(50)
+  nombre_plan   String
   precio        Decimal    @db.Decimal(10, 2)
   limite_grupos Int
   beneficios    String?    @db.Text
@@ -21,23 +21,23 @@ model Planes_Suscripcion {
 
 model Usuarios {
   id_usuario                    Int       @id @default(autoincrement())
-  nombre                        String    @db.VarChar(100)
-  correo                        String    @unique @db.VarChar(150)
+  nombre                        String
+  correo                        String    @unique
   telefono                      String?   @db.Text
-  password_hash                 String    @db.VarChar(255)
+  password_hash                 String
   fecha_registro                DateTime? @default(now())
   id_plan                       Int?      @default(1)
-  estado_suscripcion            String?   @default("activo") @db.VarChar(20)
+  estado_suscripcion            String?   @default("activo")
   fecha_vencimiento_suscripcion DateTime? @db.Date
-  reset_token                   String?   @db.VarChar(255)
+  reset_token                   String?
   reset_token_expires           DateTime? @db.Timestamp()
   intentos_fallidos             Int?      @default(0)
   bloqueado_hasta               DateTime? @db.Timestamp()
-  foto_url                      String?   @db.VarChar(500)
+  foto_url                      String?
   push_subscription             String?   @db.Text
   fecha_revocacion_sesiones     DateTime? @db.Timestamp()
   telefono_verificado           Boolean?  @default(false)
-  codigo_verificacion_telefono  String?   @db.VarChar(10)
+  codigo_verificacion_telefono  String?
   codigo_verificacion_expires   DateTime? @db.Timestamp()
   reenvio_codigo_intentos       Int?      @default(0)
   reenvio_codigo_bloqueado_hasta DateTime? @db.Timestamp()
@@ -62,7 +62,7 @@ model Usuarios {
 
 model Grupos {
   id_grupo           Int       @id @default(autoincrement())
-  nombre_grupo       String    @db.VarChar(100)
+  nombre_grupo       String
   id_usuario_creador Int
   fecha_creacion     DateTime? @default(now()) @db.Timestamp()
 
@@ -76,7 +76,7 @@ model Grupos {
 model Miembros_Grupo {
   id_grupo    Int
   id_usuario  Int
-  rol         String?   @default("Miembro") @db.VarChar(20)
+  rol         String?   @default("Miembro")
   fecha_union DateTime? @default(now()) @db.Timestamp()
 
   grupo       Grupos    @relation(fields: [id_grupo], references: [id_grupo], onDelete: Cascade)
@@ -91,11 +91,11 @@ model Transacciones {
   id_grupo           Int
   id_usuario_pagador Int
   monto              Decimal   @db.Decimal(12, 2)
-  descripcion        String    @db.VarChar(255)
-  categoria          String?   @default("General") @db.VarChar(100)
-  comprobante_url    String?   @db.VarChar(500)
+  descripcion        String
+  categoria          String?   @default("General")
+  comprobante_url    String?
   fecha_gasto        DateTime? @default(now()) @db.Timestamp()
-  firma_hmac         String?   @db.VarChar(255)
+  firma_hmac         String?
 
   grupo              Grupos    @relation(fields: [id_grupo], references: [id_grupo], onDelete: Cascade)
   pagador            Usuarios  @relation(fields: [id_usuario_pagador], references: [id_usuario])
@@ -109,7 +109,7 @@ model Transacciones {
 model Transaccion_Participantes {
   id_transaccion Int
   id_usuario     Int
-  estado_pago    String? @default("Pendiente") @db.VarChar(20)
+  estado_pago    String? @default("Pendiente")
 
   transaccion    Transacciones @relation(fields: [id_transaccion], references: [id_transaccion], onDelete: Cascade)
   usuario        Usuarios      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
@@ -136,29 +136,30 @@ model Transacciones_Historial {
   id_grupo           Int
   id_usuario_pagador Int
   monto              Decimal   @db.Decimal(12, 2)
-  descripcion        String    @db.VarChar(255)
-  categoria          String?   @default("General") @db.VarChar(100)
-  comprobante_url    String?   @db.VarChar(500)
+  descripcion        String
+  categoria          String?   @default("General")
+  comprobante_url    String?
   fecha_gasto        DateTime  @db.Timestamp()
-  firma_hmac         String?   @db.VarChar(255)
+  firma_hmac         String?
   fecha_archivado    DateTime? @default(now()) @db.Timestamp()
 
   @@index([id_grupo, fecha_archivado])
   @@index([id_usuario_pagador])
+  @@index([fecha_archivado(sort: Desc), id_transaccion(sort: Desc)])
   @@map("transacciones_historial")
 }
 
 model Transaccion_Participantes_Historial {
   id_transaccion Int
   id_usuario     Int
-  estado_pago    String @db.VarChar(20)
+  estado_pago    String
 
   @@id([id_transaccion, id_usuario])
   @@map("transaccion_participantes_historial")
 }
 
 model Tokens_Revocados {
-  token            String   @id @db.VarChar(500)
+  token            String   @id
   fecha_expiracion DateTime @db.Timestamp()
 
   @@map("tokens_revocados")
@@ -184,10 +185,10 @@ model Datos_Bancarios {
   id_dato    Int     @id @default(autoincrement())
   id_usuario Int     @unique
   rut        String? @db.Text
-  banco      String? @db.VarChar(100)
-  tipo_cuenta String? @db.VarChar(50)
+  banco      String?
+  tipo_cuenta String?
   numero_cuenta String? @db.Text
-  correo     String? @db.VarChar(150)
+  correo     String?
 
   usuario       Usuarios @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 
@@ -197,9 +198,9 @@ model Datos_Bancarios {
 model Sesiones_Activas {
   id_sesion       Int       @id @default(autoincrement())
   id_usuario      Int
-  token           String    @unique @db.VarChar(500)
-  dispositivo     String?   @db.VarChar(255) // Ej: "Chrome en Windows 11"
-  ip              String?   @db.VarChar(50)
+  token           String    @unique
+  dispositivo     String?
+  ip              String?
   ultimo_acceso   DateTime  @default(now()) @db.Timestamp()
   creado_en       DateTime  @default(now()) @db.Timestamp()
 
@@ -211,7 +212,7 @@ model Sesiones_Activas {
 model Gastos_Marketing {
   id_gasto    Int       @id @default(autoincrement())
   monto       Decimal   @db.Decimal(12, 2)
-  descripcion String    @db.VarChar(255)
+  descripcion String
   fecha_gasto DateTime  @default(now()) @db.Timestamp()
 
   @@map("gastos_marketing")
