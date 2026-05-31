@@ -176,7 +176,8 @@ class GastoBLL {
         const montoCuota = parseFloat(gasto.monto) / gasto.participantes.length;
 
         try {
-            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+            const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
+            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST || 'smtp.gmail.com', port: smtpPort, secure: smtpPort === 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
             const mailOptions = { from: `"GroupWallet" <${process.env.SMTP_USER}>`, to: acreedor.correo, subject: `✅ ${deudor.nombre} ha pagado su cuota`, html: EmailTemplates.notificacionPagoCuota(acreedor.nombre, deudor.nombre, montoCuota, gasto.descripcion) };
             await transporter.sendMail(mailOptions);
             return { message: 'Notificación de pago enviada por correo exitosamente.' };

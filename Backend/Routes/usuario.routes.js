@@ -139,7 +139,8 @@ router.post('/registro', async (req, res) => {
         }
 
         if (metodo === 'email' && correo) {
-            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+            const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
+            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST || 'smtp.gmail.com', port: smtpPort, secure: smtpPort === 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
             transporter.sendMail({ from: `"GroupWallet" <${process.env.SMTP_USER}>`, to: correo, subject: '¡Bienvenido a GroupWallet!', html: EmailTemplates.bienvenida(nombre) }).catch(()=>{});
         }
         
@@ -257,10 +258,11 @@ router.post('/recuperar-password', async (req, res) => {
 
         // Solo enviamos el correo si se generó un token (usuario existe y no está bloqueado)
         if (token) {
+            const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
             const transporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: process.env.SMTP_PORT || 587,
-                secure: false,
+                port: smtpPort,
+                secure: smtpPort === 465,
                 auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
             });
 

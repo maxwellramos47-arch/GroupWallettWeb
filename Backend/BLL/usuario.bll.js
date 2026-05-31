@@ -51,7 +51,14 @@ class UsuarioBLL {
         const codeHash = generarFirmaHMAC(codigoVerificacion);
         const token = jwt.sign({ correo: correoNormalizado, codeHash, type: 'email_verification' }, JWT_SECRET, { expiresIn: '10m' });
 
-        const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+        const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
+        const transporter = nodemailer.createTransport({ 
+            host: process.env.SMTP_HOST || 'smtp.gmail.com', 
+            port: smtpPort, 
+            secure: smtpPort === 465, 
+            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } 
+        });
+        
         await transporter.sendMail({
             from: `"GroupWallet" <${process.env.SMTP_USER}>`,
             to: correoNormalizado,
