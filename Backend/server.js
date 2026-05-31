@@ -999,6 +999,42 @@ app.use('/api/cuotas', cuotaRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // ==========================================
+// Manejo de Rutas No Encontradas (404 Not Found)
+// ==========================================
+app.use((req, res, next) => {
+    // Si es una petición a la API que no existe, respondemos con JSON
+    if (req.originalUrl.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Endpoint de la API no encontrado.' });
+    }
+    
+    // Si es navegación web, mostramos la página de error amigable
+    res.status(404).send(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Página no encontrada - GroupWallet</title>
+            <style>
+                body { font-family: 'Inter', -apple-system, 'Segoe UI', Tahoma, sans-serif; background-color: #F8FAFC; color: #0F172A; display: flex; flex-direction: column; min-height: 100vh; justify-content: center; align-items: center; margin: 0; text-align: center; }
+                .card { background: white; padding: 3rem 2rem; border-radius: 8px; border: 1px solid #E2E8F0; max-width: 450px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+                .btn { display: inline-block; background-color: #26C6DA; color: white; padding: 0.8rem 2rem; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 1.5rem; transition: background-color 0.2s; }
+                .btn:hover { background-color: #1FAAC2; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1 style="font-size: 5rem; color: #26C6DA; margin: 0; line-height: 1;">404</h1>
+                <h2 style="margin: 1rem 0;">¡Ups! Te has perdido.</h2>
+                <p style="color: #64748B; margin: 0; line-height: 1.6;">La página que estás buscando no existe, ha sido movida o está temporalmente fuera de servicio.</p>
+                <a href="/dashboard.html" class="btn">&larr; Volver al Dashboard</a>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+// ==========================================
 // Middleware Global de Manejo de Errores
 // ==========================================
 app.use((err, req, res, next) => {

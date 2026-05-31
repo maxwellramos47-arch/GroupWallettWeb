@@ -76,14 +76,6 @@
                         <button type="submit" class="btn-primary">Añadir Gasto</button>
                     </form>
                 </article>
-
-                <div class="card mt-2" style="padding: 1rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to bottom right, var(--card-bg), #fff5f5);">
-                    <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
-                    <p id="hormiga-desc" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Fugas de dinero silenciosas (menores a $15.00).</p>
-                    <h4 id="hormiga-total" style="font-size: 1.8rem; color: var(--danger-color); line-height: 1;">$0.00</h4>
-                    <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem;">0 transacciones</p>
-                    <p id="hormiga-tip" style="font-size: 0.8rem; color: var(--text-dark); background: var(--bg-light); padding: 0.5rem; border-radius: 4px;"></p>
-                </div>
             </aside>
 
             <section class="data-panel">
@@ -113,20 +105,30 @@
                         </p>
                     </div>
 
-                    <div class="card" style="margin: 0; padding: 1rem; grid-column: 1 / -1;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                    <div class="card" style="margin: 0; padding: 1rem; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
                             <h3 style="font-size: 1rem; margin: 0; border: none;">📈 Gasto Acumulado Mensual</h3>
                             <div id="export-buttons-container" style="display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
                         </div>
-                        <canvas id="grafico-mensual" style="max-height: 250px;"></canvas>
+                        <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="grafico-mensual" style="max-height: 180px; width: 100%;"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card" style="margin: 0; padding: 1rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to bottom right, var(--card-bg), #fff5f5); display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
+                        <p id="hormiga-desc" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">Fugas de dinero silenciosas (menores a $15.00).</p>
+                        <h4 id="hormiga-total" style="font-size: 2rem; color: var(--danger-color); line-height: 1; margin-bottom: 0.5rem;">$0.00</h4>
+                        <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.8rem;">0 transacciones</p>
+                        <p id="hormiga-tip" style="font-size: 0.8rem; color: var(--text-dark); background: rgba(255,255,255,0.7); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(231, 76, 60, 0.2); margin: 0;"></p>
                     </div>
                 </div>
 
                 <article class="card">
-                    <div class="month-navigator">
-                        <button id="btn-prev-month" class="btn-primary" style="width: auto; padding: 0.5rem 1rem;">&lt; Anterior</button>
-                        <h3 id="label-mes-actual" style="margin: 0; border: none; padding: 0; text-transform: capitalize;">Mes Año</h3>
-                        <button id="btn-next-month" class="btn-primary" style="width: auto; padding: 0.5rem 1rem;">Siguiente &gt;</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+                        <button id="btn-prev-month" class="btn-primary" style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem;">&lt; Anterior</button>
+                        <h3 id="label-mes-actual" style="margin: 0; border: none; padding: 0; text-transform: capitalize; font-size: 1.2rem; color: var(--primary-slate);">Mes Año</h3>
+                        <button id="btn-next-month" class="btn-primary" style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem;">Siguiente &gt;</button>
                     </div>
                     <div class="table-responsive mt-2">
                         <table class="gastos-table">
