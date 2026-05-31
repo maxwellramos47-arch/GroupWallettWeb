@@ -59,16 +59,12 @@ class GrupoBLL {
         const usuario = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(id_solicitante) } });
         
         if (correo) {
-            const nodemailer = require('nodemailer');
             const EmailTemplates = require('../Routes/emailTemplates');
-            const transporter = EmailTemplates.getTransporter();
-            const mailOptions = {
-                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+            await EmailTemplates.sendEmail({
                 to: correo,
                 subject: `Invitación a "${grupo.nombre_grupo}"`,
                 html: EmailTemplates.invitacionGrupo(usuario.nombre, grupo.nombre_grupo, inviteUrl)
-            };
-            await transporter.sendMail(mailOptions);
+            });
         }
         
         if (telefono && process.env.TWILIO_ACCOUNT_SID) {

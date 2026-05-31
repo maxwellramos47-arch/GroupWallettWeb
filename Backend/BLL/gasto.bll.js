@@ -5,7 +5,6 @@ const { generarFirmaHMAC } = require('../Middleware/security.util');
 const webpush = require('web-push');
 const { safeDecrypt } = require('../Middleware/security.util');
 const EmailTemplates = require('../Routes/emailTemplates');
-const nodemailer = require('nodemailer');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 class GastoBLL {
@@ -176,9 +175,11 @@ class GastoBLL {
         const montoCuota = parseFloat(gasto.monto) / gasto.participantes.length;
 
         try {
-            const transporter = EmailTemplates.getTransporter();
-            const mailOptions = { from: `"GroupWallet" <${process.env.SMTP_USER}>`, to: acreedor.correo, subject: `✅ ${deudor.nombre} ha pagado su cuota`, html: EmailTemplates.notificacionPagoCuota(acreedor.nombre, deudor.nombre, montoCuota, gasto.descripcion) };
-            await transporter.sendMail(mailOptions);
+            await EmailTemplates.sendEmail({
+                to: acreedor.correo, 
+                subject: `✅ ${deudor.nombre} ha pagado su cuota`, 
+                html: EmailTemplates.notificacionPagoCuota(acreedor.nombre, deudor.nombre, montoCuota, gasto.descripcion) 
+            });
             return { message: 'Notificación de pago enviada por correo exitosamente.' };
         } catch (error) {
             console.error(`Error al enviar correo de notificación de pago a ${acreedor.nombre}:`, error);

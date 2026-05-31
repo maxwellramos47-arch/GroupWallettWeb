@@ -6,7 +6,6 @@ const { JWT_SECRET, safeEncrypt, safeDecrypt, generarFirmaHMAC } = require('../M
 const twilio = require('twilio');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const webpush = require('web-push');
-const nodemailer = require('nodemailer');
 const EmailTemplates = require('../Routes/emailTemplates');
 
 class UsuarioBLL {
@@ -52,14 +51,16 @@ class UsuarioBLL {
         const codeHash = generarFirmaHMAC(codigoVerificacion);
         const token = jwt.sign({ correo: correoNormalizado, codeHash, type: 'email_verification' }, JWT_SECRET, { expiresIn: '10m' });
 
-        const transporter = EmailTemplates.getTransporter();
-        
-        await transporter.sendMail({
-            from: `"GroupWallet" <${process.env.SMTP_USER}>`,
-            to: correoNormalizado,
-            subject: 'Tu código de verificación - GroupWallet',
-            html: `<h2>Código de Verificación</h2><p>Tu código es: <strong style="font-size: 24px;">${codigoVerificacion}</strong></p>`
-        });
+        try {
+            await EmailTemplates.sendEmail({
+                to: correoNormalizado,
+                subject: 'Tu código de verificación - GroupWallet',
+                html: `<h2>Código de Verificación</h2><p>Tu código es: <strong style="font-size: 24px;">${codigoVerificacion}</strong></p>`
+            });
+        } catch (error) {
+            console.error(`\n[🚨 ERROR DE CORREO] Resend falló. Usa este código de prueba: ${codigoVerificacion}\n`, error.message);
+            throw new Error('No se pudo enviar el correo de verificación. Revisa la consola para el código de prueba.');
+        }
         return { token };
     }
 

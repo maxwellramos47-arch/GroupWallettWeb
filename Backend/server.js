@@ -9,7 +9,6 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
 const { MercadoPagoConfig, Preference, Payment, PreApproval } = require('mercadopago');
@@ -1150,8 +1149,6 @@ cron.schedule('50 23 * * *', async () => {
     if (tomorrow.getDate() === 1) {
         console.log('\n[CRON] Último día del mes detectado. Generando y enviando reportes de gastos...');
         try {
-            const transporter = EmailTemplates.getTransporter();
-
             const usuarios = await prisma.usuarios.findMany({
                 include: {
                     transacciones_pagadas: {
@@ -1172,14 +1169,11 @@ cron.schedule('50 23 * * *', async () => {
                     ? 'Estás perdiendo dinero en cosas pequeñas. ¡Considera ahorrarlo el próximo mes!' 
                     : '¡Buen control de tus gastos pequeños! Sigue así.';
                 
-                const mailOptions = {
-                    from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+                await EmailTemplates.sendEmail({
                     to: row.correo,
                     subject: 'Tu Resumen Mensual de Finanzas en GroupWallet',
                     html: EmailTemplates.resumenMensual(row.nombre, row.total_gastado, row.total_hormiga, tip)
-                };
-                
-                await transporter.sendMail(mailOptions);
+                });
                 console.log(`[CRON] Email real enviado a: ${row.correo}`);
             }
             console.log(`[CRON] Proceso de envíos reales completado (${usuariosConGastos.length} usuarios).`);
@@ -1190,8 +1184,6 @@ cron.schedule('50 23 * * *', async () => {
 cron.schedule('0 8 * * 1', async () => {
     console.log('\n[CRON] Iniciando envío de recordatorios semanales de deudas pendientes...');
     try {
-        const transporter = EmailTemplates.getTransporter();
-
         const usuariosDeudores = await prisma.usuarios.findMany({
             where: { transacciones_participa: { some: { estado_pago: 'Pendiente' } } },
             select: {
@@ -1217,13 +1209,11 @@ cron.schedule('0 8 * * 1', async () => {
         }).filter(u => u.cantidad_cuotas > 0);
         
         for (const row of deudasPorUsuario) {
-            const mailOptions = {
-                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+            await EmailTemplates.sendEmail({
                 to: row.correo,
                 subject: 'Recordatorio: Tienes cuotas pendientes en GroupWallet',
                 html: EmailTemplates.recordatorioDeudas(row.nombre, row.cantidad_cuotas, row.deuda_total)
-            };
-            await transporter.sendMail(mailOptions);
+            });
         }
         console.log(`[CRON] Se enviaron ${deudasPorUsuario.length} recordatorios de deuda.`);
     } catch (error) { console.error('[CRON] Error al enviar recordatorios semanales:', error); }

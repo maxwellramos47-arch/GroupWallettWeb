@@ -1,3 +1,6 @@
+const { Resend } = require('resend');
+let resendInstance = null; // Patrón Singleton para optimizar memoria en Render
+
 const templateBase = (titulo, contenido) => `
 <!DOCTYPE html>
 <html lang="es">
@@ -35,20 +38,22 @@ const templateBase = (titulo, contenido) => `
 `;
 
 class EmailTemplates {
-    // Generador centralizado de Transporter para prevenir "Silent Hangs" en toda la app
-    static getTransporter() {
-        const nodemailer = require('nodemailer');
-        const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
-        return nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: smtpPort,
-            secure: smtpPort === 465,
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-            tls: { rejectUnauthorized: false }, // Fundamental: Previene cuelgues por validación estricta de SSL en proxys Cloud
-            connectionTimeout: 8000, // 8 segundos límite para conectar (Falla rápido, no se cuelga)
-            greetingTimeout: 8000,
-            socketTimeout: 8000
+    // Enviar correos usando la API REST de Resend (Evita bloqueos de puertos en Render)
+    static async sendEmail({ to, subject, html }) {
+        if (!resendInstance) {
+            resendInstance = new Resend(process.env.RESEND_API_KEY);
+        }
+        const fromEmail = process.env.RESEND_FROM_EMAIL || 'GroupWallet <onboarding@resend.dev>';
+        
+        const { data, error } = await resendInstance.emails.send({
+            from: fromEmail,
+            to,
+            subject,
+            html
         });
+        
+        if (error) throw new Error(error.message);
+        return data;
     }
 
     static bienvenida(nombre) {

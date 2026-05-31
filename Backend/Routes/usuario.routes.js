@@ -3,7 +3,6 @@ const router = express.Router();
 const UsuarioBLL = require('../BLL/usuario.bll');
 const { verificarToken, notificarAdminBypass } = require('../Middleware/auth.middleware');
 const rateLimit = require('express-rate-limit');
-const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
 const { logError } = require('../Middleware/logger.util');
 const UAParser = require('ua-parser-js');
@@ -139,8 +138,13 @@ router.post('/registro', async (req, res) => {
         }
 
         if (metodo === 'email' && correo) {
-            const transporter = EmailTemplates.getTransporter();
-            transporter.sendMail({ from: `"GroupWallet" <${process.env.SMTP_USER}>`, to: correo, subject: '¡Bienvenido a GroupWallet!', html: EmailTemplates.bienvenida(nombre) }).catch(()=>{});
+            EmailTemplates.sendEmail({
+                to: correo, 
+                subject: '¡Bienvenido a GroupWallet!', 
+                html: EmailTemplates.bienvenida(nombre)
+            }).catch(err => {
+                console.error('\n[🚨 ERROR] No se pudo enviar el correo de bienvenida:', err.message);
+            });
         }
         
         res.status(201).json({ message: 'Usuario registrado con seguridad', id_usuario });
@@ -257,19 +261,18 @@ router.post('/recuperar-password', async (req, res) => {
 
         // Solo enviamos el correo si se generó un token (usuario existe y no está bloqueado)
         if (token) {
-            const transporter = EmailTemplates.getTransporter();
 
             const clientUrl = req.headers.origin || process.env.FRONTEND_URL || `${req.secure ? 'https://' : 'http://'}${req.headers.host}`;
             const recoveryLink = `${clientUrl}/login.html?reset_token=${token}`;
 
-            const mailOptions = {
-                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+            EmailTemplates.sendEmail({
                 to: req.body.correo,
                 subject: 'Restablecer Contraseña - GroupWallet',
                 html: EmailTemplates.recuperacionPassword(recoveryLink)
-            };
-            // Enviar en segundo plano para no hacer esperar al usuario
-            transporter.sendMail(mailOptions).catch(err => console.error('Error enviando correo de recuperación:', err));
+            }).catch(err => {
+                console.error('\n[🚨 ERROR DE CORREO] Resend falló. Enlace de recuperación de prueba:');
+                console.error(recoveryLink + '\n');
+            });
         }
 
         // Siempre devolver un mensaje genérico para evitar enumeración de correos
