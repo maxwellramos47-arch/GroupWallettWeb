@@ -90,7 +90,8 @@ const registroSchema = z.object({
     captchaAnswer: z.string().min(1, "Debes resolver el CAPTCHA"),
     captchaToken: z.string().min(1, "Falta el token del CAPTCHA"),
     verificationToken: z.string().min(1, "Falta el token de verificación"),
-    codigoVerificacion: z.string().min(1, "Falta el código de validación")
+    codigoVerificacion: z.string().min(1, "Falta el código de validación"),
+    codigo_referido: z.string().optional().nullable()
 });
 
 router.post('/registro', async (req, res) => {
@@ -103,7 +104,7 @@ router.post('/registro', async (req, res) => {
         }
         
         // 3. Usar los datos ya validados y limpios (sanitizados)
-        const { nombre, metodo, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoVerificacion } = validacion.data;
+        const { nombre, metodo, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoVerificacion, codigo_referido } = validacion.data;
         
         // --- Validación Estricta de CAPTCHA en Backend ---
         if (!captchaToken || !captchaAnswer) return res.status(400).json({ error: 'Falta la verificación de seguridad (CAPTCHA).' });
@@ -122,7 +123,7 @@ router.post('/registro', async (req, res) => {
             }
         }
 
-        const { id_usuario } = await UsuarioBLL.registrar(nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion);
+        const { id_usuario } = await UsuarioBLL.registrar(nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion, codigo_referido);
         
         // --- Quemar el token usado (Single-Use Token) ---
         if (verificationToken) {
@@ -223,6 +224,18 @@ router.put('/perfil', verificarToken, async (req, res) => {
         res.json({ message: 'Perfil actualizado exitosamente' });
     } catch (error) { 
         res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 
+    }
+});
+
+router.get('/referidos', verificarToken, async (req, res) => {
+    try {
+        const usuario = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) },
+            select: { referidos_count: true }
+        });
+        res.json({ referidos_count: usuario?.referidos_count || 0 });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al obtener referidos' });
     }
 });
 

@@ -612,5 +612,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    cargarGrupos();
+    // --- 6. Onboarding Interactivo (Tour Guiado de Grupos) ---
+    const iniciarOnboardingGrupos = () => {
+        const onboardingKey = `onboarding_grupos_completed_${usuarioId}`;
+        if (!localStorage.getItem(onboardingKey) && window.driver) {
+            const driverObj = window.driver.js.driver({
+                showProgress: true,
+                doneBtnText: '¡Entendido!',
+                closeBtnText: 'Saltar',
+                nextBtnText: 'Siguiente',
+                prevBtnText: 'Anterior',
+                allowClose: false,
+                steps: [
+                    { popover: { title: 'Gestión de Grupos 👥', description: 'Aquí podrás crear y administrar todos tus grupos financieros y de viaje.', position: 'center' } },
+                    { element: '#tour-crear-grupo', popover: { title: '1. Crear un Grupo', description: 'Asigna un nombre a tu grupo, como "Viaje al Sur" o "Departamento".', position: 'bottom' } },
+                    { element: '#tour-invitar', popover: { title: '2. Invitar Amigos', description: 'Genera un enlace mágico o un código QR para que se unan al instante.', position: 'bottom' } },
+                    { element: '#tour-escanear', popover: { title: '3. Escáner Rápido', description: 'Si estás junto a un amigo, usa la cámara para escanear su QR y unirte a su grupo en 2 segundos.', position: 'bottom' } },
+                    { element: '#tour-lista-grupos', popover: { title: '4. Administrar', description: 'Revisa tus grupos actuales, cambia sus nombres, o expulsa miembros si eres el administrador.', position: 'top' } }
+                ],
+                onDestroyStarted: () => {
+                    if (!driverObj.hasNextStep() || confirm('¿Seguro que quieres saltar el tutorial? No volverá a mostrarse.')) {
+                        localStorage.setItem(onboardingKey, 'true');
+                        driverObj.destroy();
+                    }
+                }
+            });
+            setTimeout(() => driverObj.drive(), 800); // Esperar que la tabla randerice
+        }
+    };
+
+    cargarGrupos().then(() => {
+        iniciarOnboardingGrupos();
+    });
 });

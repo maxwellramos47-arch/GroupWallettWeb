@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const GastoBLL = require('../BLL/gasto.bll');
 const { verificarToken } = require('../Middleware/auth.middleware');
+const UsuarioBLL = require('../BLL/usuario.bll');
 const { z } = require('zod');
 
 // --- Esquemas de Validación Zod ---
@@ -35,7 +36,10 @@ router.post('/', verificarToken, async (req, res) => {
         
         const { id_grupo, descripcion, categoria, monto, pagador, participantes, fecha, comprobante_url } = validacion.data;
         const data = await GastoBLL.crearGasto(id_grupo, descripcion, categoria || 'General', monto, pagador, participantes, fecha, comprobante_url, req.usuarioLogueado.id_usuario);
-        res.status(201).json({ message: 'Gasto guardado exitosamente en PostgreSQL.', data });
+        
+        // Evaluamos si el usuario alcanzó una meta de gamificación
+        const nuevo_logro = await UsuarioBLL.evaluarLogrosGastos(req.usuarioLogueado.id_usuario);
+        res.status(201).json({ message: 'Gasto guardado exitosamente en PostgreSQL.', data, nuevo_logro });
     } catch (error) {
         res.status(error.message.includes('denegado') || error.message.includes('Faltan') ? 400 : 500).json({ error: error.message || 'Error al procesar la transacción' });
     }

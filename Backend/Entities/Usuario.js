@@ -1,5 +1,5 @@
 class Usuario {
-    constructor({ id_usuario, nombre, correo, password_hash, fecha_registro, id_plan, estado_suscripcion, fecha_vencimiento_suscripcion, intentos_fallidos, bloqueado_hasta, foto_url }) {
+    constructor({ id_usuario, nombre, correo, password_hash, fecha_registro, id_plan, estado_suscripcion, fecha_vencimiento_suscripcion, intentos_fallidos, bloqueado_hasta, foto_url, referidos_count }) {
         this.id_usuario = id_usuario;
         this.nombre = nombre;
         this.correo = correo;
@@ -11,6 +11,7 @@ class Usuario {
         this.intentos_fallidos = intentos_fallidos;
         this.bloqueado_hasta = bloqueado_hasta;
         this.foto_url = foto_url;
+        this.referidos_count = referidos_count || 0;
     }
 }
 

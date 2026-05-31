@@ -20,6 +20,21 @@ class GrupoDAL {
         return result.id_grupo;
     }
 
+    static async getGroupCreatorPlanLimits(id_grupo) {
+        const grupo = await prisma.grupos.findUnique({
+            where: { id_grupo: parseInt(id_grupo) },
+            include: {
+                creador: { include: { plan: true } },
+                _count: { select: { miembros: true } }
+            }
+        });
+        if (!grupo) return null;
+        return {
+            limite_miembros: grupo.creador.plan?.limite_miembros_por_grupo || 10,
+            miembros_actuales: grupo._count.miembros
+        };
+    }
+
     static async addMember(id_grupo, id_usuario, rol) {
         await prisma.miembros_Grupo.create({
             data: { id_grupo: parseInt(id_grupo), id_usuario: parseInt(id_usuario), rol }

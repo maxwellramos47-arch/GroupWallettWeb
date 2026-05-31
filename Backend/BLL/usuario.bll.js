@@ -59,7 +59,7 @@ class UsuarioBLL {
         return { token };
     }
 
-    static async registrar(nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion) {
+    static async registrar(nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion, codigo_referido) {
         const passwordHash = await bcrypt.hash(password, 10);
         let telefonoSeguro = null;
         let telefonoHash = null;
@@ -84,8 +84,41 @@ class UsuarioBLL {
             correo_verificado = true;
         }
 
-        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, correo_verificado, telefonoSeguro, telefonoHash, passwordHash, telefono_verificado);
+        let referido_por = null;
+        if (codigo_referido && !isNaN(parseInt(codigo_referido))) {
+            const referrer = await UsuarioDAL.findById(parseInt(codigo_referido));
+            if (referrer) referido_por = referrer.id_usuario;
+        }
+
+        const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, correo_verificado, telefonoSeguro, telefonoHash, passwordHash, telefono_verificado, referido_por);
+        
+        if (referido_por) {
+            await UsuarioBLL.procesarRecompensaReferido(referido_por);
+        }
+        
         return { id_usuario };
+    }
+
+    static async procesarRecompensaReferido(id_referidor) {
+        const prisma = require('../Config/prisma'); 
+        const referrer = await prisma.usuarios.findUnique({ where: { id_usuario: id_referidor } });
+        if (!referrer) return;
+        
+        const newCount = (referrer.referidos_count || 0) + 1;
+        const dataToUpdate = { referidos_count: newCount };
+        
+        if (newCount % 3 === 0) {
+            let newDate = new Date();
+            if (referrer.estado_suscripcion === 'activo' && referrer.id_plan === 2 && referrer.fecha_vencimiento_suscripcion) {
+                newDate = new Date(referrer.fecha_vencimiento_suscripcion);
+            }
+            newDate.setDate(newDate.getDate() + 30);
+            dataToUpdate.id_plan = 2;
+            dataToUpdate.estado_suscripcion = 'activo';
+            dataToUpdate.fecha_vencimiento_suscripcion = newDate;
+        }
+        
+        await prisma.usuarios.update({ where: { id_usuario: id_referidor }, data: dataToUpdate });
     }
 
     static async login(identificador, password, rememberMe = false) {
@@ -130,7 +163,7 @@ class UsuarioBLL {
     static async obtenerPerfil(id_usuario) {
         const usuario = await UsuarioDAL.findById(id_usuario);
         if (!usuario) throw new Error('Usuario no encontrado');
-        return { nombre: usuario.nombre, correo: usuario.correo, correo_verificado: usuario.correo_verificado || false, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url };
+        return { nombre: usuario.nombre, correo: usuario.correo, correo_verificado: usuario.correo_verificado || false, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url, logros: await UsuarioDAL.getLogros(id_usuario) };
     }
 
     static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto) {
@@ -236,6 +269,28 @@ class UsuarioBLL {
         if (!id_usuario) throw new Error('Token inválido o expirado. Solicita uno nuevo.');
         const hash = await bcrypt.hash(new_password, 10);
         await UsuarioDAL.updateProfile(id_usuario, undefined, undefined, undefined, hash); // Evita sobrescribir nombre/telefono
+    }
+
+    static async evaluarLogrosGastos(id_usuario) {
+        const prisma = require('../Config/prisma');
+        const countActivos = await prisma.transacciones.count({ where: { id_usuario_pagador: parseInt(id_usuario) } });
+        const countHistorial = await prisma.transacciones_Historial.count({ where: { id_usuario_pagador: parseInt(id_usuario) } });
+        const totalGastos = countActivos + countHistorial;
+        
+        const logrosActuales = await UsuarioDAL.getLogros(id_usuario);
+        let nuevoLogro = null;
+        
+        const checkAndAdd = async (condicion, idLogro, nombreLogro) => {
+            if (condicion && !logrosActuales.includes(idLogro)) {
+                await UsuarioDAL.addLogro(id_usuario, idLogro);
+                nuevoLogro = nombreLogro;
+            }
+        };
+        
+        await checkAndAdd(totalGastos >= 1, 'FIRST_EXPENSE', '🌱 Rompehielo (Primer Gasto)');
+        await checkAndAdd(totalGastos >= 10, 'TEN_EXPENSES', '🚀 Gastador Frecuente (10 Gastos)');
+        await checkAndAdd(totalGastos >= 50, '👑 FIFTY_EXPENSES', '👑 Maestro Financiero (50 Gastos)');
+        return nuevoLogro; // Si se desbloqueó alguno, lo retornamos para avisar
     }
 
     static async guardarBanco(id_usuario, rut, banco, tipo_cuenta, numero_cuenta, correo) {

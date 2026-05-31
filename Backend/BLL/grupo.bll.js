@@ -35,6 +35,12 @@ class GrupoBLL {
     static async generarInvitacion(id_grupo, id_solicitante) {
         const rol = await GrupoDAL.getMemberRole(id_grupo, id_solicitante);
         if (rol !== 'Administrador') throw new Error('Solo los administradores pueden generar enlaces de invitación.');
+        
+        const limits = await GrupoDAL.getGroupCreatorPlanLimits(id_grupo);
+        if (limits && limits.miembros_actuales >= limits.limite_miembros) {
+            throw new Error(`Has alcanzado el límite de ${limits.limite_miembros} miembros en este grupo. ¡Mejora a Premium para invitar a más amigos!`);
+        }
+        
         return jwt.sign({ accion: 'invitacion', id_grupo: id_grupo }, JWT_SECRET, { expiresIn: '7d' });
     }
 
@@ -47,6 +53,11 @@ class GrupoBLL {
         
         const rolExistente = await GrupoDAL.getMemberRole(decoded.id_grupo, id_usuario);
         if (rolExistente) throw new Error('Ya eres miembro de este grupo.');
+        
+        const limits = await GrupoDAL.getGroupCreatorPlanLimits(decoded.id_grupo);
+        if (limits && limits.miembros_actuales >= limits.limite_miembros) {
+            throw new Error(`Este grupo ha alcanzado el límite máximo de ${limits.limite_miembros} miembros permitido por el plan Básico.`);
+        }
         
         await GrupoDAL.addMember(decoded.id_grupo, id_usuario, 'Miembro');
         return decoded.id_grupo;

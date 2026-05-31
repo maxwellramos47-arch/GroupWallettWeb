@@ -99,6 +99,46 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Verificación inicial al cargar la página
     updateOnlineStatus();
+
+    // --- Instalación PWA (Añadir a pantalla de inicio) ---
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevenir que Chrome muestre el prompt nativo molesto
+        e.preventDefault();
+        deferredPrompt = e;
+        // Mostrar nuestro banner personalizado
+        showInstallPromotion();
+    });
+
+    function showInstallPromotion() {
+        if (document.getElementById('pwa-install-banner')) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'pwa-install-banner';
+        banner.style = "position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--primary-slate); color: white; padding: 0.8rem 1.2rem; border-radius: 50px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 1rem; z-index: 9998; width: 90%; max-width: 400px; justify-content: space-between; animation: fadeSlideUp 0.5s ease forwards;";
+        
+        banner.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.8rem;">
+                <img src="Placeholders/LogoIndex.png" onerror="this.src='icon-192x192.png'" alt="App Icon" style="width: 35px; height: 35px; border-radius: 8px; background: white; padding: 2px;">
+                <div style="text-align: left;">
+                    <p style="margin: 0; font-weight: bold; font-size: 0.95rem; line-height: 1.2;">Instalar App</p>
+                    <p style="margin: 0; font-size: 0.75rem; color: #bdc3c7;">Añadir a la pantalla de inicio</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="btn-pwa-install" class="btn-primary" style="background: var(--secondary-emerald); color: white; border: none; padding: 0.4rem 1rem; border-radius: 20px; font-weight: bold; width: auto; margin: 0; font-size: 0.85rem;">Instalar</button>
+                <button id="btn-pwa-close" style="background: transparent; color: var(--text-muted); border: none; font-size: 1.2rem; cursor: pointer; padding: 0 0.2rem;">&times;</button>
+            </div>
+        `;
+        document.body.appendChild(banner);
+
+        document.getElementById('btn-pwa-install').addEventListener('click', async () => {
+            banner.style.display = 'none';
+            deferredPrompt.prompt(); // Muestra el diálogo nativo de instalación
+            deferredPrompt = null;
+        });
+        document.getElementById('btn-pwa-close').addEventListener('click', () => banner.style.display = 'none');
+    }
 });
 
 function showSpinner() {

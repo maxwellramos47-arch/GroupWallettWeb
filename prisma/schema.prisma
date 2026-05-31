@@ -13,6 +13,7 @@ model Planes_Suscripcion {
   nombre_plan   String
   precio        Decimal    @db.Decimal(10, 2)
   limite_grupos Int
+  limite_miembros_por_grupo Int @default(10)
   beneficios    String?    @db.Text
   usuarios      Usuarios[]
 
@@ -45,6 +46,9 @@ model Usuarios {
   reenvio_codigo_bloqueado_hasta DateTime? @db.Timestamp()
   recuperacion_intentos         Int?      @default(0)
   recuperacion_bloqueado_hasta  DateTime? @db.Timestamp()
+  referido_por                  Int?
+  referidos_count               Int?      @default(0)
+  logros                        String[]  @default([])
 
   plan                          Planes_Suscripcion? @relation(fields: [id_plan], references: [id_plan])
   grupos_creados                Grupos[]
@@ -56,6 +60,8 @@ model Usuarios {
   pagos_inapp_emitidos          Pagos_InApp[] @relation("Pagador")
   pagos_inapp_recibidos         Pagos_InApp[] @relation("Receptor")
   sesiones_activas              Sesiones_Activas[]
+  referidor                     Usuarios?  @relation("Referidos", fields: [referido_por], references: [id_usuario])
+  referidos                     Usuarios[] @relation("Referidos")
 
   @@index([id_plan, estado_suscripcion])
   @@index([fecha_registro, id_plan])

@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 1. Confirmación de Suscripción Premium
     if (urlParams.get('upgrade') === 'success') {
-        const paymentId = urlParams.get('payment_id');
+        const paymentId = urlParams.get('payment_id') || urlParams.get('preapproval_id');
         if (paymentId) {
             showSpinner();
             fetch('/api/suscripciones/confirmar', {
@@ -285,6 +285,34 @@ document.addEventListener('DOMContentLoaded', () => {
         poblarSelect(selectCategoria, true);
         poblarSelect(selectFiltroCategoria, false);
     };
+
+    // --- 1.5. UX: Cálculo en vivo y Selección de Participantes ---
+    const actualizarCalculoVivo = () => {
+        const monto = parseFloat(document.getElementById('monto-gasto').value) || 0;
+        const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked');
+        const numParticipantes = checkboxes.length;
+        const resumenEl = document.getElementById('calculo-vivo-resumen');
+
+        if (resumenEl) {
+            if (monto > 0 && numParticipantes > 0) {
+                const porPersona = (monto / numParticipantes).toFixed(2);
+                resumenEl.textContent = `Se dividirán ${moneda}${monto.toFixed(2)} entre ${numParticipantes} personas (${moneda}${porPersona} c/u).`;
+            } else {
+                resumenEl.textContent = '';
+            }
+        }
+    };
+
+    document.getElementById('monto-gasto')?.addEventListener('input', actualizarCalculoVivo);
+    document.querySelector('.checkbox-group')?.addEventListener('change', actualizarCalculoVivo);
+
+    document.getElementById('btn-toggle-participantes')?.addEventListener('click', (e) => {
+        const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+        e.target.textContent = !allChecked ? 'Desmarcar Todos' : 'Marcar Todos';
+        actualizarCalculoVivo();
+    });
 
     // --- 2. Funciones de Lógica y Cálculo ---
 
@@ -550,6 +578,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- 2.9. Sistema de Referidos ---
+    const cargarReferidos = async () => {
+        try {
+            const res = await fetch('/api/usuarios/referidos', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const data = await res.json();
+                const refCountEl = document.getElementById('ref-count');
+                if (refCountEl) refCountEl.textContent = data.referidos_count;
+                
+                const refLinkEl = document.getElementById('ref-link');
+                const link = `${window.location.origin}/registro.html?ref=${usuarioId}`;
+                if (refLinkEl) refLinkEl.value = link;
+                
+                const btnCopyRef = document.getElementById('btn-copy-ref');
+                if (btnCopyRef) {
+                    btnCopyRef.addEventListener('click', async () => {
+                        await navigator.clipboard.writeText(link);
+                        const origText = btnCopyRef.textContent;
+                        btnCopyRef.textContent = '¡Copiado!';
+                        setTimeout(() => btnCopyRef.textContent = origText, 2000);
+                    });
+                }
+            }
+        } catch (e) { console.error('Error cargando referidos:', e); }
+    };
+
+    // --- 2.9.5. Sistema de Gamificación (Cargar Logros) ---
+    const cargarLogros = async () => {
+        try {
+            const res = await fetch('/api/usuarios/perfil', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const perfil = await res.json();
+                const contenedor = document.getElementById('lista-logros');
+                if (contenedor && perfil.logros) {
+                    contenedor.innerHTML = '';
+                    if (perfil.logros.length === 0) {
+                        contenedor.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Registra tus primeros gastos para empezar a ganar medallas.</p>';
+                    } else {
+                        const mapaLogros = {
+                            'FIRST_EXPENSE': { icon: '🌱', name: 'Rompehielo', desc: 'Registraste tu primer gasto en la plataforma.' },
+                            'TEN_EXPENSES': { icon: '🚀', name: 'Gastador Frecuente', desc: 'Alcanzaste 10 gastos registrados.' },
+                            'FIFTY_EXPENSES': { icon: '👑', name: 'Maestro Financiero', desc: 'Tienes más de 50 gastos. ¡Eres un experto!' }
+                        };
+                        perfil.logros.forEach(id => {
+                            const l = mapaLogros[id] || { icon: '🏅', name: 'Logro Misterioso', desc: 'Medalla secreta.' };
+                            contenedor.innerHTML += `<div style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-light); padding: 0.5rem 1rem; border-radius: 50px; border: 1px solid var(--border-color); cursor: default;" title="${l.desc}"><span style="font-size: 1.5rem;">${l.icon}</span> <strong style="font-size: 0.85rem;">${l.name}</strong></div>`;
+                        });
+                    }
+                }
+            }
+        } catch(e) { console.error(e); }
+    };
+
+    // --- 2.10. Onboarding Interactivo (Tour Guiado) ---
+    const iniciarOnboarding = () => {
+        const onboardingKey = `onboarding_completed_${usuarioId}`;
+        // Solo mostrar si el usuario no tiene la marca de "completado"
+        if (!localStorage.getItem(onboardingKey) && window.driver) {
+            const driverObj = window.driver.js.driver({
+                showProgress: true,
+                doneBtnText: '¡Entendido!',
+                closeBtnText: 'Saltar',
+                nextBtnText: 'Siguiente',
+                prevBtnText: 'Anterior',
+                allowClose: false, // Evita que se cierre al hacer clic fuera
+                steps: [
+                    {
+                        popover: {
+                            title: '¡Bienvenido a GroupWallet! 🎉',
+                            description: 'Vamos a dar un rápido paseo de 4 pasos para enseñarte cómo dividir gastos sin perder amigos.',
+                            position: 'center'
+                        }
+                    },
+                    {
+                        element: '.main-nav a[href="grupos.html"]',
+                        popover: { title: '1. Crea tu primer grupo', description: 'Todo empieza aquí. Ve a la pestaña "Mis Grupos", crea uno (Ej. "Viaje a la Playa") e invita a tus amigos.', position: 'bottom' }
+                    },
+                    {
+                        element: '#form-gasto',
+                        popover: { title: '2. Registra los gastos', description: 'Cuando alguien compre algo, regístralo aquí. Nosotros haremos la matemática difícil para saber cómo dividirlo.', position: 'right' }
+                    },
+                    {
+                        element: '.balance-card',
+                        popover: { title: '3. Revisa tus saldos', description: 'Aquí verás un resumen rápido de cuánto dinero te deben en total, o cuánto debes tú al grupo.', position: 'left' }
+                    },
+                    {
+                        element: '#referral-banner',
+                        popover: { title: '4. ¡Gana Premium Gratis! 🎁', description: 'Copia este enlace y envíaselo a 3 amigos. Si se registran, ¡obtendrás un mes de plan Premium completamente gratis!', position: 'bottom' }
+                    }
+                ],
+                onDestroyStarted: () => {
+                    if (!driverObj.hasNextStep() || confirm('¿Seguro que quieres saltar el tutorial?')) {
+                        localStorage.setItem(onboardingKey, 'true');
+                        driverObj.destroy();
+                    }
+                }
+            });
+            setTimeout(() => driverObj.drive(), 1000); // Dar 1 segundo para que la página termine de pintar los elementos
+        }
+    };
+
     // --- 3. Manejo de Eventos ---
     formGasto.addEventListener('submit', async (e) => {
         e.preventDefault(); // Evitar que la página se recargue
@@ -620,6 +749,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 throw new Error('Error en la respuesta del servidor');
+            }
+
+            const dataResp = await response.json();
+            
+            // 🎉 ¡Verificar si el usuario desbloqueó un logro!
+            if (dataResp.nuevo_logro) {
+                if (typeof confetti === 'function') confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                showToast(`🏆 ¡Logro Desbloqueado! ${dataResp.nuevo_logro}`, 'success');
+                cargarLogros(); // Refrescar las medallas en la UI
             }
 
             // Refetch inmediato a la DB para tener todos los datos limpios (incluyendo 'estado_pago' de los participantes)
@@ -770,6 +908,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarTabla();
             calcularSaldos();
             cargarPagosRecibidos();
+            cargarReferidos();
+            cargarLogros();
+            
+            iniciarOnboarding(); // Disparar el tour si corresponde
 
             // Cargar dinámicamente la lista de grupos en el <select>
             const reqGrupos = await fetch('/api/grupos');
@@ -807,6 +949,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     selectPagador.innerHTML += `<option value="${m.id_usuario}">${m.nombre}</option>`;
                                     checkboxGroup.innerHTML += `<label><input type="checkbox" value="${m.id_usuario}" checked> ${m.nombre}</label>`;
                                 });
+                                
+                                document.getElementById('btn-toggle-participantes').textContent = 'Desmarcar Todos';
+                                actualizarCalculoVivo();
                             }
                         } catch (err) { console.error('Error al cargar miembros', err); } finally { hideSpinner(); }
                     });

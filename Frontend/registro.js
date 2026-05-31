@@ -6,6 +6,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentVerificationToken = null;
     let selectedMethod = null;
 
+    // Pre-llenar código de referido si viene en la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+        const refInput = document.getElementById('registro-codigo-referido');
+        if (refInput) refInput.value = decodeURIComponent(refCode);
+    }
+
     const cargarCaptcha = async () => {
         try {
             const res = await fetch('/api/usuarios/captcha');
@@ -43,35 +51,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const groupTelefono = document.getElementById('group-telefono');
     const mainBackLink = document.getElementById('main-back-link');
 
+    // Función auxiliar para animar transiciones entre vistas
+    const transitionElements = (hideEl, showEl, beforeShowCallback) => {
+        hideEl.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        hideEl.style.opacity = '0';
+        hideEl.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+            hideEl.style.display = 'none';
+            hideEl.style.transform = 'translateY(0)'; // Resetear para la próxima vez
+            
+            if (beforeShowCallback) beforeShowCallback();
+            
+            showEl.style.display = 'block';
+            showEl.style.opacity = '0';
+            showEl.style.transform = 'translateY(10px)';
+            
+            void showEl.offsetWidth; // Forzar "reflow" para que el navegador procese la animación
+            
+            showEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            showEl.style.opacity = '1';
+            showEl.style.transform = 'translateY(0)';
+        }, 200);
+    };
+
     const selectMethod = (method) => {
         selectedMethod = method;
-        methodSelection.style.display = 'none';
-        formRegister.style.display = 'block';
-        if (method === 'email') {
-            groupCorreo.style.display = 'block';
-            document.getElementById('registro-correo').required = true;
-            groupTelefono.style.display = 'none';
-            document.getElementById('registro-telefono').required = false;
-        } else {
-            groupTelefono.style.display = 'block';
-            document.getElementById('registro-telefono').required = true;
-            groupCorreo.style.display = 'none';
-            document.getElementById('registro-correo').required = false;
-        }
-        if (mainBackLink) {
-            mainBackLink.innerHTML = '&larr; Cambiar método';
-            mainBackLink.dataset.action = 'back-method';
-        }
+        transitionElements(methodSelection, formRegister, () => {
+            if (method === 'email') {
+                groupCorreo.style.display = 'block';
+                document.getElementById('registro-correo').required = true;
+                groupTelefono.style.display = 'none';
+                document.getElementById('registro-telefono').required = false;
+            } else {
+                groupTelefono.style.display = 'block';
+                document.getElementById('registro-telefono').required = true;
+                groupCorreo.style.display = 'none';
+                document.getElementById('registro-correo').required = false;
+            }
+            if (mainBackLink) {
+                mainBackLink.innerHTML = '&larr; Cambiar método';
+                mainBackLink.dataset.action = 'back-method';
+            }
+        });
     };
 
     const goBackToMethods = () => {
-        formRegister.style.display = 'none';
-        methodSelection.style.display = 'block';
-        selectedMethod = null;
-        if (mainBackLink) {
-            mainBackLink.innerHTML = '&larr; Volver al inicio';
-            mainBackLink.dataset.action = 'home';
-        }
+        transitionElements(formRegister, methodSelection, () => {
+            selectedMethod = null;
+            if (mainBackLink) {
+                mainBackLink.innerHTML = '&larr; Volver al inicio';
+                mainBackLink.dataset.action = 'home';
+            }
+        });
     };
 
     if (btnMethodEmail) btnMethodEmail.addEventListener('click', () => selectMethod('email'));
@@ -108,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const tosCheckbox = document.getElementById('registro-tos');
             const captchaInput = document.getElementById('registro-captcha');
             const captchaAnswer = captchaInput ? captchaInput.value : null;
+            const codigoReferidoInput = document.getElementById('registro-codigo-referido');
+            const codigo_referido = codigoReferidoInput ? codigoReferidoInput.value.trim() : null;
 
             // Validar que aceptó los Términos
             if (tosCheckbox && !tosCheckbox.checked) {
@@ -134,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            pendingRegistrationData = { nombre, metodo: selectedMethod, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual };
+            pendingRegistrationData = { nombre, metodo: selectedMethod, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual, codigo_referido };
 
             const isEmail = selectedMethod === 'email';
             showSpinner();

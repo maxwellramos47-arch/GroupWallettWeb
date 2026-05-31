@@ -2,10 +2,11 @@ const prisma = require('../Config/prisma');
 const Usuario = require('../Entities/Usuario');
 
 class UsuarioDAL {
-    static async create(nombre, correo, correoVerificado, telefono, telefonoHash, passwordHash, telefonoVerificado) {
+    static async create(nombre, correo, correoVerificado, telefono, telefonoHash, passwordHash, telefonoVerificado, referido_por = null) {
         const data = { nombre, password_hash: passwordHash };
         if (correo) { data.correo = correo; data.correo_verificado = correoVerificado; }
         if (telefono) { data.telefono = telefono; data.telefono_hash = telefonoHash; data.telefono_verificado = telefonoVerificado; }
+        if (referido_por) { data.referido_por = referido_por; }
         
         const user = await prisma.usuarios.create({ data });
         return user.id_usuario;
@@ -113,6 +114,15 @@ class UsuarioDAL {
             where: { id_usuario },
             data: { estado_suscripcion: 'GOD_MODE', id_plan: 2 }
         });
+    }
+
+    static async getLogros(id_usuario) {
+        const user = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(id_usuario) }, select: { logros: true } });
+        return user ? user.logros : [];
+    }
+
+    static async addLogro(id_usuario, logro_id) {
+        await prisma.$executeRaw`UPDATE Usuarios SET logros = array_append(logros, ${logro_id}) WHERE id_usuario = ${parseInt(id_usuario)}`;
     }
 
     static async updatePasswordRecoveryRateLimit(id_usuario, attempts, blockUntil) {

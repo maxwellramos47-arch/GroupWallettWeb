@@ -224,6 +224,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
         }
+
+        // --- UX: Cálculo en vivo y Selección de Participantes ---
+        const actualizarCalculoVivo = () => {
+            const monto = parseFloat(document.getElementById('monto-gasto').value) || 0;
+            const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked');
+            const numParticipantes = checkboxes.length;
+            const resumenEl = document.getElementById('calculo-vivo-resumen');
+            if (resumenEl) {
+                if (monto > 0 && numParticipantes > 0) {
+                    const porPersona = (monto / numParticipantes).toFixed(2);
+                    resumenEl.textContent = `Se dividirán ${moneda}${monto.toFixed(2)} entre ${numParticipantes} personas (${moneda}${porPersona} c/u).`;
+                } else resumenEl.textContent = '';
+            }
+        };
+        document.getElementById('monto-gasto')?.addEventListener('input', actualizarCalculoVivo);
+        document.querySelector('.checkbox-group')?.addEventListener('change', actualizarCalculoVivo);
+        document.getElementById('btn-toggle-participantes')?.addEventListener('click', (e) => {
+            const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            e.target.textContent = !allChecked ? 'Desmarcar Todos' : 'Marcar Todos';
+            actualizarCalculoVivo();
+        });
     };
 
     document.getElementById('btn-prev-month').addEventListener('click', () => {
@@ -294,6 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             selectPagador.innerHTML += `<option value="${m.id_usuario}">${m.nombre}</option>`;
                             cbGroup.innerHTML += `<label><input type="checkbox" value="${m.id_usuario}" checked> ${m.nombre}</label>`;
                         });
+                        document.getElementById('btn-toggle-participantes').textContent = 'Desmarcar Todos';
+                        actualizarCalculoVivo();
                     }
                 });
 

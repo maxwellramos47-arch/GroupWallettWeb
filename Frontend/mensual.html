@@ -68,8 +68,9 @@
                             <select id="pagador-gasto" required><option value="" disabled selected>Selecciona un grupo primero...</option></select>
                         </div>
                         <div class="form-group">
-                            <label>Participantes a dividir:</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;"><label style="margin-bottom: 0;">Participantes a dividir:</label> <button type="button" id="btn-toggle-participantes" style="background: none; border: none; color: var(--secondary-emerald); font-size: 0.8rem; cursor: pointer; font-weight: bold;">Desmarcar Todos</button></div>
                             <div class="checkbox-group"><span style="color: var(--text-muted); font-size: 0.85rem;">Selecciona un grupo primero</span></div>
+                            <p id="calculo-vivo-resumen" style="font-size: 0.85rem; color: var(--secondary-emerald); font-weight: bold; margin-top: 0.5rem;"></p>
                         </div>
                         <button type="submit" class="btn-primary">Añadir Gasto</button>
                     </form>

@@ -12,7 +12,7 @@ const cookieParser = require('cookie-parser');
 const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const { Server } = require('socket.io');
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const { MercadoPagoConfig, Preference, Payment, PreApproval } = require('mercadopago');
 const crypto = require('crypto');
 const vision = require('@google-cloud/vision'); // Inicializar Google Vision AI
 
@@ -198,6 +198,23 @@ app.post('/api/webhooks/mercadopago', async (req, res) => {
                 }
             }
         } catch (err) { console.error(`⚠️  Webhook Error MP: ${err.message}`); }
+    } else if ((action === 'subscription_preapproval' || type === 'subscription_preapproval') && paymentId) {
+        try {
+            const preapproval = new PreApproval(mpClient);
+            const preInfo = await preapproval.get({ id: paymentId });
+            if (preInfo.status === 'authorized') {
+                const refId = preInfo.external_reference;
+                if (refId) {
+                    const treintaDias = new Date();
+                    treintaDias.setDate(treintaDias.getDate() + 30);
+                    await prisma.usuarios.update({
+                        where: { id_usuario: parseInt(refId) },
+                        data: { id_plan: 2, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: treintaDias }
+                    });
+                    console.log(`✅ Webhook: Suscripción Recurrente (Preapproval) activada para el usuario ${refId}.`);
+                }
+            }
+        } catch (err) { console.error(`⚠️ Webhook Error MP PreApproval: ${err.message}`); }
     }
     res.status(200).send('OK');
 });
@@ -552,29 +569,28 @@ app.post('/api/finanzas/ocr', verificarToken, async (req, res) => {
     }
 });
 
-// 3. Endpoint POST: Generar Enlace de Pago Seguro (MercadoPago Checkout)
+// 3. Endpoint POST: Generar Enlace de Suscripción Recurrente (MercadoPago Preapproval)
 app.post('/api/suscripciones/checkout', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
 
     try {
-        const preference = new Preference(mpClient);
-        const result = await preference.create({
+        const usuario = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(id_usuario) } });
+        const correo_payer = usuario.correo || 'soporte@groupwallet.com'; // Requerido por MP en suscripciones
+
+        const preapproval = new PreApproval(mpClient);
+        const result = await preapproval.create({
             body: {
-                items: [{
-                    id: 'PREMIUM_PLAN',
-                    title: 'Plan Premium GroupWallet (1 Mes)',
-                    description: 'Grupos ilimitados y análisis avanzado.',
-                    quantity: 1,
-                    unit_price: 5000, // $5000 CLP (~$5 USD)
+                reason: 'Plan Premium GroupWallet (Suscripción Mensual)',
+                auto_recurring: {
+                    frequency: 1,
+                    frequency_type: 'months',
+                    transaction_amount: 5000,
                     currency_id: 'CLP'
-                }],
-                back_urls: {
-                    success: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=success`,
-                    failure: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=canceled`,
-                    pending: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=canceled`
                 },
-                auto_return: 'approved',
+                back_url: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=success`,
+                payer_email: correo_payer,
                 external_reference: id_usuario.toString()
+                status: 'pending'
             }
         });
         res.json({ url: result.init_point });
@@ -584,14 +600,26 @@ app.post('/api/suscripciones/checkout', verificarToken, async (req, res) => {
     }
 });
 
-// 3.1 Endpoint POST: Confirmar Pago Exitoso
+// 3.1 Endpoint POST: Confirmar Pago/Suscripción Exitosa
 app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
     const { payment_id } = req.body;
     const id_usuario = req.usuarioLogueado.id_usuario;
     try {
-        const payment = new Payment(mpClient);
-        const payInfo = await payment.get({ id: payment_id });
-        if (payInfo.status === 'approved') {
+        let isApproved = false;
+        
+        try {
+            const payment = new Payment(mpClient);
+            const payInfo = await payment.get({ id: payment_id });
+            if (payInfo.status === 'approved') isApproved = true;
+        } catch (e) {
+            try {
+                const preapproval = new PreApproval(mpClient);
+                const preInfo = await preapproval.get({ id: payment_id });
+                if (preInfo.status === 'authorized') isApproved = true;
+            } catch (e2) {}
+        }
+
+        if (isApproved) {
             const treintaDias = new Date();
             treintaDias.setDate(treintaDias.getDate() + 30);
             await prisma.usuarios.update({
@@ -609,6 +637,22 @@ app.post('/api/suscripciones/confirmar', verificarToken, async (req, res) => {
 app.put('/api/suscripciones/cancelar', verificarToken, async (req, res) => {
     const id_usuario = req.usuarioLogueado.id_usuario;
     try {
+        // 1. Intentar cancelar la automatización en MercadoPago
+        try {
+            const preapproval = new PreApproval(mpClient);
+            const searchResult = await preapproval.search({
+                options: { external_reference: id_usuario.toString(), status: 'authorized' }
+            });
+            if (searchResult && searchResult.results) {
+                for (const sub of searchResult.results) {
+                    try { await preapproval.update({ id: sub.id, body: { status: 'cancelled' } }); } 
+                    catch (e) { console.error('Error cancelando suscripción en MP:', e.message); }
+                }
+            }
+        } catch (mpError) {
+            console.error('Aviso: No se pudo cancelar en MP o no existía:', mpError.message);
+        }
+
         await prisma.usuarios.update({
             where: { id_usuario: parseInt(id_usuario) },
             data: { id_plan: 1, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: null }
@@ -1061,11 +1105,19 @@ async function inicializarDatosBase() {
             console.log('[DB] Insertando planes de suscripción iniciales...');
             await prisma.planes_Suscripcion.createMany({
                 data: [
-                    { id_plan: 1, nombre_plan: 'Básico', precio: 0.00, limite_grupos: 3, beneficios: 'Acceso a 3 grupos gratis.' },
-                    { id_plan: 2, nombre_plan: 'Premium', precio: 5.00, limite_grupos: 999, beneficios: 'Grupos ilimitados y análisis de finanzas.' }
+                    { id_plan: 1, nombre_plan: 'Básico', precio: 0.00, limite_grupos: 3, limite_miembros_por_grupo: 10, beneficios: 'Acceso a 3 grupos y 10 miembros por grupo.' },
+                    { id_plan: 2, nombre_plan: 'Premium', precio: 5.00, limite_grupos: 999, limite_miembros_por_grupo: 999, beneficios: 'Grupos y miembros ilimitados, análisis de finanzas.' }
                 ]
             });
             console.log('[DB] Planes creados con éxito.');
+        } else {
+            // Actualización segura para instancias que ya estaban corriendo
+            await prisma.planes_Suscripcion.update({
+                where: { id_plan: 1 }, data: { limite_miembros_por_grupo: 10, beneficios: 'Acceso a 3 grupos y 10 miembros por grupo.' }
+            });
+            await prisma.planes_Suscripcion.update({
+                where: { id_plan: 2 }, data: { limite_miembros_por_grupo: 999, beneficios: 'Grupos y miembros ilimitados, análisis de finanzas.' }
+            });
         }
     } catch (error) {
         console.error('[DB] Error inicializando datos base:', error);
