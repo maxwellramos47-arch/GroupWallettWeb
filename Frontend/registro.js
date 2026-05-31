@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBackMethod = document.getElementById('btn-back-method');
     const groupCorreo = document.getElementById('group-correo');
     const groupTelefono = document.getElementById('group-telefono');
+    const mainBackLink = document.getElementById('main-back-link');
 
     const selectMethod = (method) => {
         selectedMethod = method;
@@ -57,14 +58,30 @@ document.addEventListener('DOMContentLoaded', () => {
             groupCorreo.style.display = 'none';
             document.getElementById('registro-correo').required = false;
         }
+        if (mainBackLink) {
+            mainBackLink.innerHTML = '&larr; Cambiar método';
+            mainBackLink.dataset.action = 'back-method';
+        }
+    };
+
+    const goBackToMethods = () => {
+        formRegister.style.display = 'none';
+        methodSelection.style.display = 'block';
+        selectedMethod = null;
+        if (mainBackLink) {
+            mainBackLink.innerHTML = '&larr; Volver al inicio';
+            mainBackLink.dataset.action = 'home';
+        }
     };
 
     if (btnMethodEmail) btnMethodEmail.addEventListener('click', () => selectMethod('email'));
     if (btnMethodSms) btnMethodSms.addEventListener('click', () => selectMethod('sms'));
-    if (btnBackMethod) btnBackMethod.addEventListener('click', () => {
-        formRegister.style.display = 'none';
-        methodSelection.style.display = 'block';
-        selectedMethod = null;
+    if (btnBackMethod) btnBackMethod.addEventListener('click', goBackToMethods);
+    if (mainBackLink) mainBackLink.addEventListener('click', (e) => {
+        if (mainBackLink.dataset.action === 'back-method') {
+            e.preventDefault();
+            goBackToMethods();
+        }
     });
 
     // Manejo de mostrar/ocultar contraseñas
