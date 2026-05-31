@@ -18,7 +18,7 @@ class GastoBLL {
         
         const rol = await GrupoDAL.getMemberRole(id_grupo, id_solicitante);
         const user = await UsuarioDAL.findById(id_solicitante);
-        const isGod = user.estado_suscripcion === 'GOD_MODE';
+        const isGod = user.id_plan === 3 || user.estado_suscripcion === 'GOD_MODE';
         if (rol !== 'Administrador' && !isGod) throw new Error('Acceso denegado. Solo los administradores pueden crear gastos.');
 
         const firma = generarFirmaHMAC(`${pagador}-${monto}-${descripcion}-${categoria}`);
@@ -47,7 +47,7 @@ class GastoBLL {
         const info = await GastoDAL.getGastoInfoAuth(id_transaccion, id_solicitante);
         if (!info) throw new Error('Gasto no encontrado.');
         const user = await UsuarioDAL.findById(id_solicitante);
-        const isGod = user.estado_suscripcion === 'GOD_MODE';
+        const isGod = user.id_plan === 3 || user.estado_suscripcion === 'GOD_MODE';
         if (info.rol !== 'Administrador' && info.id_usuario_pagador != id_solicitante && !isGod) throw new Error('Acceso denegado. No tienes permiso.');
         
         if (await GastoDAL.countPagos(id_transaccion) > 0) throw new Error('No se puede eliminar porque uno o más participantes ya han pagado.');
@@ -79,7 +79,7 @@ class GastoBLL {
         const info = await GastoDAL.getGastoInfoAuth(id_transaccion, id_solicitante);
         if (!info) throw new Error('Gasto no encontrado.');
         const user = await UsuarioDAL.findById(id_solicitante);
-        const isGod = user.estado_suscripcion === 'GOD_MODE';
+        const isGod = user.id_plan === 3 || user.estado_suscripcion === 'GOD_MODE';
         if (info.rol !== 'Administrador' && info.id_usuario_pagador != id_solicitante && !isGod) throw new Error('Acceso denegado.');
         
         if (await GastoDAL.countPagos(id_transaccion) > 0) throw new Error('No se puede editar porque uno o más participantes ya han pagado.');
@@ -95,7 +95,7 @@ class GastoBLL {
             if (!inGroup) throw new Error('Acceso denegado o transacción no encontrada.');
         } else {
             const user = await UsuarioDAL.findById(id_solicitante);
-            const isGod = user.estado_suscripcion === 'GOD_MODE';
+            const isGod = user.id_plan === 3 || user.estado_suscripcion === 'GOD_MODE';
             if (info.rol !== 'Administrador' && info.id_usuario_pagador != id_solicitante && !isGod) throw new Error('Solo el pagador o el administrador pueden adjuntar comprobantes.');
         }
 

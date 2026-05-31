@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!perfil.correo || !perfil.correo_verificado) btnEmail.style.display = 'block';
             if (!perfil.telefono || !perfil.telefono_verificado) btnPhone.style.display = 'block';
 
-            if (perfil.estado_suscripcion) {
+            if (perfil.id_plan === 2 || perfil.id_plan === 3) {
                 const suscripcionContainer = document.getElementById('suscripcion-container');
                 if (suscripcionContainer) suscripcionContainer.style.display = 'block';
             }
@@ -147,6 +147,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (perfilFotoInput) perfilFotoInput.value = '';
             btnEliminarFoto.style.display = 'none';
             eliminarFotoFlag = true;
+        });
+    }
+
+    // --- Preferencias Locales ---
+    const inputUmbralHormiga = document.getElementById('ajustes-umbral-hormiga');
+    if (inputUmbralHormiga) {
+        inputUmbralHormiga.value = localStorage.getItem(`umbralHormiga_${usuarioId}`) || 15;
+    }
+    
+    const btnGuardarPreferencias = document.getElementById('btn-guardar-preferencias');
+    if (btnGuardarPreferencias) {
+        btnGuardarPreferencias.addEventListener('click', () => {
+            const val = parseFloat(inputUmbralHormiga.value);
+            if (!isNaN(val) && val > 0) {
+                localStorage.setItem(`umbralHormiga_${usuarioId}`, val);
+                showToast('Preferencia guardada exitosamente.', 'success');
+            } else { showToast('Ingresa un monto válido para el umbral.', 'error'); }
         });
     }
 

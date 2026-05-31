@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 listaAdminUsuarios.innerHTML = '';
                 usuarios.forEach(u => {
                     let rolActual = 'Básico (Free)';
-                    if (u.estado_suscripcion === 'GOD_MODE') rolActual = '👑 Súper Admin';
+                    if (u.id_plan === 3 || u.estado_suscripcion === 'GOD_MODE') rolActual = '👑 Súper Admin';
                     else if (u.id_plan === 2) rolActual = '⭐ Premium';
                     
                     const estaBloqueado = u.bloqueado_hasta && new Date(u.bloqueado_hasta) > new Date();
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <option value="" disabled selected>Cambiar...</option>
                                 <option value="FREE">Básico (Free)</option>
                                 <option value="PREMIUM">Premium</option>
-                                <option value="GOD_MODE">Súper Admin</option>
+                                <option value="ADMIN">Súper Admin</option>
                             </select>
                         </td>
                         <td>

@@ -26,7 +26,7 @@
             <ul>
                 <li><a href="dashboard.html" class="active">Panel</a></li>
                 <li><a href="mensual.html">Mensual</a></li>
-                <li><a href="historial.html">Historial</a></li>
+                <li><a href="analisis.html">Análisis de Finanzas</a></li>
                 <li><a href="grupos.html">Mis Grupos</a></li>
                 <li><a href="ajustes.html">Ajustes</a></li>
                 <li><a href="#" class="nav-profile">Hola, Usuario</a></li>
@@ -59,10 +59,12 @@
         </section>
 
         <div class="dashboard-grid">
-            <aside class="control-panel">
-                <!-- Registrar Gasto -->
-                <article class="card">
-                    <h3>Registrar Gasto</h3>
+            <section class="data-panel" style="grid-column: 1 / -1;">
+                <!-- Registrar Gasto y Tabla Unificada (Mobile-First) -->
+                <article class="card" id="tour-streamline">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                        <div>
+                            <h3 style="margin-top:0;">Registrar Gasto</h3>
                     <form id="form-gasto">
                         <div class="form-group">
                             <label for="grupo-gasto">Grupo</label>
@@ -100,102 +102,10 @@
                         </div>
                         <button type="submit" class="btn-primary">Añadir Gasto</button>
                     </form>
-                </article>
-            </aside>
-
-            <section class="data-panel">
-                <!-- NUEVO: Módulo de Análisis de Finanzas (Premium CTA) -->
-                <article class="card premium-lock-container">
-                    <h3>Análisis de Finanzas <span class="badge-premium">Premium</span></h3>
-                    <div id="analisis-content" class="locked-content">
-                        <div class="blur-overlay" id="blur-premium-cta">
-                            <p>Desbloquea gráficos interactivos e insights sobre tus hábitos de gasto por solo <strong>$5.00/mes</strong>.</p>
-                            <button class="btn-upgrade mt-2">Mejorar a Premium</button>
                         </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                            <span style="font-weight: 500; font-size: 0.9rem;">Distribución de Gastos</span>
-                            <select id="tipo-grafico" style="max-width: 150px; padding: 0.3rem; font-size: 0.8rem;">
-                                <option value="doughnut">Gráfico de Anillo</option>
-                                <option value="bar">Gráfico de Barras</option>
-                                <option value="pie">Gráfico Circular</option>
-                            </select>
-                        </div>
-                        <div class="fake-chart" id="chart-container">
-                            <canvas id="premiumChart" style="display: none; max-height: 200px; margin: 0 auto;"></canvas>
-                        </div>
-                        <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; color: var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
-                            <p>Categoría principal: <strong id="cat-frecuente">???</strong></p>
-                            <p>Mayor gasto: <strong id="gasto-mayor">$???</strong></p>
-                            <p>Gasto Promedio: <strong id="gasto-promedio">$???</strong></p>
-                            <p>Total Mensual: <strong id="total-gastado">$???</strong></p>
-                            <p>Proyección de Ahorro: <strong id="ahorro-proyectado" style="color: var(--secondary-emerald);">$???</strong></p>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="card balance-card">
-                    <h3>Resumen de Saldos</h3>
-                    <div class="balance-stats">
-                        <div class="stat positive">
-                            <span>Te deben</span>
-                            <h4>$0.00</h4>
-                        </div>
-                        <div class="stat negative">
-                            <span>Debes</span>
-                            <h4>$0.00</h4>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="card mt-2">
-                    <h3 style="margin: 0; border: none; padding: 0;">Mis Logros 🏆</h3>
-                    <div id="lista-logros" style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 1rem;">
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Cargando medallas...</p>
-                    </div>
-                </article>
-
-                <!-- NUEVO: Estado de Cuotas (Juntada) -->
-                <article class="card mt-2">
-                    <h3>Ingresos por MercadoPago (Pagos Recibidos)</h3>
-                    <div class="table-responsive">
-                        <table class="gastos-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Pagador</th>
-                                    <th>Monto Recibido</th>
-                                </tr>
-                            </thead>
-                            <tbody id="lista-pagos-recibidos">
-                                <!-- Dinámico -->
-                            </tbody>
-                        </table>
-                    </div>
-                </article>
-
-                <article class="card mt-2">
-                    <h3>Estado de Cuotas (Juntada)</h3>
-                    <div class="table-responsive">
-                        <table class="gastos-table">
-                            <thead>
-                                <tr>
-                                    <th>Participante</th>
-                                    <th>Cuota Asignada</th>
-                                    <th>Estado</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="lista-cuotas">
-                                <!-- Dinámico -->
-                            </tbody>
-                        </table>
-                    </div>
-                </article>
-
-                <article class="card mt-2">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-                        <h3 style="margin: 0; border: none; padding: 0;">Gastos Recientes</h3>
+                        <div class="gastos-recientes-wrapper">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                                <h3 style="margin-top:0; margin-bottom: 0; border: none; padding: 0;">Gastos Recientes</h3>
                         <div style="display: flex; gap: 0.5rem; flex: 1; justify-content: flex-end;">
                             <select id="filtro-categoria" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; max-width: 200px;">
                                 <option value="">Todas las categorías</option>
@@ -221,7 +131,46 @@
                         </table>
                     </div>
                     <div id="pagination-container" style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;"></div>
+                        </div>
+                    </div>
                 </article>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 2rem;">
+                    <article class="card balance-card" id="tour-saldos">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0; border: none; padding: 0;">Saldos del Grupo</h3>
+                            <button id="btn-ver-miembros" class="btn-primary" style="width: auto; padding: 0.4rem 1rem; background-color: var(--primary-slate);">👥 Ver Miembros</button>
+                        </div>
+                        <div class="balance-stats">
+                            <div class="stat positive">
+                                <span>Cuentas Saldadas (Te deben)</span>
+                                <h4>$0.00</h4>
+                            </div>
+                            <div class="stat negative">
+                                <span>En Debe (Debes)</span>
+                                <h4>$0.00</h4>
+                            </div>
+                        </div>
+                    </article>
+                    
+                    <article class="card">
+                        <h3 style="margin: 0; border: none; padding: 0; margin-bottom: 1rem;">Estado de Cuotas</h3>
+                        <div class="table-responsive">
+                            <table class="gastos-table">
+                                <thead>
+                                    <tr>
+                                        <th>Participante</th>
+                                        <th>Cuota</th>
+                                        <th>Estado</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lista-cuotas">
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </div>
             </section>
         </div>
     </main>

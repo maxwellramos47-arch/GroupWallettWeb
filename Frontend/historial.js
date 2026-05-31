@@ -62,6 +62,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 2. Cargar Historial ---
     const listaHistorial = document.getElementById('lista-historial');
     let datosHistorial = []; // Almacenará los datos crudos
+
+
+
     let chartDataGlobal = []; // Almacenará los totales agrupados para el gráfico
     let historialChartInstance = null;
     
@@ -362,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const res = await fetch('/api/usuarios/perfil');
                 if (res.ok) {
                     const perfil = await res.json();
-                    if (perfil.id_plan !== 2 && perfil.estado_suscripcion !== 'GOD_MODE') {
+                    if (perfil.id_plan !== 2 && perfil.id_plan !== 3 && perfil.estado_suscripcion !== 'GOD_MODE') {
                         hideSpinner();
                         showToast('La exportación a PDF es exclusiva de Premium. Descubre sus beneficios...', 'info');
                         setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);

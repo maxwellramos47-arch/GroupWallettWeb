@@ -15,8 +15,10 @@
     "mercadopago": "^2.0.9",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.9",
+    "pdfkit": "^0.15.0",
     "pg": "^8.21.0",
     "prisma": "^6.19.3",
+    "qrcode": "^1.5.3",
     "socket.io": "^4.8.3",
     "twilio": "^5.0.0",
     "ua-parser-js": "^1.0.38",
@@ -30,6 +32,7 @@
   "scripts": {
     "start": "node --max-old-space-size=384 Backend/server.js",
     "dev": "nodemon Backend/server.js",
+    "migrate:admin": "node Backend/migrate-godmode.js",
     "build": "npx prisma generate && npx prisma db push --accept-data-loss",
     "postinstall": "npx prisma generate",
     "test": "jest",

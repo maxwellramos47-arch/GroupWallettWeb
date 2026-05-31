@@ -6,6 +6,7 @@ const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
 const EmailTemplates = require('./emailTemplates');
 const { z } = require('zod');
+const QRCode = require('qrcode');
 
 // --- Esquemas de Validación Zod ---
 const grupoSchema = z.object({
@@ -48,6 +49,23 @@ router.put('/:id', verificarToken, async (req, res) => {
     }
 });
 
+// NUEVO Endpoint: Generar QR y enlace mágico de invitación (Mobile-First)
+router.get('/:id/codigo-qr', verificarToken, async (req, res) => {
+    try {
+        const inviteToken = await GrupoBLL.generarInvitacion(req.params.id, req.usuarioLogueado.id_usuario);
+        const inviteUrl = `${req.protocol}://${req.get('host')}/join.html?token=${inviteToken}`;
+        
+        // Generar QR en formato Base64 para consumo nativo en Frontend Mobile
+        const qrBase64 = await QRCode.toDataURL(inviteUrl, {
+            color: { dark: '#0F172A', light: '#FFFFFF' }, width: 300, margin: 2
+        });
+        
+        res.json({ enlace: inviteUrl, qr: qrBase64 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.post('/:id/invitacion', verificarToken, async (req, res) => {
     try {
         const inviteToken = await GrupoBLL.generarInvitacion(req.params.id, req.usuarioLogueado.id_usuario);
@@ -80,6 +98,16 @@ router.post('/:id/invitacion', verificarToken, async (req, res) => {
     } catch (error) {
         res.status(error.message.includes('administradores') ? 403 : 500).json({ error: error.message });
     }
+});
+
+// NUEVO Endpoint: Invitar enviando notificación vía Nodemailer / Twilio
+router.post('/:id/invitar', verificarToken, async (req, res) => {
+    try {
+        const { correo, telefono } = req.body;
+        const hostUrl = `${req.protocol}://${req.get('host')}`;
+        await GrupoBLL.enviarInvitacionDirecta(req.params.id, req.usuarioLogueado.id_usuario, correo, telefono, hostUrl);
+        res.json({ message: 'Invitación procesada y enviada a los destinatarios con éxito.' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 router.post('/unirse', verificarToken, async (req, res) => {

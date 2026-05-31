@@ -112,7 +112,7 @@ class UsuarioDAL {
     static async enableGodMode(id_usuario) {
         await prisma.usuarios.update({
             where: { id_usuario },
-            data: { estado_suscripcion: 'GOD_MODE', id_plan: 2 }
+            data: { estado_suscripcion: 'activo', id_plan: 3 }
         });
     }
 

@@ -87,6 +87,16 @@
         </div>
 
         <div class="card mt-2">
+            <h3>Preferencias de la Interfaz</h3>
+            <div class="form-group mt-2">
+                <label>Umbral de "Gastos Hormiga"</label>
+                <input type="number" id="ajustes-umbral-hormiga" placeholder="Ej. 15" min="1" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Cualquier gasto menor o igual a este monto será clasificado como "Gasto Hormiga" en tu vista Mensual.</p>
+            </div>
+            <button type="button" id="btn-guardar-preferencias" class="btn-primary mt-2" style="width: auto;">Guardar Preferencia</button>
+        </div>
+
+        <div class="card mt-2">
             <h3>Mis Datos Bancarios <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(Para recibir transferencias manuales)</span></h3>
             <form id="form-banco" class="mt-2">
                 <div class="form-group">

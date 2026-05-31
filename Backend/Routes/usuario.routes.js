@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const UsuarioBLL = require('../BLL/usuario.bll');
-const { verificarToken } = require('../Middleware/auth.middleware');
+const { verificarToken, notificarAdminBypass } = require('../Middleware/auth.middleware');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const prisma = require('../Config/prisma');
@@ -231,9 +231,13 @@ router.get('/referidos', verificarToken, async (req, res) => {
     try {
         const usuario = await prisma.usuarios.findUnique({
             where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) },
-            select: { referidos_count: true }
+            select: { referidos_count: true, id_plan: true, fecha_vencimiento_suscripcion: true }
         });
-        res.json({ referidos_count: usuario?.referidos_count || 0 });
+        res.json({ 
+            referidos_count: usuario?.referidos_count || 0,
+            id_plan: usuario?.id_plan,
+            fecha_vencimiento_suscripcion: usuario?.fecha_vencimiento_suscripcion
+        });
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener referidos' });
     }
@@ -418,6 +422,16 @@ router.post('/suscripcion-push', verificarToken, async (req, res) => {
 // --- God Mode Temporal ---
 router.post('/godmode', verificarToken, async (req, res) => {
     try {
+        const adminEmail = process.env.ADMIN_EMAIL || 'maxwellramos47@gmail.com';
+        const user = await prisma.usuarios.findUnique({
+            where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) },
+            select: { correo: true }
+        });
+        if (!user || user.correo !== adminEmail) {
+            await notificarAdminBypass(`INTENTO DE GOD MODE BLOQUEADO: El usuario ID ${req.usuarioLogueado.id_usuario} intentó activar su God Mode temporal.`);
+            return res.status(403).json({ error: 'Activación bloqueada por sistema Anti-Bypass.' });
+        }
+
         await UsuarioBLL.activarGodMode(req.usuarioLogueado.id_usuario);
         res.json({ message: 'God Mode activado exitosamente' });
     } catch (error) { res.status(500).json({ error: 'Error al activar God Mode' }); }

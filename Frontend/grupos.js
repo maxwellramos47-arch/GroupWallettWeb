@@ -85,6 +85,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) { console.error(error); }
     };
 
+    // --- Cargar Banner de Recompensas de Referidos ---
+    const cargarReferidosBanner = async () => {
+        try {
+            const res = await fetch('/api/usuarios/referidos', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const data = await res.json();
+                const banner = document.getElementById('referidos-premium-banner');
+                if (data.referidos_count >= 3 && data.id_plan === 2 && data.fecha_vencimiento_suscripcion) {
+                    const vencimiento = new Date(data.fecha_vencimiento_suscripcion);
+                    const hoy = new Date();
+                    const diasRestantes = Math.ceil((vencimiento - hoy) / (1000 * 60 * 60 * 24));
+                    
+                    if (diasRestantes > 0) {
+                        document.getElementById('ref-count-banner').textContent = data.referidos_count;
+                        document.getElementById('ref-days-banner').textContent = diasRestantes;
+                        banner.style.display = 'flex';
+                    }
+                }
+            }
+        } catch (error) { console.error('Error cargando referidos:', error); }
+    };
+
     const renderizarTablaGrupos = () => {
         const query = document.getElementById('buscar-grupo')?.value.toLowerCase() || '';
         listaGrupos.innerHTML = '';
@@ -626,7 +648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 animate: true,
                 smoothScroll: true,
                 steps: [
-                    { popover: { title: 'Gestión de Grupos 👥', description: 'Aquí podrás crear y administrar todos tus grupos financieros y de viaje.', position: 'center' } },
+                    { element: '.main-header', popover: { title: 'Gestión de Grupos 👥', description: 'Aquí podrás crear y administrar todos tus grupos financieros y de viaje.', position: 'bottom' } },
                     { element: '#tour-crear-grupo', popover: { title: '1. Crear un Grupo', description: 'Asigna un nombre a tu grupo, como "Viaje al Sur" o "Departamento".', position: 'bottom' } },
                     { element: '#tour-invitar', popover: { title: '2. Invitar Amigos', description: 'Genera un enlace mágico o un código QR para que se unan al instante.', position: 'bottom' } },
                     { element: '#tour-escanear', popover: { title: '3. Escáner Rápido', description: 'Si estás junto a un amigo, usa la cámara para escanear su QR y unirte a su grupo en 2 segundos.', position: 'bottom' } },
@@ -643,5 +665,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     cargarGrupos().then(() => {
         iniciarOnboardingGrupos();
+        cargarReferidosBanner();
     });
 });

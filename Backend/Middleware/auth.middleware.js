@@ -2,6 +2,27 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('./security.util');
 const prisma = require('../Config/prisma');
 
+// Helper para notificaciones Push de Seguridad (Anti-Bypass)
+const notificarAdminBypass = async (mensaje) => {
+    try {
+        const webpush = require('web-push');
+        const adminEmail = process.env.ADMIN_EMAIL || 'maxwellramos47@gmail.com';
+        const adminUser = await prisma.usuarios.findUnique({
+            where: { correo: adminEmail },
+            select: { push_subscription: true }
+        });
+        if (adminUser && adminUser.push_subscription) {
+            await webpush.sendNotification(JSON.parse(adminUser.push_subscription), JSON.stringify({
+                title: '🚨 ALERTA DE SEGURIDAD',
+                body: mensaje,
+                url: '/admin.html'
+            }));
+        }
+    } catch (error) {
+        console.error('Error enviando alerta push al admin:', error.message);
+    }
+};
+
 async function verificarToken(req, res, next) {
     // Buscar el token en las cookies HttpOnly (Método primario)
     let token = req.cookies.usuarioToken;
@@ -90,11 +111,21 @@ const verificarSuperAdmin = async (req, res, next) => {
 
         const userCheck = await prisma.usuarios.findUnique({
             where: { id_usuario: parseInt(id_usuario) },
-            select: { estado_suscripcion: true }
+            select: { id_plan: true, estado_suscripcion: true, correo: true }
         });
 
-        if (!userCheck || userCheck.estado_suscripcion !== 'GOD_MODE') {
-            return res.status(403).json({ error: 'Acceso denegado. Esta acción requiere privilegios de Súper Administrador.' });
+        const adminEmail = process.env.ADMIN_EMAIL || 'maxwellramos47@gmail.com';
+
+        // DOBLE VALIDACIÓN ANTI-BYPASS: Aunque un atacante modifique la BD para ponerse id_plan = 3, 
+        // el backend rechazará la petición si su correo no es exactamente el correo maestro del sistema.
+        const isSuperAdminEmail = userCheck?.correo === adminEmail;
+        const hasAdminPlan = userCheck?.id_plan === 3 || userCheck?.estado_suscripcion === 'GOD_MODE';
+
+        if (!userCheck || !hasAdminPlan || !isSuperAdminEmail) {
+            if (hasAdminPlan && !isSuperAdminEmail) {
+                await notificarAdminBypass(`BYPASS DETECTADO: El usuario ID ${id_usuario} intentó usar el rol Súper Admin sin tener el correo maestro.`);
+            }
+            return res.status(403).json({ error: 'Acceso denegado. Violación de seguridad detectada (Filtro Anti-Bypass activado).' });
         }
 
         next();
@@ -117,7 +148,7 @@ const verificarPremium = async (req, res, next) => {
             select: { id_plan: true, estado_suscripcion: true }
         });
 
-        const isGod = checkPlan?.estado_suscripcion === 'GOD_MODE';
+        const isGod = checkPlan?.id_plan === 3 || checkPlan?.estado_suscripcion === 'GOD_MODE';
         const isPremium = checkPlan?.id_plan === 2 && checkPlan?.estado_suscripcion === 'activo';
 
         if (!checkPlan || (!isGod && !isPremium)) {
@@ -134,5 +165,6 @@ const verificarPremium = async (req, res, next) => {
 module.exports = { 
     verificarToken, 
     verificarSuperAdmin, 
-    verificarPremium 
+    verificarPremium,
+    notificarAdminBypass
 };

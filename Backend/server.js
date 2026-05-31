@@ -15,10 +15,12 @@ const { Server } = require('socket.io');
 const { MercadoPagoConfig, Preference, Payment, PreApproval } = require('mercadopago');
 const crypto = require('crypto');
 const vision = require('@google-cloud/vision'); // Inicializar Google Vision AI
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const PDFDocument = require('pdfkit');
 
 const prisma = require('./Config/prisma'); // Importar el Singleton de Prisma
 const { encriptarDatoSensible, desencriptarDatoSensible, generarFirmaHMAC, JWT_SECRET } = require('./Middleware/security.util');
-const { verificarToken, verificarSuperAdmin, verificarPremium } = require('./Middleware/auth.middleware');
+const { verificarToken, verificarSuperAdmin, verificarPremium, notificarAdminBypass } = require('./Middleware/auth.middleware');
 const usuarioRoutes = require('./Routes/usuario.routes');
 const grupoRoutes = require('./Routes/grupo.routes');
 const gastoRoutes = require('./Routes/gasto.routes');
@@ -512,6 +514,85 @@ app.get('/api/finanzas/exportar-mensual', verificarToken, verificarPremium, asyn
     }
 });
 
+// 1.8.6 NUEVO Endpoint GET: Exportar Gastos Mensuales a PDF (Requiere Premium)
+app.get('/api/finanzas/exportar-mensual-pdf', verificarToken, verificarPremium, async (req, res) => {
+    try {
+        const id_usuario = req.usuarioLogueado.id_usuario;
+        const { mes, anio } = req.query;
+
+        if (mes === undefined || !anio) return res.status(400).json({ error: 'Faltan parámetros de fecha.' });
+
+        const m = parseInt(mes);
+        const a = parseInt(anio);
+        const fechaInicio = new Date(a, m, 1);
+        const fechaFin = new Date(a, m + 1, 0, 23, 59, 59, 999);
+
+        const transacciones = await prisma.transacciones.findMany({
+            where: { id_usuario_pagador: parseInt(id_usuario), fecha_gasto: { gte: fechaInicio, lte: fechaFin } },
+            include: { grupo: { select: { nombre_grupo: true } } },
+            orderBy: { fecha_gasto: 'desc' }
+        });
+
+        const doc = new PDFDocument({ margin: 40 });
+        const filename = `Reporte_Mensual_${m+1}_${a}.pdf`;
+        
+        res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-type', 'application/pdf');
+        doc.pipe(res);
+
+        // Insertar Logo embebido si el archivo existe
+        const logo1 = path.join(__dirname, 'Placeholders/LogoCorreo.png');
+        const logo2 = path.join(__dirname, '../Frontend/Placeholders/LogoCorreo.png');
+        const logo3 = path.join(__dirname, '../LogoCorreo.png');
+        const logoPath = fs.existsSync(logo1) ? logo1 : (fs.existsSync(logo2) ? logo2 : (fs.existsSync(logo3) ? logo3 : null));
+        if (logoPath) {
+            doc.image(logoPath, (doc.page.width - 50) / 2, doc.y, { width: 50 });
+            doc.moveDown(0.5);
+        }
+
+        // Diseño de Cabecera
+        doc.fontSize(24).fillColor('#0F172A').text('GroupWallet', { align: 'center' });
+        doc.fontSize(14).fillColor('#64748B').text(`Reporte Mensual de Gastos: ${m+1}/${a}`, { align: 'center' });
+        doc.moveDown(2);
+
+        // Diseño de la Tabla (Encabezados)
+        let total = 0;
+        const startY = doc.y;
+        doc.fontSize(10).fillColor('#0F172A');
+        doc.text('Fecha', 40, startY, { width: 70 });
+        doc.text('Grupo', 110, startY, { width: 100 });
+        doc.text('Categoría', 210, startY, { width: 100 });
+        doc.text('Descripción', 310, startY, { width: 180 });
+        doc.text('Monto', 490, startY, { width: 60, align: 'right' });
+        doc.moveTo(40, doc.y + 5).lineTo(550, doc.y + 5).strokeColor('#E2E8F0').stroke();
+        doc.moveDown(1);
+
+        // Iteración de Registros
+        transacciones.forEach(t => {
+            const fechaFmt = t.fecha_gasto ? t.fecha_gasto.toLocaleDateString('es-ES') : '';
+            const grupo = t.grupo ? t.grupo.nombre_grupo : 'General';
+            const monto = parseFloat(t.monto);
+            total += monto;
+
+            const y = doc.y;
+            doc.text(fechaFmt, 40, y, { width: 70 });
+            doc.text(grupo, 110, y, { width: 100 });
+            doc.text(t.categoria, 210, y, { width: 100 });
+            doc.text(t.descripcion, 310, y, { width: 180 });
+            doc.text(`$${monto.toFixed(2)}`, 490, y, { width: 60, align: 'right' });
+            
+            doc.moveDown(0.5);
+            if (doc.y > 700) { doc.addPage(); doc.moveDown(); } // Auto-paginación
+        });
+
+        doc.moveTo(40, doc.y + 5).lineTo(550, doc.y + 5).strokeColor('#0F172A').stroke();
+        doc.moveDown(1);
+        doc.fontSize(14).fillColor('#26C6DA').text(`Total Mensual: $${total.toFixed(2)}`, { align: 'right' });
+
+        doc.end();
+    } catch (error) { res.status(500).json({ error: 'Error al generar el PDF.' }); }
+});
+
 // 1.9 NUEVO Endpoint POST: Leer comprobantes (OCR) con Google Vision AI
 app.post('/api/finanzas/ocr', verificarToken, async (req, res) => {
     try {
@@ -828,22 +909,24 @@ app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, async (req, 
 // 3.10 NUEVO Endpoint PUT: Cambiar rol/plan de un usuario (Súper Admin)
 app.put('/api/admin/usuarios/:id/rol', verificarToken, verificarSuperAdmin, async (req, res) => {
     const id_objetivo = req.params.id;
-    const { nuevo_rol } = req.body; // 'FREE', 'PREMIUM', 'GOD_MODE'
+    const { nuevo_rol } = req.body; // 'FREE', 'PREMIUM', 'ADMIN'
 
     try {
         let id_plan = 1;
         let estado_suscripcion = 'activo';
 
         if (nuevo_rol === 'PREMIUM') { id_plan = 2; } 
-        else if (nuevo_rol === 'GOD_MODE') { 
+        else if (nuevo_rol === 'GOD_MODE' || nuevo_rol === 'ADMIN') { 
             const targetCheck = await prisma.usuarios.findUnique({
                 where: { id_usuario: parseInt(id_objetivo) },
                 select: { correo: true }
             });
-            if (!targetCheck || targetCheck.correo !== 'maxwellramos47@gmail.com') {
-                return res.status(403).json({ error: 'Operación denegada de forma permanente. El rol Súper Admin está reservado estrictamente para maxwellramos47@gmail.com' });
+            const adminEmail = process.env.ADMIN_EMAIL || 'maxwellramos47@gmail.com';
+            if (!targetCheck || targetCheck.correo !== adminEmail) {
+                await notificarAdminBypass(`ELEVACIÓN BLOQUEADA: Alguien intentó asignar el rol ADMIN al usuario ID ${id_objetivo}.`);
+                return res.status(403).json({ error: 'Operación denegada de forma permanente. El rol Súper Admin está protegido por el Filtro Anti-Bypass.' });
             }
-            id_plan = 2; estado_suscripcion = 'GOD_MODE'; 
+            id_plan = 3; estado_suscripcion = 'activo'; 
         }
 
         await prisma.usuarios.update({
@@ -958,6 +1041,35 @@ cron.schedule('0 0 * * *', async () => {
     } catch (error) {
         console.error('[CRON] Error al verificar suscripciones:', error);
     }
+});
+
+// Recordatorio Premium: Notificar a usuarios 3 días antes de su vencimiento
+// Se ejecuta todos los días a las 12:00 PM
+cron.schedule('0 12 * * *', async () => {
+    console.log('\n[CRON] Iniciando recordatorio de vencimiento Premium (3 días antes)...');
+    try {
+        const targetStart = new Date();
+        targetStart.setDate(targetStart.getDate() + 3);
+        targetStart.setHours(0, 0, 0, 0);
+
+        const targetEnd = new Date(targetStart);
+        targetEnd.setHours(23, 59, 59, 999);
+
+        const usuariosPorVencer = await prisma.usuarios.findMany({
+            where: { id_plan: 2, estado_suscripcion: 'activo', fecha_vencimiento_suscripcion: { gte: targetStart, lte: targetEnd }, push_subscription: { not: null } },
+            select: { nombre: true, push_subscription: true }
+        });
+
+        let enviados = 0;
+        for (const u of usuariosPorVencer) {
+            try {
+                const payload = JSON.stringify({ title: '⏳ Tu Premium está por terminar', body: `¡Hola ${u.nombre}! Te quedan 3 días de Premium. Suscríbete ahora o invita a 3 amigos para ganar un mes gratis.`, url: '/dashboard.html?showUpgrade=true' });
+                await webpush.sendNotification(JSON.parse(u.push_subscription), payload);
+                enviados++;
+            } catch (err) { console.error('Error enviando push de vencimiento:', err.message); }
+        }
+        console.log(`[CRON] Se enviaron ${enviados} recordatorios de expiración Premium.`);
+    } catch (error) { console.error('[CRON] Error verificando vencimientos Premium:', error); }
 });
 
 cron.schedule('0 * * * *', async () => {
@@ -1094,31 +1206,68 @@ cron.schedule('*/14 * * * *', async () => {
     } catch (error) { console.error('[CRON] Auto-ping fallido', error.message); }
 });
 
+// Limpieza automática de AWS S3 (Comprobantes antiguos huérfanos/archivados)
+// Se ejecuta todos los domingos a las 03:00 AM
+cron.schedule('0 3 * * 0', async () => {
+    console.log('\n[CRON] Iniciando limpieza automática de comprobantes en AWS S3...');
+    try {
+        const s3Client = new S3Client({ region: process.env.AWS_REGION });
+        
+        // Buscar gastos archivados hace más de 30 días que aún tengan comprobante
+        const fechaLimite = new Date();
+        fechaLimite.setDate(fechaLimite.getDate() - 30);
+        
+        const archivados = await prisma.transacciones_Historial.findMany({
+            where: { 
+                comprobante_url: { not: null },
+                fecha_archivado: { lt: fechaLimite }
+            },
+            select: { id_transaccion: true, comprobante_url: true }
+        });
+
+        let eliminados = 0;
+        for (const gasto of archivados) {
+            if (gasto.comprobante_url.includes('amazonaws.com')) {
+                try {
+                    const urlObj = new URL(gasto.comprobante_url);
+                    const fileKey = decodeURIComponent(urlObj.pathname.substring(1));
+                    
+                    // 1. Eliminar de AWS S3
+                    await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.AWS_BUCKET_NAME, Key: fileKey }));
+                    
+                    // 2. Limpiar la Base de Datos para evitar links rotos en el frontend
+                    await prisma.transacciones_Historial.update({ where: { id_transaccion: gasto.id_transaccion }, data: { comprobante_url: null } });
+                    eliminados++;
+                } catch (s3Error) { console.error(`[CRON] Error eliminando S3 para tx ${gasto.id_transaccion}:`, s3Error.message); }
+            }
+        }
+        console.log(`[CRON] Limpieza S3 completada. ${eliminados} recibos antiguos eliminados.`);
+    } catch (error) { console.error('[CRON] Error general en limpieza S3:', error); }
+});
+
 // ==========================================
 // Inicialización del Servidor
 // ==========================================
 
 async function inicializarDatosBase() {
     try {
-        const count = await prisma.planes_Suscripcion.count();
-        if (count === 0) {
-            console.log('[DB] Insertando planes de suscripción iniciales...');
-            await prisma.planes_Suscripcion.createMany({
-                data: [
-                    { id_plan: 1, nombre_plan: 'Básico', precio: 0.00, limite_grupos: 3, limite_miembros_por_grupo: 10, beneficios: 'Acceso a 3 grupos y 10 miembros por grupo.' },
-                    { id_plan: 2, nombre_plan: 'Premium', precio: 5.00, limite_grupos: 999, limite_miembros_por_grupo: 999, beneficios: 'Grupos y miembros ilimitados, análisis de finanzas.' }
-                ]
-            });
-            console.log('[DB] Planes creados con éxito.');
-        } else {
-            // Actualización segura para instancias que ya estaban corriendo
-            await prisma.planes_Suscripcion.update({
-                where: { id_plan: 1 }, data: { limite_miembros_por_grupo: 10, beneficios: 'Acceso a 3 grupos y 10 miembros por grupo.' }
-            });
-            await prisma.planes_Suscripcion.update({
-                where: { id_plan: 2 }, data: { limite_miembros_por_grupo: 999, beneficios: 'Grupos y miembros ilimitados, análisis de finanzas.' }
-            });
+        const planes = [
+            { id_plan: 1, nombre_plan: 'Básico', precio: 0.00, limite_grupos: 3, limite_miembros_por_grupo: 10, beneficios: 'Acceso a 3 grupos y 10 miembros por grupo.' },
+            { id_plan: 2, nombre_plan: 'Premium', precio: 5.00, limite_grupos: 999, limite_miembros_por_grupo: 999, beneficios: 'Grupos y miembros ilimitados, análisis de finanzas.' },
+            { id_plan: 3, nombre_plan: 'Admin', precio: 0.00, limite_grupos: 999, limite_miembros_por_grupo: 999, beneficios: 'Administrador global del sistema.' }
+        ];
+
+        for (const plan of planes) {
+            // Inserción directa por SQL para forzar IDs manuales en un campo SERIAL/autoincrement
+            await prisma.$executeRaw`
+                INSERT INTO planes_suscripcion (id_plan, nombre_plan, precio, limite_grupos, limite_miembros_por_grupo, beneficios)
+                VALUES (${plan.id_plan}, ${plan.nombre_plan}, ${plan.precio}, ${plan.limite_grupos}, ${plan.limite_miembros_por_grupo}, ${plan.beneficios})
+                ON CONFLICT (id_plan) DO UPDATE 
+                SET limite_miembros_por_grupo = EXCLUDED.limite_miembros_por_grupo,
+                    beneficios = EXCLUDED.beneficios
+            `;
         }
+        console.log('[DB] Planes de suscripción verificados y sincronizados correctamente.');
     } catch (error) {
         console.error('[DB] Error inicializando datos base:', error);
     }

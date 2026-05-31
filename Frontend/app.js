@@ -122,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Estado de la aplicación: Arreglo de transacciones
     let transacciones = [];
     let misRolesEnGrupos = {}; // Nuevo estado para guardar roles
-    let premiumChartInstance = null; // Instancia global del gráfico
     let currentPage = 1; // Estado de la paginación actual
     const itemsPerPage = 10; // Límite de gastos por página
 
@@ -220,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 renderizarTabla();
                 calcularSaldos();
-                actualizarGraficosAnalisis();
             }
         });
     }
@@ -531,29 +529,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 2.7 Función Global para actualizar Analíticas Premium en tiempo real ---
-    const actualizarGraficosAnalisis = async () => {
-        try {
-            const reqAnalisis = await fetch('/api/finanzas/analisis');
-            if (reqAnalisis.ok) {
-                const datosAnalisis = await reqAnalisis.json();
-                
-                const catFrecuente = document.getElementById('cat-frecuente');
-                if (catFrecuente) { // Si existe en el DOM, actualizamos toda la tarjeta
-                    catFrecuente.textContent = datosAnalisis.categoria_frecuente;
-                    document.getElementById('ahorro-proyectado').textContent = `${moneda}${datosAnalisis.ahorro_proyectado.toFixed(2)}`;
-                    document.getElementById('gasto-mayor').textContent = `${moneda}${datosAnalisis.mayor_gasto.toFixed(2)}`;
-                    document.getElementById('gasto-promedio').textContent = `${moneda}${datosAnalisis.gasto_promedio.toFixed(2)}`;
-                    document.getElementById('total-gastado').textContent = `${moneda}${datosAnalisis.total_gastado.toFixed(2)}`;
+    // --- 2.7. Obtener y Reflejar Cuota de Subida de Archivos ---
+    const cargarCuotaComprobantes = async () => {
+        const quotaContainer = document.getElementById('upload-quota-container');
+        const quotaText = document.getElementById('upload-quota-text');
+        const quotaBar = document.getElementById('upload-quota-bar');
+        const fileInput = document.getElementById('comprobante-gasto');
+        if (!quotaContainer) return;
 
-                    if (premiumChartInstance && datosAnalisis.distribucion_gastos) {
-                        premiumChartInstance.data.labels = datosAnalisis.distribucion_gastos.etiquetas;
-                        premiumChartInstance.data.datasets[0].data = datosAnalisis.distribucion_gastos.valores;
-                        premiumChartInstance.update();
+        try {
+            const res = await fetch('/api/upload/quota', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.isFree) {
+                    quotaContainer.style.display = 'block';
+                    const percentage = Math.min((data.used / data.limit) * 100, 100);
+                    quotaBar.style.width = `${percentage}%`;
+                    
+                    if (data.used >= data.limit) {
+                        quotaBar.style.backgroundColor = 'var(--danger-color)';
+                        fileInput.disabled = true;
+                        quotaText.innerHTML = `${data.used}/${data.limit} <a href="dashboard.html?showUpgrade=true" style="color: var(--danger-color); text-decoration: underline;">¡Mejora a Premium!</a>`;
+                    } else {
+                        quotaText.textContent = `${data.used}/${data.limit}`;
+                        quotaBar.style.backgroundColor = data.used >= 4 ? '#f1c40f' : 'var(--secondary-emerald)'; // Amarillo si llega a 4
+                        fileInput.disabled = false;
                     }
+                } else {
+                    quotaContainer.style.display = 'none';
+                    fileInput.disabled = false;
                 }
             }
-        } catch (e) { console.error('Error actualizando gráficos:', e); }
+        } catch (e) { console.error('Error cargando cuota:', e); }
     };
 
     // --- 2.8. Flujo de Suscripción Premium ---
@@ -561,11 +568,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnShowPayment) {
         btnShowPayment.addEventListener('click', async () => {
             showSpinner();
-            const token = localStorage.getItem('usuarioToken');
             try {
                 const response = await fetch('/api/suscripciones/checkout', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
                 if (response.ok && data.url) {
@@ -647,27 +652,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 smoothScroll: true, // Scroll suave para no marear al usuario si el elemento está lejos
                 steps: [
                     {
+                        element: '.main-header',
                         popover: {
                             title: '¡Bienvenido a GroupWallet! 🎉',
-                            description: 'Vamos a dar un rápido paseo de 4 pasos para enseñarte cómo dividir gastos sin perder amigos.',
-                            position: 'center'
+                            description: 'Vamos a dar un rápido paseo para enseñarte cómo dividir gastos sin perder amigos.',
+                            position: 'bottom'
                         }
                     },
                     {
-                        element: '.main-nav a[href="grupos.html"]',
-                        popover: { title: '1. Crea tu primer grupo', description: 'Todo empieza aquí. Ve a la pestaña "Mis Grupos", crea uno (Ej. "Viaje a la Playa") e invita a tus amigos.', position: 'bottom' }
+                        element: '#tour-streamline',
+                        popover: { title: '1. Gestión Rápida', description: 'Registra un gasto y visualízalo inmediatamente en el historial aquí mismo en tu dashboard.', position: 'bottom' }
                     },
                     {
-                        element: '#form-gasto',
-                        popover: { title: '2. Registra los gastos', description: 'Cuando alguien compre algo, regístralo aquí. Nosotros haremos la matemática difícil para saber cómo dividirlo.', position: 'right' }
+                        element: '#tour-saldos',
+                        popover: { title: '2. Saldos y Miembros', description: 'Revisa quién debe a quién y administra los miembros usando el nuevo botón.', position: 'top' }
                     },
                     {
-                        element: '.balance-card',
-                        popover: { title: '3. Revisa tus saldos', description: 'Aquí verás un resumen rápido de cuánto dinero te deben en total, o cuánto debes tú al grupo.', position: 'left' }
+                        element: '.main-nav a[href="analisis.html"]',
+                        popover: { title: '3. Análisis de Finanzas', description: 'Tus gráficos detallados y el historial archivado se mudaron a esta nueva pestaña.', position: 'bottom' }
                     },
                     {
-                        element: '#referral-banner',
-                        popover: { title: '4. ¡Gana Premium Gratis! 🎁', description: 'Copia este enlace y envíaselo a 3 amigos. Si se registran, ¡obtendrás un mes de plan Premium completamente gratis!', position: 'bottom' }
+                        element: '#btn-show-payment',
+                        popover: { title: '4. Mejora tu cuenta', description: 'Aprovecha las capacidades ilimitadas suscribiéndote a Premium.', position: 'bottom' }
                     }
                 ],
                 onDestroyed: () => {
@@ -678,6 +684,17 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => driverObj.drive(), 1000); // Dar 1 segundo para que la página termine de pintar los elementos
         }
     };
+
+    // --- 2.11 Modal de Miembros Integrado ---
+    const btnVerMiembros = document.getElementById('btn-ver-miembros');
+    if (btnVerMiembros) {
+        btnVerMiembros.addEventListener('click', async () => {
+            const idGrupo = document.getElementById('grupo-gasto')?.value;
+            if (!idGrupo) return showToast('Selecciona un grupo primero en la tarjeta de Registro de Gasto.', 'error');
+            
+            window.location.href = `grupos.html?tourModal=true&groupId=${idGrupo}`;
+        });
+    }
 
     // --- 3. Manejo de Eventos ---
     formGasto.addEventListener('submit', async (e) => {
@@ -770,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarCategorias();
             renderizarTabla();
             calcularSaldos();
-            actualizarGraficosAnalisis();
+            cargarCuotaComprobantes();
 
             // 3. Resetear UI
             formGasto.reset();
@@ -807,7 +824,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         transacciones = transacciones.filter(t => t.id_transaccion != idTransaccion);
                         renderizarTabla();
                         calcularSaldos();
-                        actualizarGraficosAnalisis();
                     } else {
                         const data = await response.json();
                         showToast(data.error || 'Error al eliminar el gasto.', 'error');
@@ -859,7 +875,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         renderizarCategorias();
                         renderizarTabla();
                         calcularSaldos();
-                        actualizarGraficosAnalisis();
                     } else {
                         const data = await response.json();
                         showToast(data.error || 'Error al editar el gasto.', 'error');
@@ -908,6 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarTabla();
             calcularSaldos();
             cargarPagosRecibidos();
+            cargarCuotaComprobantes();
             cargarReferidos();
             cargarLogros();
             
@@ -956,71 +972,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch (err) { console.error('Error al cargar miembros', err); } finally { hideSpinner(); }
                     });
                 }
-            }
-
-            // Intentar cargar las analíticas Premium
-            const reqAnalisis = await fetch('/api/finanzas/analisis');
-
-            if (reqAnalisis.ok) {
-                const datosAnalisis = await reqAnalisis.json();
-                // Si es premium, ocultar el blur (desbloquear) y rellenar datos
-                const blurOverlay = document.getElementById('blur-premium-cta');
-                if (blurOverlay) blurOverlay.style.display = 'none';
-                
-                // Eliminar la clase que oculta/recorta la tarjeta
-                const analisisContent = document.getElementById('analisis-content');
-                if (analisisContent) analisisContent.classList.remove('locked-content');
-                
-                // Ocultar el banner superior de "Plan Básico" ya que el usuario es Premium
-                const upgradeBanner = document.querySelector('.upgrade-banner');
-                if (upgradeBanner) upgradeBanner.style.display = 'none';
-
-                document.getElementById('cat-frecuente').textContent = datosAnalisis.categoria_frecuente;
-                document.getElementById('ahorro-proyectado').textContent = `${moneda}${datosAnalisis.ahorro_proyectado.toFixed(2)}`;
-                document.getElementById('gasto-mayor').textContent = `${moneda}${datosAnalisis.mayor_gasto.toFixed(2)}`;
-                document.getElementById('gasto-promedio').textContent = `${moneda}${datosAnalisis.gasto_promedio.toFixed(2)}`;
-                document.getElementById('total-gastado').textContent = `${moneda}${datosAnalisis.total_gastado.toFixed(2)}`;
-
-                // Inicializar gráfico de Chart.js
-                const chartContainer = document.getElementById('chart-container');
-                const canvas = document.getElementById('premiumChart');
-                
-                if (chartContainer && canvas && datosAnalisis.distribucion_gastos) {
-                    chartContainer.style.background = 'none'; // Quitar el fondo rayado falso
-                    chartContainer.style.height = 'auto'; // Ajustar altura
-                    canvas.style.display = 'block'; // Mostrar el canvas
-
-                    if (premiumChartInstance) premiumChartInstance.destroy();
-
-                    premiumChartInstance = new Chart(canvas, {
-                        type: document.getElementById('tipo-grafico').value || 'doughnut',
-                        data: {
-                            labels: datosAnalisis.distribucion_gastos.etiquetas,
-                            datasets: [{
-                                data: datosAnalisis.distribucion_gastos.valores,
-                                backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c'],
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { position: 'right' }
-                            }
-                        }
-                    });
-
-                    // Escuchar cambios en el selector de tipo de gráfico
-                    const selectTipoGrafico = document.getElementById('tipo-grafico');
-                    if (selectTipoGrafico) {
-                        selectTipoGrafico.addEventListener('change', (e) => {
-                            premiumChartInstance.config.type = e.target.value;
-                            premiumChartInstance.update();
-                        });
-                    }
-                }
-            } else {
-                // Si es 403 (No premium), se deja la UI borrosa por defecto para incitar a la compra.
             }
         } catch (error) {
             console.error('Error inicializando la app:', error);
@@ -1487,7 +1438,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
-            if (!resFirma.ok) throw new Error('Error al obtener la firma de subida.');
+            if (!resFirma.ok) {
+                const errData = await resFirma.json();
+                throw new Error(errData.error || 'Error al obtener la firma de subida.');
+            }
             const { url, publicUrl } = await resFirma.json();
             
             // Paso 2: Subir el archivo directamente a AWS S3 (Saltándonos Node.js para ahorrar CPU/RAM)
@@ -1505,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return publicUrl; // Devuelve la ruta pública generada por el backend
         } catch (error) {
             console.error('Error en subida:', error);
-            showToast('No se pudo subir el archivo.', 'error');
+            showToast(error.message || 'No se pudo subir el archivo.', 'error');
             return null;
         } finally { hideSpinner(); }
     };

@@ -44,6 +44,49 @@ class GrupoBLL {
         return jwt.sign({ accion: 'invitacion', id_grupo: id_grupo }, JWT_SECRET, { expiresIn: '7d' });
     }
 
+    static async enviarInvitacionDirecta(id_grupo, id_solicitante, correo, telefono, hostUrl) {
+        const inviteToken = await this.generarInvitacion(id_grupo, id_solicitante);
+        const inviteUrl = `${hostUrl}/join.html?token=${inviteToken}`;
+        
+        const prisma = require('../Config/prisma');
+        const grupo = await prisma.grupos.findUnique({ where: { id_grupo: parseInt(id_grupo) } });
+        const usuario = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(id_solicitante) } });
+        
+        if (correo) {
+            const nodemailer = require('nodemailer');
+            const EmailTemplates = require('../Routes/emailTemplates');
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: process.env.SMTP_PORT || 587,
+                secure: false,
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            });
+            const mailOptions = {
+                from: `"GroupWallet" <${process.env.SMTP_USER}>`,
+                to: correo,
+                subject: `Invitación a "${grupo.nombre_grupo}"`,
+                html: EmailTemplates.invitacionGrupo(usuario.nombre, grupo.nombre_grupo, inviteUrl)
+            };
+            await transporter.sendMail(mailOptions);
+        }
+        
+        if (telefono && process.env.TWILIO_ACCOUNT_SID) {
+            const twilio = require('twilio');
+            const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+            const fromWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER;
+            
+            const numeroLimpio = telefono.startsWith('+') ? telefono : '+' + telefono;
+            const mensaje = `¡Hola! ${usuario.nombre} te invita a unirte a "${grupo.nombre_grupo}" en GroupWallet. Divide tus gastos fácil y rápido ingresando aquí: ${inviteUrl}`;
+            
+            // Preferimos WhatsApp si está configurado
+            if (fromWhatsApp && fromWhatsApp.includes('whatsapp:')) {
+                await client.messages.create({ body: mensaje, from: fromWhatsApp, to: `whatsapp:${numeroLimpio}` });
+            } else {
+                await client.messages.create({ body: mensaje, from: process.env.TWILIO_PHONE_NUMBER, to: numeroLimpio });
+            }
+        }
+    }
+
     static async unirseGrupo(token_invitacion, id_usuario) {
         let decoded;
         try { decoded = jwt.verify(token_invitacion, JWT_SECRET); } 

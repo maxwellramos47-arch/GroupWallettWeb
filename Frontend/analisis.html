@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Finanzas - GroupWallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <a href="dashboard.html"><img src="Placeholders/LogoMenu.png" alt="GroupWallet" class="logo-menu"></a>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="dashboard.html">Panel</a></li>
+                <li><a href="mensual.html">Mensual</a></li>
+                <li><a href="analisis.html" class="active">Análisis de Finanzas</a></li>
+                <li><a href="grupos.html">Mis Grupos</a></li>
+                <li><a href="ajustes.html">Ajustes</a></li>
+                <li><button id="theme-toggle" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0;">🌙</button></li>
+                <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <!-- Módulo de Análisis de Finanzas (Premium CTA) -->
+        <article class="card premium-lock-container" style="margin-bottom: 2rem;">
+            <h3>Analíticas Avanzadas <span class="badge-premium">Premium</span></h3>
+            <div id="analisis-content" class="locked-content">
+                <div class="blur-overlay" id="blur-premium-cta">
+                    <p>Desbloquea gráficos interactivos e insights sobre tus hábitos de gasto por solo <strong>$5.00/mes</strong> (MercadoPago).</p>
+                    <button class="btn-upgrade mt-2" id="btn-show-payment">Mejorar a Premium</button>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="font-weight: 500; font-size: 0.9rem;">Distribución de Gastos</span>
+                    <select id="tipo-grafico" style="max-width: 150px; padding: 0.3rem; font-size: 0.8rem;">
+                        <option value="doughnut">Gráfico de Anillo</option>
+                        <option value="bar">Gráfico de Barras</option>
+                        <option value="pie">Gráfico Circular</option>
+                    </select>
+                </div>
+                <div class="fake-chart" id="chart-container">
+                    <canvas id="premiumChart" style="display: none; max-height: 250px; margin: 0 auto;"></canvas>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; color: var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
+                    <p>Categoría principal: <strong id="cat-frecuente">???</strong></p>
+                    <p>Mayor gasto: <strong id="gasto-mayor">$???</strong></p>
+                    <p>Gasto Promedio: <strong id="gasto-promedio">$???</strong></p>
+                    <p>Total Mensual: <strong id="total-gastado">$???</strong></p>
+                    <p>Proyección de Ahorro: <strong id="ahorro-proyectado" style="color: var(--secondary-emerald);">$???</strong></p>
+                </div>
+            </div>
+        </article>
+
+        <div class="card">
+            <h3>Historial de Gastos Archivados</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Aquí aparecen todos los gastos que ya fueron pagados al 100%.</p>
+            </div>
+            <div class="table-responsive">
+                <table class="gastos-table">
+                    <thead>
+                        <tr><th>Fecha Gasto</th><th>Archivado El</th><th>Grupo</th><th>Descripción</th><th>Pagador</th><th>Monto Total</th></tr>
+                    </thead>
+                    <tbody id="lista-historial"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="toast.js"></script>
+    <script src="analisis.js"></script>
+</body>
+</html>

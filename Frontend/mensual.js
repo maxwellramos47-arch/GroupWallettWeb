@@ -162,8 +162,11 @@ document.addEventListener('DOMContentLoaded', () => {
             listaGastosMensual.appendChild(tr);
         });
 
-        // --- Algoritmo de Gastos Hormiga (≤ $15.00) ---
-        const umbralHormiga = 15.00;
+        // --- Algoritmo de Gastos Hormiga Dinámico ---
+        const umbralHormiga = parseFloat(localStorage.getItem(`umbralHormiga_${miIdUsuario}`)) || 15.00;
+        const descHormiga = document.getElementById('hormiga-desc');
+        if (descHormiga) descHormiga.textContent = `Fugas de dinero silenciosas (menores o iguales a ${moneda}${umbralHormiga.toFixed(2)}).`;
+
         let hormigaSuma = 0, hormigaCount = 0;
         filtradas.forEach(t => {
             if (t.monto <= umbralHormiga) { hormigaSuma += t.monto; hormigaCount++; }
@@ -249,6 +252,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // --- Obtener y Reflejar Cuota de Subida de Archivos ---
+    const cargarCuotaComprobantes = async () => {
+        const quotaContainer = document.getElementById('upload-quota-container');
+        const quotaText = document.getElementById('upload-quota-text');
+        const quotaBar = document.getElementById('upload-quota-bar');
+        const fileInput = document.getElementById('comprobante-gasto-mensual');
+        if (!quotaContainer) return;
+
+        try {
+            const res = await fetch('/api/upload/quota', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.isFree) {
+                    quotaContainer.style.display = 'block';
+                    const percentage = Math.min((data.used / data.limit) * 100, 100);
+                    quotaBar.style.width = `${percentage}%`;
+                    
+                    if (data.used >= data.limit) {
+                        quotaBar.style.backgroundColor = 'var(--danger-color)';
+                        fileInput.disabled = true;
+                        quotaText.innerHTML = `${data.used}/${data.limit} <a href="dashboard.html?showUpgrade=true" style="color: var(--danger-color); text-decoration: underline;">¡Mejora a Premium!</a>`;
+                    } else {
+                        quotaText.textContent = `${data.used}/${data.limit}`;
+                        quotaBar.style.backgroundColor = data.used >= 4 ? '#f1c40f' : 'var(--secondary-emerald)'; // Amarillo si llega a 4
+                        fileInput.disabled = false;
+                    }
+                } else {
+                    quotaContainer.style.display = 'none';
+                    fileInput.disabled = false;
+                }
+            }
+        } catch (e) { console.error('Error cargando cuota:', e); }
+    };
+
     document.getElementById('btn-prev-month').addEventListener('click', () => {
         currentDate.setMonth(currentDate.getMonth() - 1);
         renderMonth();
@@ -289,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showSkeletonLoader(document.getElementById('lista-gastos-mensual'), 6);
         try {
+            cargarCuotaComprobantes();
             // Cargar Gastos
             const resGastos = await fetch('/api/gastos', { headers: { 'Authorization': `Bearer ${token}` } });
             if (resGastos.ok) transacciones = await resGastos.json();
@@ -414,19 +452,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const resFirma = await fetch(`/api/upload/presigned-url?type=${encodeURIComponent(archivoFinal.type)}`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (!resFirma.ok) throw new Error('Error al obtener la firma.');
+            if (!resFirma.ok) {
+                const errData = await resFirma.json();
+                throw new Error(errData.error || 'Error al obtener la firma de subida.');
+            }
             const { url, publicUrl } = await resFirma.json();
             const resUpload = await fetch(url, { method: 'PUT', body: archivoFinal, headers: { 'Content-Type': archivoFinal.type } });
             if (!resUpload.ok) throw new Error('Error al subir a la nube.');
             return publicUrl;
-        } catch (e) { showToast('No se pudo subir el archivo.', 'error'); return null; } finally { hideSpinner(); }
+        } catch (e) { showToast(e.message || 'No se pudo subir el archivo.', 'error'); return null; } finally { hideSpinner(); }
     };
 
     // --- 7. Exportar Reportes Mensuales (Exclusivo Premium) ---
-    const scriptPdf = document.createElement('script');
-    scriptPdf.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    document.head.appendChild(scriptPdf);
-
     const initExportButtons = () => {
         const chartContainer = document.getElementById('grafico-mensual')?.closest('.card');
         if (!chartContainer) return;
@@ -461,20 +498,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         btnPdf.addEventListener('click', async () => {
-            showSpinner();
-            if (!await validarPremium()) { hideSpinner(); return; }
-            
-            divBotones.style.display = 'none'; // Ocultar botones para que no salgan en la foto del PDF
-            const element = document.querySelector('.dashboard-container');
-            const nombreMes = document.getElementById('label-mes-actual').textContent.replace(/ /g, '_');
-            
-            const opt = { margin: 0.3, filename: `Reporte_Mensual_${nombreMes}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
-            
-            if (window.html2pdf) await html2pdf().set(opt).from(element).save();
-            else showToast('La librería PDF aún se está cargando...', 'error');
-            
-            divBotones.style.display = 'flex';
-            hideSpinner();
+            if (!await validarPremium()) return;
+            const m = currentDate.getMonth(); const a = currentDate.getFullYear();
+            window.location.href = `/api/finanzas/exportar-mensual-pdf?mes=${m}&anio=${a}`;
         });
 
         btnCsv.addEventListener('click', async () => {
