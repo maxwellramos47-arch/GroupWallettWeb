@@ -642,7 +642,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeBtnText: 'Saltar',
                 nextBtnText: 'Siguiente',
                 prevBtnText: 'Anterior',
-                allowClose: false, // Evita que se cierre al hacer clic fuera
+                allowClose: true, // Permitir cerrar libremente haciendo clic fuera o presionando ESC
+                animate: true, // Animación fluida
+                smoothScroll: true, // Scroll suave para no marear al usuario si el elemento está lejos
                 steps: [
                     {
                         popover: {
@@ -668,11 +670,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         popover: { title: '4. ¡Gana Premium Gratis! 🎁', description: 'Copia este enlace y envíaselo a 3 amigos. Si se registran, ¡obtendrás un mes de plan Premium completamente gratis!', position: 'bottom' }
                     }
                 ],
-                onDestroyStarted: () => {
-                    if (!driverObj.hasNextStep() || confirm('¿Seguro que quieres saltar el tutorial?')) {
-                        localStorage.setItem(onboardingKey, 'true');
-                        driverObj.destroy();
-                    }
+                onDestroyed: () => {
+                    // Lógica Escalable: Guardamos el estado una vez que la librería ha limpiado el DOM de forma nativa y segura
+                    localStorage.setItem(onboardingKey, 'true');
                 }
             });
             setTimeout(() => driverObj.drive(), 1000); // Dar 1 segundo para que la página termine de pintar los elementos

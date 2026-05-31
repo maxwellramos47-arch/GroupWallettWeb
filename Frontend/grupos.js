@@ -622,7 +622,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 closeBtnText: 'Saltar',
                 nextBtnText: 'Siguiente',
                 prevBtnText: 'Anterior',
-                allowClose: false,
+                allowClose: true, // Permitir cerrar libremente en caso de querer salir rápido
+                animate: true,
+                smoothScroll: true,
                 steps: [
                     { popover: { title: 'Gestión de Grupos 👥', description: 'Aquí podrás crear y administrar todos tus grupos financieros y de viaje.', position: 'center' } },
                     { element: '#tour-crear-grupo', popover: { title: '1. Crear un Grupo', description: 'Asigna un nombre a tu grupo, como "Viaje al Sur" o "Departamento".', position: 'bottom' } },
@@ -630,11 +632,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     { element: '#tour-escanear', popover: { title: '3. Escáner Rápido', description: 'Si estás junto a un amigo, usa la cámara para escanear su QR y unirte a su grupo en 2 segundos.', position: 'bottom' } },
                     { element: '#tour-lista-grupos', popover: { title: '4. Administrar', description: 'Revisa tus grupos actuales, cambia sus nombres, o expulsa miembros si eres el administrador.', position: 'top' } }
                 ],
-                onDestroyStarted: () => {
-                    if (!driverObj.hasNextStep() || confirm('¿Seguro que quieres saltar el tutorial? No volverá a mostrarse.')) {
-                        localStorage.setItem(onboardingKey, 'true');
-                        driverObj.destroy();
-                    }
+                onDestroyed: () => {
+                    // Lógica Escalable: Guardamos el estado sin interrumpir el ciclo de vida de la librería
+                    localStorage.setItem(onboardingKey, 'true');
                 }
             });
             setTimeout(() => driverObj.drive(), 800); // Esperar que la tabla randerice
