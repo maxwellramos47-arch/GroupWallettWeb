@@ -5,6 +5,7 @@ const UsuarioDAL = require('../DAL/usuario.dal');
 const { JWT_SECRET, safeEncrypt, safeDecrypt, generarFirmaHMAC } = require('../Middleware/security.util');
 const twilio = require('twilio');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const webpush = require('web-push');
 
 class UsuarioBLL {
     static async generarTokenVerificacion(telefono) {
@@ -87,19 +88,20 @@ class UsuarioBLL {
         let referido_por = null;
         if (codigo_referido && !isNaN(parseInt(codigo_referido))) {
             const referrer = await UsuarioDAL.findById(parseInt(codigo_referido));
-            if (referrer) referido_por = referrer.id_usuario;
+            // Prevenir Bucle Infinito: El link caduca/deja de contar tras 3 invitados exitosos
+            if (referrer && referrer.referidos_count < 3) referido_por = referrer.id_usuario;
         }
 
         const id_usuario = await UsuarioDAL.create(nombre, correoNormalizado, correo_verificado, telefonoSeguro, telefonoHash, passwordHash, telefono_verificado, referido_por);
         
         if (referido_por) {
-            await UsuarioBLL.procesarRecompensaReferido(referido_por);
+            await UsuarioBLL.procesarRecompensaReferido(referido_por, nombre);
         }
         
         return { id_usuario };
     }
 
-    static async procesarRecompensaReferido(id_referidor) {
+    static async procesarRecompensaReferido(id_referidor, nombre_amigo) {
         const prisma = require('../Config/prisma'); 
         const referrer = await prisma.usuarios.findUnique({ where: { id_usuario: id_referidor } });
         if (!referrer) return;
@@ -107,7 +109,8 @@ class UsuarioBLL {
         const newCount = (referrer.referidos_count || 0) + 1;
         const dataToUpdate = { referidos_count: newCount };
         
-        if (newCount % 3 === 0) {
+        if (newCount === 3) {
+            // 1. Recompensa para el referidor (Dueño del link)
             let newDate = new Date();
             if (referrer.estado_suscripcion === 'activo' && referrer.id_plan === 2 && referrer.fecha_vencimiento_suscripcion) {
                 newDate = new Date(referrer.fecha_vencimiento_suscripcion);
@@ -116,9 +119,52 @@ class UsuarioBLL {
             dataToUpdate.id_plan = 2;
             dataToUpdate.estado_suscripcion = 'activo';
             dataToUpdate.fecha_vencimiento_suscripcion = newDate;
+            
+            await prisma.usuarios.update({ where: { id_usuario: id_referidor }, data: dataToUpdate });
+            
+            // 2. Recompensa para los 3 amigos referidos (Bonus Multiplicador)
+            const referidos = await prisma.usuarios.findMany({
+                where: { referido_por: id_referidor }
+            });
+            
+            for (const ref of referidos) {
+                let refDate = new Date();
+                if (ref.estado_suscripcion === 'activo' && ref.id_plan === 2 && ref.fecha_vencimiento_suscripcion) {
+                    refDate = new Date(ref.fecha_vencimiento_suscripcion);
+                }
+                refDate.setDate(refDate.getDate() + 30);
+                
+                await prisma.usuarios.update({
+                    where: { id_usuario: ref.id_usuario },
+                    data: {
+                        id_plan: 2,
+                        estado_suscripcion: 'activo',
+                        fecha_vencimiento_suscripcion: refDate
+                    }
+                });
+            }
+        } else {
+            // Aún no llega a 3, solo incrementamos su contador
+            await prisma.usuarios.update({ where: { id_usuario: id_referidor }, data: dataToUpdate });
         }
-        
-        await prisma.usuarios.update({ where: { id_usuario: id_referidor }, data: dataToUpdate });
+
+        // --- Notificación Push al Referidor ---
+        if (referrer.push_subscription) {
+            try {
+                let pushTitle = '¡Un amigo se ha unido! 🎉';
+                let pushBody = `¡${nombre_amigo} se ha registrado usando tu enlace! Llevas ${newCount}/3 referidos.`;
+                
+                if (newCount === 3) {
+                    pushTitle = '¡Misión Cumplida! 🎁';
+                    pushBody = `¡${nombre_amigo} es tu tercer referido! Acabas de ganar 1 mes de Premium gratis.`;
+                }
+
+                const payload = JSON.stringify({ title: pushTitle, body: pushBody, url: '/dashboard.html' });
+                await webpush.sendNotification(JSON.parse(referrer.push_subscription), payload);
+            } catch (error) {
+                console.error('Error enviando push al referidor:', error.message);
+            }
+        }
     }
 
     static async login(identificador, password, rememberMe = false) {

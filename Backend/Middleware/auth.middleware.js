@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('./security.util');
 const prisma = require('../Config/prisma');
+const requestContext = require('../Config/context');
 
 // Helper para notificaciones Push de Seguridad (Anti-Bypass)
 const notificarAdminBypass = async (mensaje) => {
@@ -88,7 +89,11 @@ async function verificarToken(req, res, next) {
 
             req.usuarioLogueado = decoded;
             req.tokenActual = token;
-            next();
+            
+            // Envolver el resto de la petición en el contexto asíncrono para inyectar el ID al RLS de Postgres
+            requestContext.run({ userId: decoded.id_usuario.toString(), bypassRLS: false }, () => {
+                next();
+            });
         } catch (err) {
             // Si el JWT expiró matemáticamente, limpiar la DB
             await prisma.sesiones_Activas.deleteMany({ where: { token } });
@@ -126,6 +131,12 @@ const verificarSuperAdmin = async (req, res, next) => {
                 await notificarAdminBypass(`BYPASS DETECTADO: El usuario ID ${id_usuario} intentó usar el rol Súper Admin sin tener el correo maestro.`);
             }
             return res.status(403).json({ error: 'Acceso denegado. Violación de seguridad detectada (Filtro Anti-Bypass activado).' });
+        }
+
+        // Si es Súper Admin válido, desactivamos el RLS para que pueda consultar todas las tablas y paneles
+        const currentContext = requestContext.getStore();
+        if (currentContext) {
+            currentContext.bypassRLS = true;
         }
 
         next();

@@ -447,7 +447,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let archivoFinal = archivo;
             
             if (archivo.type.startsWith('image/') && typeof imageCompression === 'function') {
-                const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true, fileType: 'image/webp' };
+                const userQuality = localStorage.getItem(`compresion_${usuarioId}`) || 'medium';
+                let maxMB = 0.5, maxWidth = 1280;
+                
+                if (userQuality === 'high') { maxMB = 1; maxWidth = 1920; }
+                else if (userQuality === 'low') { maxMB = 0.2; maxWidth = 800; }
+
+                const options = { maxSizeMB: maxMB, maxWidthOrHeight: maxWidth, useWebWorker: true, fileType: 'image/webp' };
                 archivoFinal = await imageCompression(archivo, options);
             }
 

@@ -87,19 +87,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const paymentId = urlParams.get('payment_id');
         const idTransaccion = urlParams.get('id_t');
         if (paymentId && idTransaccion) {
-            showSpinner();
             fetch('/api/cuotas/confirmar-checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ payment_id: paymentId, id_transaccion: idTransaccion })
             }).then(res => res.json()).then(data => {
-                hideSpinner();
                 if (data.message) {
                     showToast(data.message, 'success');
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    // Nota: No hace falta recargar la web. WebSockets (cuota_pagada) actualizará la tabla solo.
+                    setTimeout(() => window.location.reload(), 1500); // Recargar para limpiar el DOM y forzar datos frescos
                 } else showToast(data.error, 'error');
-            }).catch(() => { hideSpinner(); showToast('Error verificando pago de cuota.', 'error'); });
+            }).catch(() => { showToast('Error verificando pago de cuota.', 'error'); });
         }
     } else if (urlParams.get('pago_cuota') === 'canceled') {
         showToast('El pago de la cuota fue cancelado.', 'info');
@@ -109,8 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. Variables y Nodos del DOM ---
     const formGasto = document.getElementById('form-gasto');
     const listaGastos = document.getElementById('lista-gastos');
-    const saldoTeDeben = document.querySelector('.stat.positive h4');
-    const saldoDebes = document.querySelector('.stat.negative h4');
+    const saldoTeDeben = document.getElementById('saldo-te-deben');
+    const saldoDebes = document.getElementById('saldo-debes');
     const inputBuscarGasto = document.getElementById('buscar-gasto');
 
     // Detectar SO para mostrar el atajo correcto
@@ -295,8 +293,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (monto > 0 && numParticipantes > 0) {
                 const porPersona = (monto / numParticipantes).toFixed(2);
                 resumenEl.textContent = `Se dividirán ${moneda}${monto.toFixed(2)} entre ${numParticipantes} personas (${moneda}${porPersona} c/u).`;
+                resumenEl.style.display = 'block';
             } else {
                 resumenEl.textContent = '';
+                resumenEl.style.display = 'none';
             }
         }
     };
@@ -574,7 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
                 if (response.ok && data.url) {
-                    window.location.href = data.url; // Redirigir a Stripe
+                    window.location.href = data.url; // Redirigir a MercadoPago
                 } else {
                     showToast(data.error || 'Error conectando a MercadoPago.', 'error');
                     hideSpinner();
@@ -590,20 +590,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 const data = await res.json();
                 const refCountEl = document.getElementById('ref-count');
-                if (refCountEl) refCountEl.textContent = data.referidos_count;
+                if (refCountEl) refCountEl.textContent = `${Math.min(data.referidos_count, 3)}/3`;
                 
                 const refLinkEl = document.getElementById('ref-link');
-                const link = `${window.location.origin}/registro.html?ref=${usuarioId}`;
-                if (refLinkEl) refLinkEl.value = link;
-                
                 const btnCopyRef = document.getElementById('btn-copy-ref');
-                if (btnCopyRef) {
-                    btnCopyRef.addEventListener('click', async () => {
-                        await navigator.clipboard.writeText(link);
-                        const origText = btnCopyRef.textContent;
-                        btnCopyRef.textContent = '¡Copiado!';
-                        setTimeout(() => btnCopyRef.textContent = origText, 2000);
-                    });
+                
+                if (data.referidos_count >= 3) {
+                    // Límite alcanzado, ocultar la capacidad de copiar enlace y cambiar texto
+                    if (refLinkEl) {
+                        refLinkEl.value = "🎉 ¡Misión completada! Tienes Premium.";
+                        refLinkEl.style.textAlign = "center";
+                        refLinkEl.style.fontWeight = "bold";
+                        refLinkEl.style.color = "#f1c40f";
+                    }
+                    if (btnCopyRef) btnCopyRef.style.display = 'none';
+                } else {
+                    const link = `${window.location.origin}/registro.html?ref=${usuarioId}`;
+                    if (refLinkEl) refLinkEl.value = link;
+                    if (btnCopyRef) {
+                        btnCopyRef.addEventListener('click', async () => {
+                            await navigator.clipboard.writeText(link);
+                            const origText = btnCopyRef.textContent;
+                            btnCopyRef.textContent = '¡Copiado!';
+                            setTimeout(() => btnCopyRef.textContent = origText, 2000);
+                        });
+                    }
                 }
             }
         } catch (e) { console.error('Error cargando referidos:', e); }
@@ -634,55 +645,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch(e) { console.error(e); }
-    };
-
-    // --- 2.10. Onboarding Interactivo (Tour Guiado) ---
-    const iniciarOnboarding = () => {
-        const onboardingKey = `onboarding_completed_${usuarioId}`;
-        // Solo mostrar si el usuario no tiene la marca de "completado"
-        if (!localStorage.getItem(onboardingKey) && window.driver) {
-            const driverObj = window.driver.js.driver({
-                showProgress: true,
-                doneBtnText: '¡Entendido!',
-                closeBtnText: 'Saltar',
-                nextBtnText: 'Siguiente',
-                prevBtnText: 'Anterior',
-                allowClose: true, // Permitir cerrar libremente haciendo clic fuera o presionando ESC
-                animate: true, // Animación fluida
-                smoothScroll: true, // Scroll suave para no marear al usuario si el elemento está lejos
-                steps: [
-                    {
-                        element: '.main-header',
-                        popover: {
-                            title: '¡Bienvenido a GroupWallet! 🎉',
-                            description: 'Vamos a dar un rápido paseo para enseñarte cómo dividir gastos sin perder amigos.',
-                            position: 'bottom'
-                        }
-                    },
-                    {
-                        element: '#tour-streamline',
-                        popover: { title: '1. Gestión Rápida', description: 'Registra un gasto y visualízalo inmediatamente en el historial aquí mismo en tu dashboard.', position: 'bottom' }
-                    },
-                    {
-                        element: '#tour-saldos',
-                        popover: { title: '2. Saldos y Miembros', description: 'Revisa quién debe a quién y administra los miembros usando el nuevo botón.', position: 'top' }
-                    },
-                    {
-                        element: '.main-nav a[href="analisis.html"]',
-                        popover: { title: '3. Análisis de Finanzas', description: 'Tus gráficos detallados y el historial archivado se mudaron a esta nueva pestaña.', position: 'bottom' }
-                    },
-                    {
-                        element: '#btn-show-payment',
-                        popover: { title: '4. Mejora tu cuenta', description: 'Aprovecha las capacidades ilimitadas suscribiéndote a Premium.', position: 'bottom' }
-                    }
-                ],
-                onDestroyed: () => {
-                    // Lógica Escalable: Guardamos el estado una vez que la librería ha limpiado el DOM de forma nativa y segura
-                    localStorage.setItem(onboardingKey, 'true');
-                }
-            });
-            setTimeout(() => driverObj.drive(), 1000); // Dar 1 segundo para que la página termine de pintar los elementos
-        }
     };
 
     // --- 2.11 Modal de Miembros Integrado ---
@@ -927,8 +889,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cargarReferidos();
             cargarLogros();
             
-            iniciarOnboarding(); // Disparar el tour si corresponde
-
             // Cargar dinámicamente la lista de grupos en el <select>
             const reqGrupos = await fetch('/api/grupos');
             if (reqGrupos.ok) {
@@ -945,6 +905,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Agregar el evento para filtrar la tabla dinámicamente
                     selectGrupoGasto.addEventListener('change', async (e) => {
                         const idGrupo = e.target.value;
+                        
+                        const content = document.getElementById('dashboard-content');
+                        const emptyState = document.getElementById('dashboard-empty-state');
+                        if (content) content.style.display = 'block';
+                        if (emptyState) emptyState.style.display = 'none';
+                        
                         currentPage = 1; // Volver a la primera página al cambiar de grupo
                         renderizarTabla();
                         calcularSaldos();
@@ -1159,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // --- Pagar Cuota vía Stripe In-App ---
+            // --- Pagar Cuota vía MercadoPago In-App ---
             if (e.target.classList.contains('btn-pago-inapp')) {
                 const btn = e.target;
                 const idTransaccion = btn.getAttribute('data-transaccion');
@@ -1422,9 +1388,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Compresión al vuelo (Solo si es imagen)
             if (archivo.type.startsWith('image/') && typeof imageCompression === 'function') {
+                const userQuality = localStorage.getItem(`compresion_${usuarioId}`) || 'medium';
+                let maxMB = 0.5, maxWidth = 1280; // default (medium)
+                
+                if (userQuality === 'high') { maxMB = 1; maxWidth = 1920; }
+                else if (userQuality === 'low') { maxMB = 0.2; maxWidth = 800; }
+
                 const options = { 
-                    maxSizeMB: 0.5,          // Límite máximo de peso (500 KB)
-                    maxWidthOrHeight: 1280,  // Resolución máxima (HD)
+                    maxSizeMB: maxMB,
+                    maxWidthOrHeight: maxWidth,
                     useWebWorker: true,      // Evita que la interfaz se congele
                     fileType: 'image/webp'   // Convertir a WebP para máximo ahorro en S3
                 };

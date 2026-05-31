@@ -24,7 +24,6 @@
             50% { opacity: 1; }
         }
     </style>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
@@ -49,6 +48,7 @@
                 <li><a href="grupos.html" class="active">Mis Grupos</a></li>
                 <li><a href="ajustes.html">Ajustes</a></li>
                 <li><button id="theme-toggle" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0;" title="Cambiar Tema">🌙</button></li>
+                <li><a href="#" class="nav-install-btn" style="display: none; color: var(--secondary-emerald); font-weight: bold;">📱 Instalar App</a></li>
                 <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
             </ul>
         </nav>
@@ -64,7 +64,7 @@
         </section>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
-            <article class="card" id="tour-crear-grupo">
+            <article class="card">
                 <h3>Crear Nuevo Grupo</h3>
                 <form id="form-grupo">
                     <div class="form-group">
@@ -74,17 +74,28 @@
                     <button type="submit" class="btn-primary">Crear Grupo</button>
                 </form>
             </article>
-            <article class="card" id="tour-invitar">
+            <article class="card">
                 <h3>Invitar Participante</h3>
-                <form id="form-participante">
-                    <div class="form-group">
-                        <label for="grupo-invitar">Selecciona el Grupo</label>
-                        <select id="grupo-invitar" required>
-                            <option value="" disabled selected>Cargando grupos...</option>
-                        </select>
+                <div class="form-group">
+                    <label for="grupo-invitar">Selecciona el Grupo</label>
+                    <select id="grupo-invitar" required>
+                        <option value="" disabled selected>Cargando grupos...</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div>
+                        <button type="button" id="btn-generar-qr" class="btn-primary" style="background-color: var(--secondary-emerald);">📲 Generar QR / Enlace Mágico</button>
                     </div>
-                    <button type="submit" class="btn-primary">Generar Enlace</button>
-                </form>
+                    
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <label style="font-weight: 500; font-size: 0.9rem; margin-bottom: 0.5rem; display: block;">Enviar invitación directa</label>
+                        <form id="form-invitar-directo" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <input type="email" id="correo-invitar" placeholder="ejemplo@correo.com" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-light);" required>
+                            <button type="submit" class="btn-primary" style="background-color: var(--primary-slate);">✉️ Enviar por Correo</button>
+                        </form>
+                    </div>
+                </div>
                 <div id="invite-link-container" style="display: none; margin-top: 1rem;">
                     <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
                         <input type="text" id="invite-link" readonly style="flex: 1; background-color: var(--bg-light); color: var(--text-muted); margin: 0;">
@@ -100,7 +111,7 @@
                     </div>
                 </div>
             </article>
-            <article class="card" id="tour-escanear">
+            <article class="card">
                 <h3>Escanear Invitación</h3>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Usa tu cámara para leer el código QR del teléfono de un amigo.</p>
                 <button id="btn-scan-qr" class="btn-primary" style="background-color: var(--secondary-emerald);">📷 Escanear QR</button>
@@ -111,7 +122,7 @@
             </article>
         </div>
 
-        <div class="card" id="tour-lista-grupos">
+        <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <h3 style="margin: 0; border: none;">Administración de Mis Grupos</h3>
                 <input type="text" id="buscar-grupo" placeholder="Buscar grupo por nombre o rol... (Ctrl+K)" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; min-width: 250px;">
@@ -159,7 +170,6 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
     <script src="toast.js"></script>
     <script src="grupos.js"></script>
 </body>

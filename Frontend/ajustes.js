@@ -152,16 +152,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Preferencias Locales ---
     const inputUmbralHormiga = document.getElementById('ajustes-umbral-hormiga');
+    const inputCompresion = document.getElementById('ajustes-compresion');
     if (inputUmbralHormiga) {
         inputUmbralHormiga.value = localStorage.getItem(`umbralHormiga_${usuarioId}`) || 15;
+    }
+    if (inputCompresion) {
+        inputCompresion.value = localStorage.getItem(`compresion_${usuarioId}`) || 'medium';
     }
     
     const btnGuardarPreferencias = document.getElementById('btn-guardar-preferencias');
     if (btnGuardarPreferencias) {
         btnGuardarPreferencias.addEventListener('click', () => {
             const val = parseFloat(inputUmbralHormiga.value);
+            const compresionVal = inputCompresion.value;
             if (!isNaN(val) && val > 0) {
                 localStorage.setItem(`umbralHormiga_${usuarioId}`, val);
+                localStorage.setItem(`compresion_${usuarioId}`, compresionVal);
                 showToast('Preferencia guardada exitosamente.', 'success');
             } else { showToast('Ingresa un monto válido para el umbral.', 'error'); }
         });

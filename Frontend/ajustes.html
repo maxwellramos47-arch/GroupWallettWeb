@@ -29,6 +29,7 @@
                 <li><a href="grupos.html">Mis Grupos</a></li>
                 <li><a href="ajustes.html" class="active">Ajustes</a></li>
                 <li><button id="theme-toggle" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0;" title="Cambiar Tema">🌙</button></li>
+                <li><a href="#" class="nav-install-btn" style="display: none; color: var(--secondary-emerald); font-weight: bold;">📱 Instalar App</a></li>
                 <li><a href="#" id="btn-logout" style="color: var(--danger-color);">Salir</a></li>
             </ul>
         </nav>
@@ -92,6 +93,15 @@
                 <label>Umbral de "Gastos Hormiga"</label>
                 <input type="number" id="ajustes-umbral-hormiga" placeholder="Ej. 15" min="1" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Cualquier gasto menor o igual a este monto será clasificado como "Gasto Hormiga" en tu vista Mensual.</p>
+            </div>
+            <div class="form-group mt-2">
+                <label>Calidad de Subida de Comprobantes</label>
+                <select id="ajustes-compresion" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    <option value="high">Alta (HD, ~1 MB - Mejor lectura)</option>
+                    <option value="medium">Media (Equilibrada, ~500 KB)</option>
+                    <option value="low">Baja (Ahorro de datos, ~200 KB)</option>
+                </select>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Ajusta la calidad con la que se guardan tus fotos de recibos. Usa "Baja" si tienes mala conexión.</p>
             </div>
             <button type="button" id="btn-guardar-preferencias" class="btn-primary mt-2" style="width: auto;">Guardar Preferencia</button>
         </div>

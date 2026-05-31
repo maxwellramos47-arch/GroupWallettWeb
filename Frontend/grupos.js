@@ -92,6 +92,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res.ok) {
                 const data = await res.json();
                 const banner = document.getElementById('referidos-premium-banner');
+                
+                if (data.referidos_count >= 3) {
+                    const tourInvitar = document.getElementById('tour-invitar');
+                    if (tourInvitar) {
+                        tourInvitar.innerHTML = `
+                            <h3>Invitar Participante</h3>
+                            <div style="text-align: center; padding: 2rem 0;">
+                                <span style="font-size: 3rem;">🎉</span>
+                                <h4 style="color: var(--secondary-emerald); margin-top: 1rem;">¡Misión Completada!</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;">Has alcanzado el límite de 3 amigos referidos y ganaste tu mes Premium.</p>
+                            </div>
+                        `;
+                    }
+                }
+
                 if (data.referidos_count >= 3 && data.id_plan === 2 && data.fecha_vencimiento_suscripcion) {
                     const vencimiento = new Date(data.fecha_vencimiento_suscripcion);
                     const hoy = new Date();
@@ -405,24 +420,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- 4. Invitar Participante ---
-    const formParticipante = document.getElementById('form-participante');
+    const btnGenerarQr = document.getElementById('btn-generar-qr');
+    const formInvitarDirecto = document.getElementById('form-invitar-directo');
 
-    if (formParticipante) {
-        // Añadir dinámicamente campo de correo si no existe
-        if (!document.getElementById('correo-invitar')) {
-            const btnSubmit = formParticipante.querySelector('button[type="submit"]');
-            if (btnSubmit) {
-                const emailDiv = document.createElement('div');
-                emailDiv.style.marginBottom = '1rem';
-                emailDiv.innerHTML = `
-                    <label style="font-weight: bold; margin-bottom: 0.5rem; display: block; color: var(--text-color);">Enviar invitación al correo (Opcional):</label>
-                    <input type="email" id="correo-invitar" placeholder="ejemplo@correo.com" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                `;
-                btnSubmit.parentNode.insertBefore(emailDiv, btnSubmit);
-            }
-        }
-
-        formParticipante.addEventListener('submit', async (e) => {
+    if (btnGenerarQr) {
+        btnGenerarQr.addEventListener('click', async (e) => {
             e.preventDefault();
 
             if (!navigator.onLine) {
@@ -431,8 +433,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const idGrupo = document.getElementById('grupo-invitar').value;
-            const correo = document.getElementById('correo-invitar') ? document.getElementById('correo-invitar').value : '';
-            if (!idGrupo) return;
+            if (!idGrupo) {
+                showToast('Selecciona un grupo primero.', 'error');
+                return;
+            }
 
             showSpinner();
             try {
@@ -442,13 +446,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ correo })
+                    body: JSON.stringify({})
                 });
                 const data = await response.json();
                 if (response.ok) {
                     const mensaje = encodeURIComponent(`¡Hola! Únete a mi grupo de finanzas en GroupWallet aquí: ${data.enlace}`);
                     const waLink = `https://api.whatsapp.com/send?text=${mensaje}`;
-                    const emailLink = `mailto:?subject=Invitación a GroupWallet&body=${mensaje}`;
                     
                     // Generar Código QR de forma local (en memoria)
                     const qrContainer = document.createElement('div');
@@ -488,7 +491,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                                 <div style="display: flex; gap: 0.8rem; justify-content: center;">
                                     <a href="${waLink}" target="_blank" style="flex: 1; background-color: #25D366; color: white; padding: 0.6rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem; font-weight: bold;">📱 WhatsApp</a>
-                                    <a href="${emailLink}" target="_blank" style="flex: 1; background-color: var(--primary-slate); color: white; padding: 0.6rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem; font-weight: bold;">✉️ Correo</a>
                                 </div>
                                 
                                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1.5rem; margin-bottom: 0;">El enlace es válido por 7 días</p>
@@ -499,7 +501,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                             document.getElementById('btn-cerrar-qr-modal').addEventListener('click', () => {
                                 document.body.removeChild(modalOverlay);
-                                if (formParticipante) formParticipante.reset();
                             });
 
                             const btnModalCopiar = document.getElementById('btn-modal-copiar');
@@ -525,6 +526,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                     showToast('Invitación generada exitosamente.', 'success');
                 } else showToast(data.error, 'error');
             } catch (error) { console.error(error); showToast('Error al generar enlace.', 'error'); } finally { hideSpinner(); }
+        });
+    }
+
+    if (formInvitarDirecto) {
+        formInvitarDirecto.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!navigator.onLine) return showToast('Verifica tu conexión a internet.', 'error');
+
+            const idGrupo = document.getElementById('grupo-invitar').value;
+            const correo = document.getElementById('correo-invitar').value;
+            
+            if (!idGrupo) return showToast('Selecciona un grupo primero.', 'error');
+            
+            showSpinner();
+            try {
+                const response = await fetch(`/api/grupos/${idGrupo}/invitar`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ correo })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(data.message || 'Invitación enviada al correo exitosamente.', 'success');
+                    formInvitarDirecto.reset();
+                } else {
+                    showToast(data.error || 'Error al enviar invitación.', 'error');
+                }
+            } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
         });
     }
 
@@ -634,37 +664,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- 6. Onboarding Interactivo (Tour Guiado de Grupos) ---
-    const iniciarOnboardingGrupos = () => {
-        const onboardingKey = `onboarding_grupos_completed_${usuarioId}`;
-        if (!localStorage.getItem(onboardingKey) && window.driver) {
-            const driverObj = window.driver.js.driver({
-                showProgress: true,
-                doneBtnText: '¡Entendido!',
-                closeBtnText: 'Saltar',
-                nextBtnText: 'Siguiente',
-                prevBtnText: 'Anterior',
-                allowClose: true, // Permitir cerrar libremente en caso de querer salir rápido
-                animate: true,
-                smoothScroll: true,
-                steps: [
-                    { element: '.main-header', popover: { title: 'Gestión de Grupos 👥', description: 'Aquí podrás crear y administrar todos tus grupos financieros y de viaje.', position: 'bottom' } },
-                    { element: '#tour-crear-grupo', popover: { title: '1. Crear un Grupo', description: 'Asigna un nombre a tu grupo, como "Viaje al Sur" o "Departamento".', position: 'bottom' } },
-                    { element: '#tour-invitar', popover: { title: '2. Invitar Amigos', description: 'Genera un enlace mágico o un código QR para que se unan al instante.', position: 'bottom' } },
-                    { element: '#tour-escanear', popover: { title: '3. Escáner Rápido', description: 'Si estás junto a un amigo, usa la cámara para escanear su QR y unirte a su grupo en 2 segundos.', position: 'bottom' } },
-                    { element: '#tour-lista-grupos', popover: { title: '4. Administrar', description: 'Revisa tus grupos actuales, cambia sus nombres, o expulsa miembros si eres el administrador.', position: 'top' } }
-                ],
-                onDestroyed: () => {
-                    // Lógica Escalable: Guardamos el estado sin interrumpir el ciclo de vida de la librería
-                    localStorage.setItem(onboardingKey, 'true');
-                }
-            });
-            setTimeout(() => driverObj.drive(), 800); // Esperar que la tabla randerice
-        }
-    };
-
     cargarGrupos().then(() => {
-        iniciarOnboardingGrupos();
         cargarReferidosBanner();
     });
 });

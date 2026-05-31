@@ -180,9 +180,15 @@ app.post('/api/webhooks/mercadopago', async (req, res) => {
                         try {
                             const transaccion = await prisma.transacciones.findUnique({ where: { id_transaccion: parseInt(id_transaccion) } });
                             if (transaccion) {
-                                const resultado = await GastoBLL.pagarCuotaInApp(parseInt(id_transaccion), parseInt(id_usuario), transaccion.id_usuario_pagador);
-                                io.emit('cuota_pagada', { id_transaccion: parseInt(id_transaccion), id_usuario: parseInt(id_usuario), archivado: resultado?.archivado || false });
-                                console.log(`✅ Webhook: Cuota ${id_transaccion} procesada exitosamente vía MercadoPago.`);
+                                // Validar que no esté pagada ya
+                                const participante = await prisma.transaccion_Participantes.findUnique({
+                                    where: { id_transaccion_id_usuario: { id_transaccion: parseInt(id_transaccion), id_usuario: parseInt(id_usuario) } }
+                                });
+                                if (participante && participante.estado_pago !== 'Pagado') {
+                                    const resultado = await GastoBLL.pagarCuotaInApp(parseInt(id_transaccion), parseInt(id_usuario), transaccion.id_usuario_pagador);
+                                    io.emit('cuota_pagada', { id_transaccion: parseInt(id_transaccion), id_usuario: parseInt(id_usuario), archivado: resultado?.archivado || false });
+                                    console.log(`✅ Webhook: Cuota ${id_transaccion} procesada exitosamente vía MercadoPago.`);
+                                }
                             }
                         } catch (error) { console.error('Aviso Webhook Cuota (Ya procesada):', error.message); }
                     } else {
@@ -1202,7 +1208,8 @@ cron.schedule('0 8 * * 1', async () => {
 // Auto-Ping: Algoritmo para mantener Render encendido (Evitar Sleep en Free Tier)
 cron.schedule('*/14 * * * *', async () => {
     try {
-        await fetch(`http://localhost:${PORT}/api/status`);
+        const pingUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/api/status` : `http://localhost:${PORT}/api/status`;
+        await fetch(pingUrl);
     } catch (error) { console.error('[CRON] Auto-ping fallido', error.message); }
 });
 

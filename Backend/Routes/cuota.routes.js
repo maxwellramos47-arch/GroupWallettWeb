@@ -49,7 +49,7 @@ router.post('/checkout', verificarToken, async (req, res) => {
                 items: [{
                     title: `Cuota: ${gasto.descripcion}`,
                     description: `Cubre tu parte del gasto. Incluye comisión (0.89%)`,
-                    unit_price: Math.round(montoFinal), // MercadoPago Chile (CLP) no usa decimales
+                    unit_price: Number(montoFinal.toFixed(2)), // Compatible con decimales y enteros
                     quantity: 1,
                     currency_id: 'CLP'
                 }],
@@ -75,8 +75,19 @@ router.post('/confirmar-checkout', verificarToken, async (req, res) => {
         const payment = new Payment(mpClient);
         const payInfo = await payment.get({ id: payment_id });
         if (payInfo.status === 'approved') {
+            // 1. Verificamos si el Webhook ya lo movió al Historial (Sincronización súper rápida)
+            const transaccionHistorial = await prisma.transacciones_Historial.findUnique({ where: { id_transaccion: parseInt(id_transaccion) } });
+            if (transaccionHistorial) return res.json({ message: 'Pago verificado exitosamente. (Sincronizado vía Webhook)' });
+
+            // 2. Si no, debe estar en Transacciones activas
             const transaccion = await prisma.transacciones.findUnique({ where: { id_transaccion: parseInt(id_transaccion) } });
             if (!transaccion) return res.status(404).json({ error: 'Transacción original no encontrada.' });
+            
+            // 3. Verificamos si ya está pagado pero el grupo aún tiene deudas de otras personas
+            const participante = await prisma.transaccion_Participantes.findUnique({ where: { id_transaccion_id_usuario: { id_transaccion: parseInt(id_transaccion), id_usuario: parseInt(id_usuario) } } });
+            if (participante && participante.estado_pago === 'Pagado') return res.json({ message: 'Pago verificado exitosamente. Tu deuda ya había sido saldada.' });
+
+            // 4. Procesarlo
 
             const resultado = await GastoBLL.pagarCuotaInApp(parseInt(id_transaccion), parseInt(id_usuario), transaccion.id_usuario_pagador);
             
