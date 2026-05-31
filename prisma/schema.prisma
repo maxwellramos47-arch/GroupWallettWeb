@@ -76,7 +76,7 @@ model Grupos {
 model Miembros_Grupo {
   id_grupo    Int
   id_usuario  Int
-  rol         String?   @default("Miembro")
+  rol         String?   @default("Miembro") @db.VarChar(20)
   fecha_union DateTime? @default(now()) @db.Timestamp()
 
   grupo       Grupos    @relation(fields: [id_grupo], references: [id_grupo], onDelete: Cascade)

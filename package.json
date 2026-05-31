@@ -29,7 +29,7 @@
   "scripts": {
     "start": "node --max-old-space-size=384 Backend/server.js",
     "dev": "nodemon Backend/server.js",
-    "build": "npx prisma generate && npx prisma db push",
+    "build": "npx prisma generate && npx prisma db push --accept-data-loss",
     "postinstall": "npx prisma generate",
     "test": "jest",
     "test:coverage": "jest --coverage"
