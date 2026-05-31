@@ -29,12 +29,13 @@ class UsuarioDAL {
         return user ? new Usuario(user) : null;
     }
 
-    static async updateProfile(id_usuario, nombre, telefono, foto_url, passwordHash = null) {
+    static async updateProfile(id_usuario, nombre, telefono, foto_url, passwordHash = null, moneda = null) {
         const data = {};
         if (nombre) data.nombre = nombre;
         // Nota: el teléfono se actualiza en el método dedicado de contacto para mantener su encriptación y Hash
         if (foto_url !== undefined) data.foto_url = foto_url; // Permite almacenar explícitamente "null"
         if (passwordHash) data.password_hash = passwordHash;
+        if (moneda) data.moneda = moneda;
         
         await prisma.usuarios.update({ where: { id_usuario }, data });
     }

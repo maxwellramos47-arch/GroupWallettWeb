@@ -16,12 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         );
     };
 
-    // --- Mostrar el nombre del usuario ---
-    const nombreUsuario = localStorage.getItem('usuarioNombre');
-    if (nombreUsuario) {
-        document.querySelectorAll('.nav-profile').forEach(el => el.textContent = `Hola, ${nombreUsuario}`);
-    }
-
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
         let [resource, config] = args;
@@ -75,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cargarGrupos = async () => {
         showSkeletonLoader(listaGrupos, 4);
         try {
-            const response = await fetch('/api/grupos', {
+            const response = await fetch('/api/grupos?todos=true', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Error al cargar grupos');
@@ -140,13 +134,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         gruposFiltrados.forEach(g => {
+            let badgeEstado = g.estado === 'Archivado' 
+                ? `<span style="background: var(--text-muted); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem;">Archivado</span>` 
+                : ``;
+            
+            let sugerenciaHtml = g.sugerir_archivar ? `<div style="color: #e67e22; font-size: 0.8rem; margin-top: 0.2rem;">⚠️ Inactivo (+3 meses). ¿Archivarlo?</div>` : '';
+
             const tr = document.createElement('tr');
             let acciones = `<button class="btn-ver-miembros btn-primary" data-id="${g.id_grupo}" data-nombre="${escapeHTML(g.nombre_grupo)}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--primary-slate); width: auto; margin-right: 0.5rem;">👥 Miembros</button>`;
             if (g.rol === 'Administrador') {
                 acciones += `<button class="btn-editar-grupo btn-primary" data-id="${g.id_grupo}" data-nombre="${escapeHTML(g.nombre_grupo)}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald); width: auto;">✏️ Editar</button>`;
-                if (selectInvitar) selectInvitar.innerHTML += `<option value="${g.id_grupo}">${escapeHTML(g.nombre_grupo)}</option>`;
+                acciones += `<button class="btn-estado-grupo btn-primary" data-id="${g.id_grupo}" data-estado="${g.estado === 'Activo' ? 'Archivado' : 'Activo'}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: ${g.estado === 'Activo' ? 'var(--text-muted)' : '#f39c12'}; width: auto; margin-left: 0.5rem;">${g.estado === 'Activo' ? '📦 Archivar' : '♻️ Desarchivar'}</button>`;
+                if (selectInvitar && g.estado === 'Activo') selectInvitar.innerHTML += `<option value="${g.id_grupo}">${escapeHTML(g.nombre_grupo)}</option>`;
             }
-            tr.innerHTML = `<td>${g.id_grupo}</td><td><strong>${escapeHTML(g.nombre_grupo)}</strong></td><td>${escapeHTML(g.rol)}</td><td>${acciones}</td>`;
+            tr.innerHTML = `<td>${g.id_grupo}</td><td><strong>${escapeHTML(g.nombre_grupo)}</strong> ${badgeEstado}${sugerenciaHtml}</td><td>${escapeHTML(g.rol)}</td><td style="display: flex; gap: 0.5rem; flex-wrap: wrap;">${acciones}</td>`;
             listaGrupos.appendChild(tr);
         });
     };
@@ -192,6 +193,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (error) { console.error('Error:', error); showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
             }
 
+            if (e.target.classList.contains('btn-estado-grupo')) {
+                const idGrupo = e.target.getAttribute('data-id');
+                const nuevoEstado = e.target.getAttribute('data-estado');
+                const accionTexto = nuevoEstado === 'Archivado' ? 'archivar' : 'desarchivar';
+                
+                if (!confirm(`¿Estás seguro de ${accionTexto} este grupo? ${nuevoEstado === 'Archivado' ? 'Se ocultará de tu panel principal, pero podrás seguir viendo su historial.' : ''}`)) return;
+
+                showSpinner();
+                try {
+                    const response = await fetch(`/api/grupos/${idGrupo}/estado`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ estado: nuevoEstado })
+                    });
+                    if (response.ok) await cargarGrupos();
+                    else showToast((await response.json()).error || 'Error al cambiar estado.', 'error');
+                } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
+            }
+
             if (e.target.classList.contains('btn-ver-miembros')) {
                 const idGrupo = e.target.getAttribute('data-id');
                 const nombreGrupo = e.target.getAttribute('data-nombre');
@@ -224,7 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                             htmlMiembros += `<li style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color);">
                                 <div style="display: flex; align-items: center;">
-                                <span style="font-weight: 500;">${escapeHTML(m.nombre)} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
+                                <span style="font-weight: 500; color: var(--text-dark);">${escapeHTML(m.nombre)} ${m.id_usuario == miId ? '<span style="color: var(--text-muted); font-weight: normal; font-size: 0.8rem;">(Tú)</span>' : ''}</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 0.8rem;">
                                     ${btnWhatsapp}
@@ -242,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         modalBox.style = "max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto;";
                         modalBox.innerHTML = `
                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
-                            <h3 style="margin: 0; border: none; padding: 0;">👥 Miembros de ${escapeHTML(nombreGrupo)}</h3>
+                            <h3 style="margin: 0; border: none; padding: 0; color: var(--primary-slate);">👥 Miembros de ${escapeHTML(nombreGrupo)}</h3>
                                 <button id="btn-cerrar-modal-miembros" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
                             </div>
                             ${htmlMiembros}
@@ -474,12 +494,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             modalOverlay.style = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10000; padding: 1rem;";
                             
                             const modalBox = document.createElement('div');
-                            modalBox.style = "background: white; padding: 2rem; border-radius: 12px; text-align: center; max-width: 90%; width: 400px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);";
+                            modalBox.style = "background: var(--card-bg); padding: 2rem; border-radius: 12px; text-align: center; max-width: 90%; width: 400px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);";
                             
                             modalBox.innerHTML = `
                                 <button id="btn-cerrar-qr-modal" style="position: absolute; top: 10px; right: 10px; background: var(--danger-color); color: white; border: none; font-size: 1.5rem; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; line-height: 1;">&times;</button>
                                 <h2 style="color: var(--primary-slate); margin-bottom: 1rem; margin-top: 0;">Invitar a unirte</h2>
-                                <img src="${dataUrl}" style="max-width: 250px; width: 100%; height: auto; border-radius: 8px; margin: 0 auto 1.5rem auto; display: block; border: 1px solid var(--border-color); padding: 0.5rem;" />
+                                <img src="${dataUrl}" style="max-width: 250px; width: 100%; height: auto; border-radius: 8px; margin: 0 auto 1.5rem auto; display: block; border: 1px solid var(--border-color); padding: 0.5rem; background: white;" />
                                 
                                 <div style="margin-bottom: 1.5rem; text-align: left;">
                                     <label style="font-weight: bold; font-size: 0.9rem; color: var(--text-muted);">Enlace de Invitación:</label>

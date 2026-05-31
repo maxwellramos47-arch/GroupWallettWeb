@@ -23,12 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const labelMontoGasto = document.querySelector('label[for="monto-gasto"]');
     if (labelMontoGasto) labelMontoGasto.textContent = `Monto (${moneda})`;
 
-    // --- Mostrar el nombre del usuario ---
-    const nombreUsuario = localStorage.getItem('usuarioNombre');
-    if (nombreUsuario) {
-        document.querySelectorAll('.nav-profile').forEach(el => el.textContent = `Hola, ${nombreUsuario}`);
-    }
-
     // --- Mostrar aviso de suscripción vencida ---
     if (localStorage.getItem('mostrarAvisoVencido') === 'true') {
         showToast('Tu suscripción Premium ha expirado. Has vuelto al Plan Básico.', 'error');
@@ -1145,41 +1139,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 7.5. Copiar Resumen de Deudas para WhatsApp ---
-    const btnCopiarResumen = document.getElementById('btn-copiar-resumen');
-    if (btnCopiarResumen) {
-        btnCopiarResumen.addEventListener('click', async () => {
-            const listaCuotasLocal = document.getElementById('lista-cuotas');
-            if (!listaCuotasLocal || listaCuotasLocal.innerText.includes('No hay cuotas pendientes')) {
-                return showToast('No hay deudas para copiar en este momento.', 'error');
-            }
-
-            let textoResumen = '💸 *Resumen de Deudas - GroupWallet* 💸\n\n';
-            const filas = listaCuotasLocal.querySelectorAll('tr');
-            
-            filas.forEach(fila => {
-                const celdas = fila.querySelectorAll('td');
-                if (celdas.length >= 3) {
-                    const nombre = celdas[0].textContent.replace('🏦 Banco', '').trim();
-                    const monto = celdas[1].textContent.trim();
-                    const estado = celdas[2].textContent.trim();
-                    const icono = estado === 'Pagado' ? '✅' : '❌';
-                    textoResumen += `${icono} *${nombre}* - ${monto} (${estado})\n`;
-                }
-            });
-
-            textoResumen += '\n_Generado desde GroupWallet_';
-
-            try {
-                await navigator.clipboard.writeText(textoResumen);
-                showToast('Resumen copiado. ¡Pégalo en tu grupo de WhatsApp!', 'success');
-                
-                const originalText = btnCopiarResumen.innerHTML;
-                btnCopiarResumen.innerHTML = '✔️ ¡Copiado!';
-                setTimeout(() => {
-                    btnCopiarResumen.innerHTML = originalText;
-                }, 2000);
-            } catch (err) { showToast('Error al copiar al portapapeles.', 'error'); }
+    // --- 7.5. Redirigir a Análisis de Finanzas ---
+    const btnIrAnalisis = document.getElementById('btn-ir-analisis');
+    if (btnIrAnalisis) {
+        btnIrAnalisis.addEventListener('click', () => {
+            window.location.href = 'historial.html';
         });
     }
 

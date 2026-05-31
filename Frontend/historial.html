@@ -25,7 +25,7 @@
             <ul>
                 <li><a href="dashboard.html">Panel</a></li>
                 <li><a href="mensual.html">Mensual</a></li>
-                <li><a href="historial.html" class="active">Historial</a></li>
+                <li><a href="historial.html" class="active">Análisis de Finanzas</a></li>
                 <li><a href="grupos.html">Mis Grupos</a></li>
                 <li><a href="ajustes.html">Ajustes</a></li>
                 <li><button id="theme-toggle" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0;" title="Cambiar Tema">🌙</button></li>
@@ -36,6 +36,38 @@
     </header>
 
     <main class="dashboard-container">
+        <article class="card premium-lock-container" style="margin-bottom: 2rem;">
+            <h3>Analíticas Avanzadas <span class="badge-premium">Premium</span></h3>
+            <div id="analisis-content" class="locked-content">
+                <div class="blur-overlay" id="blur-premium-cta">
+                    <div style="background: var(--card-bg); padding: 2rem; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-width: 400px; border: 1px solid var(--border-color);">
+                        <h4 style="color: var(--primary-slate); margin-bottom: 1rem; font-size: 1.2rem;">✨ Función Premium</h4>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.95rem;">Desbloquea gráficos interactivos, insights de ahorro y exportación de datos por solo <strong>$5.00/mes</strong>.</p>
+                        <button class="btn-upgrade mt-2" id="btn-show-payment">Mejorar a Premium</button>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="font-weight: 500; font-size: 0.9rem;">Distribución de Gastos</span>
+                    <select id="tipo-grafico" style="max-width: 150px; padding: 0.3rem; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-light); color: var(--text-dark);">
+                        <option value="doughnut">Gráfico de Anillo</option>
+                        <option value="bar">Gráfico de Barras</option>
+                        <option value="pie">Gráfico Circular</option>
+                    </select>
+                </div>
+                <div class="fake-chart" id="chart-container" style="height: 250px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="premiumChart" style="display: none; max-height: 250px; margin: 0 auto;"></canvas>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; color: var(--text-muted); margin-top: 1.5rem; font-size: 0.9rem; background: var(--bg-light); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <p style="margin:0;">Categoría principal: <br><strong id="cat-frecuente" style="font-size: 1.1rem; color: var(--primary-slate);">???</strong></p>
+                    <p style="margin:0;">Mayor gasto: <br><strong id="gasto-mayor" style="font-size: 1.1rem; color: var(--primary-slate);">$???</strong></p>
+                    <p style="margin:0;">Gasto Promedio: <br><strong id="gasto-promedio" style="font-size: 1.1rem; color: var(--primary-slate);">$???</strong></p>
+                    <p style="margin:0;">Total Mensual: <br><strong id="total-gastado" style="font-size: 1.1rem; color: var(--primary-slate);">$???</strong></p>
+                    <p style="margin:0;">Proyección de Ahorro: <br><strong id="ahorro-proyectado" style="font-size: 1.1rem; color: var(--secondary-emerald);">$???</strong></p>
+                </div>
+            </div>
+        </article>
+
         <div class="card">
             <h3>Historial de Gastos Archivados</h3>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
@@ -79,8 +111,7 @@
             </div>
             <div>
                 <h4 style="color: var(--primary-slate); margin-bottom: 0.5rem;">Contacto</h4>
-                <p style="font-size: 0.85rem; margin-bottom: 0.2rem;"><a href="mailto:soporte@groupwallet.com" style="color: var(--text-muted); text-decoration: none;">📧 soporte@groupwallet.com</a></p>
-                <p style="font-size: 0.85rem; margin-bottom: 0.2rem;"><a href="tel:+56912345678" style="color: var(--text-muted); text-decoration: none;">📱 +56 9 1234 5678</a></p>
+                <p style="font-size: 0.85rem; margin-bottom: 0.2rem;"><a href="mailto:komungroupwallett@gmail.com" style="color: var(--text-muted); text-decoration: none;">📧 komungroupwallett@gmail.com</a></p>
             </div>
             <div>
                 <h4 style="color: var(--primary-slate); margin-bottom: 0.5rem;">Síguenos</h4>

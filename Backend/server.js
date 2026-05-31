@@ -48,7 +48,7 @@ app.use((req, res, next) => {
 // Configurar Web Push para notificaciones
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
-        process.env.VAPID_SUBJECT || 'mailto:soporte@groupwallet.com',
+        process.env.VAPID_SUBJECT || 'mailto:komungroupwallett@gmail.com',
         process.env.VAPID_PUBLIC_KEY,
         process.env.VAPID_PRIVATE_KEY
     );
@@ -662,7 +662,7 @@ app.post('/api/suscripciones/checkout', verificarToken, async (req, res) => {
 
     try {
         const usuario = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(id_usuario) } });
-        const correo_payer = usuario.correo || 'soporte@groupwallet.com'; // Requerido por MP en suscripciones
+        const correo_payer = usuario.correo || 'komungroupwallett@gmail.com'; // Requerido por MP en suscripciones
 
         const preapproval = new PreApproval(mpClient);
         const result = await preapproval.create({

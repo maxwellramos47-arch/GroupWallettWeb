@@ -37,6 +37,7 @@ model Usuarios {
   intentos_fallidos             Int?      @default(0)
   bloqueado_hasta               DateTime? @db.Timestamp()
   foto_url                      String?
+  moneda                        String?   @default("$") @db.VarChar(10)
   push_subscription             String?   @db.Text
   fecha_revocacion_sesiones     DateTime? @db.Timestamp()
   telefono_verificado           Boolean?  @default(false)
@@ -73,6 +74,7 @@ model Grupos {
   nombre_grupo       String
   id_usuario_creador Int
   fecha_creacion     DateTime? @default(now()) @db.Timestamp()
+  estado             String?   @default("Activo") @db.VarChar(20)
 
   creador            Usuarios  @relation(fields: [id_usuario_creador], references: [id_usuario])
   miembros           Miembros_Grupo[]

@@ -13,8 +13,8 @@ class GrupoBLL {
         return nuevo_id;
     }
 
-    static async obtenerGrupos(id_usuario) {
-        return await GrupoDAL.getUserGroups(id_usuario);
+    static async obtenerGrupos(id_usuario, incluir_archivados = false) {
+        return await GrupoDAL.getUserGroups(id_usuario, incluir_archivados);
     }
 
     static async obtenerMiembros(id_grupo) {
@@ -23,6 +23,12 @@ class GrupoBLL {
             ...m,
             telefono: safeDecrypt(m.telefono)
         }));
+    }
+
+    static async cambiarEstadoGrupo(id_grupo, id_solicitante, estado) {
+        const rol = await GrupoDAL.getMemberRole(id_grupo, id_solicitante);
+        if (rol !== 'Administrador') throw new Error('Acceso denegado. Solo los administradores pueden archivar o desarchivar el grupo.');
+        await GrupoDAL.updateState(id_grupo, estado);
     }
 
     static async editarGrupo(id_grupo, id_solicitante, nombre_grupo) {

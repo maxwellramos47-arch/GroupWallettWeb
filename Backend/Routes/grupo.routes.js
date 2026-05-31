@@ -27,7 +27,8 @@ router.post('/', verificarToken, async (req, res) => {
 
 router.get('/', verificarToken, async (req, res) => {
     try {
-        res.json(await GrupoBLL.obtenerGrupos(req.usuarioLogueado.id_usuario));
+        const incluir_archivados = req.query.todos === 'true';
+        res.json(await GrupoBLL.obtenerGrupos(req.usuarioLogueado.id_usuario, incluir_archivados));
     } catch (error) { res.status(500).json({ error: 'Error al obtener los grupos' }); }
 });
 
@@ -47,6 +48,16 @@ router.put('/:id', verificarToken, async (req, res) => {
     } catch (error) {
         res.status(error.message.includes('denegado') ? 403 : 400).json({ error: error.message });
     }
+});
+
+router.put('/:id/estado', verificarToken, async (req, res) => {
+    try {
+        const { estado } = req.body;
+        if (!['Activo', 'Archivado'].includes(estado)) return res.status(400).json({ error: 'Estado inválido.' });
+        
+        await GrupoBLL.cambiarEstadoGrupo(req.params.id, req.usuarioLogueado.id_usuario, estado);
+        res.json({ message: `Grupo ${estado.toLowerCase()} exitosamente.` });
+    } catch (error) { res.status(error.message.includes('denegado') ? 403 : 400).json({ error: error.message }); }
 });
 
 // NUEVO Endpoint: Generar QR y enlace mágico de invitación (Mobile-First)

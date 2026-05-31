@@ -198,7 +198,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             }
         });
 
-        res.json({ message: 'Login exitoso', id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion });
+        res.json({ message: 'Login exitoso', id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion, moneda: usuario.moneda });
     } catch (error) {
         const status = error.message.includes('encontrado') || error.message.includes('incorrecta') || error.message.includes('bloqueada') || error.message.includes('intento') ? 401 : 500;
         res.status(status).json({ error: error.message || 'Error en el servidor al intentar iniciar sesión' });
@@ -219,8 +219,8 @@ router.get('/perfil', verificarToken, async (req, res) => {
 
 router.put('/perfil', verificarToken, async (req, res) => {
     try {
-        const { nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto } = req.body;
-        await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto);
+        const { nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto, moneda } = req.body;
+        await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto, moneda);
         res.json({ message: 'Perfil actualizado exitosamente' });
     } catch (error) { 
         res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 

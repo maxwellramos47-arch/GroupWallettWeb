@@ -41,12 +41,50 @@ class GrupoDAL {
         });
     }
 
-    static async getUserGroups(id_usuario) {
+    static async getUserGroups(id_usuario, incluir_archivados = false) {
+        const whereClause = { id_usuario: parseInt(id_usuario) };
+        if (!incluir_archivados) {
+            whereClause.grupo = { estado: 'Activo' };
+        }
+
         const result = await prisma.miembros_Grupo.findMany({
-            where: { id_usuario: parseInt(id_usuario) },
-            select: { rol: true, grupo: { select: { id_grupo: true, nombre_grupo: true } } }
+            where: whereClause,
+            select: { rol: true, grupo: { select: { id_grupo: true, nombre_grupo: true, estado: true, fecha_creacion: true } } }
         });
-        return result.map(r => ({ id_grupo: r.grupo.id_grupo, nombre_grupo: r.grupo.nombre_grupo, rol: r.rol }));
+        
+        // Calcular inactividad para sugerencias de archivo (> 3 meses)
+        const tresMesesAtras = new Date();
+        tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
+        
+        const response = [];
+        for (const r of result) {
+            let sugerir_archivar = false;
+            if (r.grupo.estado === 'Activo' && r.rol === 'Administrador') {
+                const lastTx = await prisma.transacciones.findFirst({
+                    where: { id_grupo: r.grupo.id_grupo },
+                    orderBy: { fecha_gasto: 'desc' },
+                    select: { fecha_gasto: true }
+                });
+                
+                let ultimaFecha = lastTx ? lastTx.fecha_gasto : r.grupo.fecha_creacion;
+                
+                if (!lastTx) {
+                    const lastTxHistorial = await prisma.transacciones_Historial.findFirst({
+                        where: { id_grupo: r.grupo.id_grupo },
+                        orderBy: { fecha_gasto: 'desc' },
+                        select: { fecha_gasto: true }
+                    });
+                    if (lastTxHistorial) ultimaFecha = lastTxHistorial.fecha_gasto;
+                }
+
+                if (ultimaFecha && new Date(ultimaFecha) < tresMesesAtras) {
+                    sugerir_archivar = true;
+                }
+            }
+            
+            response.push({ id_grupo: r.grupo.id_grupo, nombre_grupo: r.grupo.nombre_grupo, estado: r.grupo.estado || 'Activo', rol: r.rol, sugerir_archivar });
+        }
+        return response;
     }
 
     static async getMembers(id_grupo) {
@@ -69,6 +107,13 @@ class GrupoDAL {
         await prisma.grupos.update({
             where: { id_grupo: parseInt(id_grupo) },
             data: { nombre_grupo }
+        });
+    }
+
+    static async updateState(id_grupo, estado) {
+        await prisma.grupos.update({
+            where: { id_grupo: parseInt(id_grupo) },
+            data: { estado }
         });
     }
 

@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return response;
     };
 
-    // --- Cierre de Sesión (Logout) ---
     const btnLogout = document.getElementById('btn-logout');
     if (btnLogout) {
         btnLogout.addEventListener('click', async (e) => {
@@ -313,16 +312,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else showToast('Ingrese un presupuesto válido mayor a 0.', 'error');
         });
 
-        // Cargar y escuchar cambios en la moneda
-        const selectMoneda = document.getElementById('select-moneda');
-        if (selectMoneda) {
-            selectMoneda.value = localStorage.getItem(`moneda_${miIdUsuario}`) || '$';
-            selectMoneda.addEventListener('change', (e) => {
-                localStorage.setItem(`moneda_${miIdUsuario}`, e.target.value);
-                showToast('Moneda actualizada.', 'success');
-                renderMonth(); // Re-renderizar la vista para aplicar la nueva moneda
-            });
-        }
 
         showSkeletonLoader(document.getElementById('lista-gastos-mensual'), 6);
         try {
@@ -471,27 +460,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 7. Exportar Reportes Mensuales (Exclusivo Premium) ---
     const initExportButtons = () => {
-        const chartContainer = document.getElementById('grafico-mensual')?.closest('.card');
-        if (!chartContainer) return;
-
-        const divBotones = document.createElement('div');
-        divBotones.style = "display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; justify-content: center;";
+        const container = document.getElementById('export-buttons-container');
+        if (!container) return;
 
         const btnPdf = document.createElement('button');
         btnPdf.className = 'btn-primary';
         btnPdf.style.backgroundColor = 'var(--danger-color)'; 
         btnPdf.style.width = 'auto';
-        btnPdf.textContent = '📄 Exportar a PDF';
+        btnPdf.style.padding = '0.4rem 0.8rem';
+        btnPdf.style.fontSize = '0.85rem';
+        btnPdf.textContent = '📄 PDF';
         
         const btnCsv = document.createElement('button');
         btnCsv.className = 'btn-primary';
         btnCsv.style.backgroundColor = '#27ae60'; 
         btnCsv.style.width = 'auto';
-        btnCsv.textContent = '📊 Exportar a Excel';
+        btnCsv.style.padding = '0.4rem 0.8rem';
+        btnCsv.style.fontSize = '0.85rem';
+        btnCsv.textContent = '📊 Excel';
 
-        divBotones.appendChild(btnPdf);
-        divBotones.appendChild(btnCsv);
-        chartContainer.appendChild(divBotones);
+        container.appendChild(btnPdf);
+        container.appendChild(btnCsv);
 
         const validarPremium = async () => {
             const res = await fetch('/api/finanzas/analisis'); // Ruta protegida por verificarPremium en el Backend

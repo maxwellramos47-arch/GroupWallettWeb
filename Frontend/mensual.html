@@ -25,7 +25,7 @@
             <ul>
                 <li><a href="dashboard.html">Panel</a></li>
                 <li><a href="mensual.html" class="active">Mensual</a></li>
-                <li><a href="historial.html">Historial</a></li>
+                <li><a href="historial.html">Análisis de Finanzas</a></li>
                 <li><a href="grupos.html">Mis Grupos</a></li>
                 <li><a href="ajustes.html">Ajustes</a></li>
                 <li><button id="theme-toggle" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0;" title="Cambiar Tema">🌙</button></li>
@@ -76,6 +76,14 @@
                         <button type="submit" class="btn-primary">Añadir Gasto</button>
                     </form>
                 </article>
+
+                <div class="card mt-2" style="padding: 1rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to bottom right, var(--card-bg), #fff5f5);">
+                    <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
+                    <p id="hormiga-desc" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Fugas de dinero silenciosas (menores a $15.00).</p>
+                    <h4 id="hormiga-total" style="font-size: 1.8rem; color: var(--danger-color); line-height: 1;">$0.00</h4>
+                    <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem;">0 transacciones</p>
+                    <p id="hormiga-tip" style="font-size: 0.8rem; color: var(--text-dark); background: var(--bg-light); padding: 0.5rem; border-radius: 4px;"></p>
+                </div>
             </aside>
 
             <section class="data-panel">
@@ -97,14 +105,6 @@
                                 <button id="btn-guardar-presupuesto" class="btn-primary" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.85rem;">Guardar</button>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
-                            <label for="select-moneda" style="font-size: 0.85rem; color: var(--text-muted);">Símbolo de moneda:</label>
-                            <select id="select-moneda" style="padding: 0.3rem; border-radius: 4px; border: 1px solid var(--border-color);">
-                                <option value="$">$ (USD / Pesos)</option>
-                                <option value="€">€ (Euros)</option>
-                                <option value="£">£ (Libras)</option>
-                            </select>
-                        </div>
                         <div style="background-color: var(--bg-light); height: 20px; border-radius: 10px; overflow: hidden; margin-bottom: 0.5rem; border: 1px solid var(--border-color);">
                             <div id="barra-presupuesto" style="background-color: var(--secondary-emerald); width: 0%; height: 100%; transition: width 0.4s ease, background-color 0.4s ease;"></div>
                         </div>
@@ -113,16 +113,12 @@
                         </p>
                     </div>
 
-                    <div class="card" style="margin: 0; padding: 1rem;">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none;">📈 Gasto Acumulado Mensual</h3>
-                        <canvas id="grafico-mensual" style="max-height: 200px;"></canvas>
-                    </div>
-                    <div class="card" style="margin: 0; padding: 1rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to bottom right, var(--card-bg), #fff5f5);">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
-                        <p id="hormiga-desc" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Fugas de dinero silenciosas (menores a $15.00).</p>
-                        <h4 id="hormiga-total" style="font-size: 1.8rem; color: var(--danger-color); line-height: 1;">$0.00</h4>
-                        <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem;">0 transacciones</p>
-                        <p id="hormiga-tip" style="font-size: 0.8rem; color: var(--text-dark); background: var(--bg-light); padding: 0.5rem; border-radius: 4px;"></p>
+                    <div class="card" style="margin: 0; padding: 1rem; grid-column: 1 / -1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                            <h3 style="font-size: 1rem; margin: 0; border: none;">📈 Gasto Acumulado Mensual</h3>
+                            <div id="export-buttons-container" style="display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
+                        </div>
+                        <canvas id="grafico-mensual" style="max-height: 250px;"></canvas>
                     </div>
                 </div>
 
@@ -150,8 +146,7 @@
             </div>
             <div>
                 <h4 style="color: var(--primary-slate); margin-bottom: 0.5rem;">Contacto</h4>
-                <p style="font-size: 0.85rem; margin-bottom: 0.2rem;"><a href="mailto:soporte@groupwallet.com" style="color: var(--text-muted); text-decoration: none;">📧 soporte@groupwallet.com</a></p>
-                <p style="font-size: 0.85rem; margin-bottom: 0.2rem;"><a href="tel:+56912345678" style="color: var(--text-muted); text-decoration: none;">📱 +56 9 1234 5678</a></p>
+                <p style="font-size: 0.85rem; margin-bottom: 0.2rem;"><a href="mailto:komungroupwallett@gmail.com" style="color: var(--text-muted); text-decoration: none;">📧 komungroupwallett@gmail.com</a></p>
             </div>
             <div>
                 <h4 style="color: var(--primary-slate); margin-bottom: 0.5rem;">Síguenos</h4>

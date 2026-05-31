@@ -7,12 +7,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad
 
-    // --- Mostrar el nombre del usuario ---
-    const nombreUsuario = localStorage.getItem('usuarioNombre');
-    if (nombreUsuario) {
-        document.querySelectorAll('.nav-profile').forEach(el => el.textContent = `Hola, ${nombreUsuario}`);
-    }
-
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
         let [resource, config] = args;
@@ -94,6 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('perfil-nombre').value = perfil.nombre;
             document.getElementById('perfil-correo').value = perfil.correo || 'No registrado';
             document.getElementById('perfil-telefono').value = perfil.telefono || 'No registrado';
+            const selectMoneda = document.getElementById('perfil-moneda');
+            if (selectMoneda) selectMoneda.value = perfil.moneda || '$';
             
             const btnEmail = document.getElementById('btn-agregar-correo');
             const btnPhone = document.getElementById('btn-agregar-telefono');
@@ -244,6 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const nombre = document.getElementById('perfil-nombre').value;
         const password_actual = document.getElementById('perfil-password-actual').value;
         const password = document.getElementById('perfil-password').value;
+        const moneda = document.getElementById('perfil-moneda')?.value || '$';
 
         if (password && password.trim() !== '') {
             const regexSeguridad = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -292,11 +289,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/api/usuarios/perfil', {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password, eliminar_foto: eliminarFotoFlag })
+                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password, eliminar_foto: eliminarFotoFlag, moneda })
             });
             if (res.ok) {
                 showToast('Perfil actualizado exitosamente.', 'success');
                 localStorage.setItem('usuarioNombre', nombre);
+                localStorage.setItem(`moneda_${usuarioId}`, moneda);
                 document.querySelectorAll('.nav-profile').forEach(el => el.textContent = `Hola, ${nombre}`);
             } else showToast((await res.json()).error, 'error');
         } catch (error) { console.error(error); } finally { hideSpinner(); }

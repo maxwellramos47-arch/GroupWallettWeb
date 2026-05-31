@@ -8,12 +8,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const token = 'http-only-cookie'; // Mantiene compatibilidad con fetch
 
-    // --- Mostrar el nombre del usuario ---
-    const nombreUsuario = localStorage.getItem('usuarioNombre');
-    if (nombreUsuario) {
-        document.querySelectorAll('.nav-profile').forEach(el => el.textContent = `Hola, ${nombreUsuario}`);
-    }
-
     // --- Extraer configuración de moneda ---
     const miIdUsuarioGlobal = usuarioId.toString();
     const moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
@@ -56,6 +50,88 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.removeItem('usuarioId');
             localStorage.removeItem('usuarioNombre');
             window.location.href = 'login.html';
+        });
+    }
+
+    // --- 1.5 Cargar Análisis Premium ---
+    const cargarAnalisis = async () => {
+        try {
+            const reqAnalisis = await fetch('/api/finanzas/analisis', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            const blurOverlay = document.getElementById('blur-premium-cta');
+            const analisisContent = document.getElementById('analisis-content');
+            
+            if (reqAnalisis.ok) {
+                const datosAnalisis = await reqAnalisis.json();
+                
+                if (blurOverlay) blurOverlay.style.display = 'none';
+                if (analisisContent) analisisContent.classList.remove('locked-content');
+
+                const catFrecuente = document.getElementById('cat-frecuente');
+                if (catFrecuente) {
+                    catFrecuente.textContent = datosAnalisis.categoria_frecuente;
+                    document.getElementById('ahorro-proyectado').textContent = `${moneda}${datosAnalisis.ahorro_proyectado.toFixed(2)}`;
+                    document.getElementById('gasto-mayor').textContent = `${moneda}${datosAnalisis.mayor_gasto.toFixed(2)}`;
+                    document.getElementById('gasto-promedio').textContent = `${moneda}${datosAnalisis.gasto_promedio.toFixed(2)}`;
+                    document.getElementById('total-gastado').textContent = `${moneda}${datosAnalisis.total_gastado.toFixed(2)}`;
+
+                    const chartContainer = document.getElementById('chart-container');
+                    const canvas = document.getElementById('premiumChart');
+                    
+                    if (chartContainer && canvas && datosAnalisis.distribucion_gastos) {
+                        chartContainer.style.background = 'none';
+                        canvas.style.display = 'block';
+
+                        let premiumChartInstance = new Chart(canvas, {
+                            type: document.getElementById('tipo-grafico').value || 'doughnut',
+                            data: {
+                                labels: datosAnalisis.distribucion_gastos.etiquetas,
+                                datasets: [{
+                                    data: datosAnalisis.distribucion_gastos.valores,
+                                    backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e'],
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'right' }
+                                }
+                            }
+                        });
+
+                        document.getElementById('tipo-grafico').addEventListener('change', (e) => {
+                            premiumChartInstance.config.type = e.target.value;
+                            premiumChartInstance.update();
+                        });
+                    }
+                }
+            } else {
+                if (blurOverlay) blurOverlay.style.display = 'flex';
+                if (analisisContent) analisisContent.classList.add('locked-content');
+            }
+        } catch (e) { console.error('Error actualizando gráficos:', e); }
+    };
+    cargarAnalisis();
+    
+    // --- 1.6 Botón de Pago Premium ---
+    const btnShowPayment = document.getElementById('btn-show-payment');
+    if (btnShowPayment) {
+        btnShowPayment.addEventListener('click', async () => {
+            showSpinner();
+            try {
+                const response = await fetch('/api/suscripciones/checkout', {
+                    method: 'POST',
+                });
+                const data = await response.json();
+                if (response.ok && data.url) {
+                    window.location.href = data.url; 
+                } else {
+                    showToast(data.error || 'Error conectando a MercadoPago.', 'error');
+                }
+            } catch (error) { showToast('Problema de conexión.', 'error'); } finally { hideSpinner(); }
         });
     }
 
@@ -284,7 +360,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 3. Cargar Grupos para Exportación ---
     try {
-        const reqGrupos = await fetch('/api/grupos', {
+        const reqGrupos = await fetch('/api/grupos?todos=true', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (reqGrupos.ok) {
@@ -292,7 +368,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const selectExportar = document.getElementById('grupo-exportar');
             if (selectExportar) {
                 grupos.forEach(g => {
-                    selectExportar.innerHTML += `<option value="${g.id_grupo}">${escapeHTML(g.nombre_grupo)}</option>`;
+                    const desc = g.estado === 'Archivado' ? ' (Archivado)' : '';
+                    selectExportar.innerHTML += `<option value="${g.id_grupo}">${escapeHTML(g.nombre_grupo)}${desc}</option>`;
                 });
             }
         }
@@ -316,7 +393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const data = await response.json();
                     if (data.requires_upgrade) {
                         showToast('La exportación a Excel es exclusiva de Premium. Descubre sus beneficios...', 'info');
-                        setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                         return;
                     }
                 }
@@ -368,7 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (perfil.id_plan !== 2 && perfil.id_plan !== 3 && perfil.estado_suscripcion !== 'GOD_MODE') {
                         hideSpinner();
                         showToast('La exportación a PDF es exclusiva de Premium. Descubre sus beneficios...', 'info');
-                        setTimeout(() => window.location.href = 'dashboard.html?showUpgrade=true', 2500);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                         return;
                     }
                 }
