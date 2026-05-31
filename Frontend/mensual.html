@@ -86,9 +86,9 @@
                     </select>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
                     <!-- NUEVA BARRA DE PRESUPUESTO -->
-                    <div class="card" style="margin: 0; padding: 1rem; grid-column: 1 / -1;">
+                    <div class="card" style="margin: 0; padding: 1rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                             <h3 style="font-size: 1rem; margin: 0; border: none;">📊 Progreso del Presupuesto</h3>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -101,7 +101,7 @@
                             <div id="barra-presupuesto" style="background-color: var(--secondary-emerald); width: 0%; height: 100%; transition: width 0.4s ease, background-color 0.4s ease;"></div>
                         </div>
                         <p style="font-size: 0.85rem; text-align: center; color: var(--text-muted); margin: 0;">
-                            Gastado: <strong id="lbl-gastado" style="color: var(--text-dark);">$0.00</strong> de <strong id="lbl-limite" style="color: var(--text-dark);">$0.00</strong> (<span id="lbl-porcentaje" style="font-weight: bold;">0</span>%)
+                            Gastado: <strong id="lbl-gastado" style="color: var(--text-dark);">$0.00</strong><span id="lbl-comparacion" style="margin-left: 0.3rem;"></span> de <strong id="lbl-limite" style="color: var(--text-dark);">$0.00</strong> (<span id="lbl-porcentaje" style="font-weight: bold;">0</span>%)
                         </p>
                     </div>
 
@@ -115,12 +115,18 @@
                         </div>
                     </div>
                     
-                    <div class="card" style="margin: 0; padding: 1rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to bottom right, var(--card-bg), #fff5f5); display: flex; flex-direction: column; justify-content: center;">
-                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
-                        <p id="hormiga-desc" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">Fugas de dinero silenciosas (menores a $15.00).</p>
-                        <h4 id="hormiga-total" style="font-size: 2rem; color: var(--danger-color); line-height: 1; margin-bottom: 0.5rem;">$0.00</h4>
-                        <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.8rem;">0 transacciones</p>
-                        <p id="hormiga-tip" style="font-size: 0.8rem; color: var(--text-dark); background: rgba(255,255,255,0.7); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(231, 76, 60, 0.2); margin: 0;"></p>
+                    <div class="card" style="margin: 0; padding: 1.5rem; border-left: 4px solid var(--danger-color); background: linear-gradient(to right, var(--card-bg), #fff5f5); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <h3 style="font-size: 1.1rem; margin-bottom: 0.2rem; border: none; color: var(--danger-color);">🐜 Gastos Hormiga</h3>
+                            <p id="hormiga-desc" style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Fugas de dinero silenciosas (menores a $15.00).</p>
+                        </div>
+                        <div style="text-align: right; flex: 1; min-width: 150px;">
+                            <h4 id="hormiga-total" style="font-size: 2rem; color: var(--danger-color); line-height: 1; margin-bottom: 0.2rem;">$0.00</h4>
+                            <p id="hormiga-cantidad" style="font-size: 0.85rem; font-weight: bold; margin: 0;">0 transacciones</p>
+                        </div>
+                        <div style="flex-basis: 100%;">
+                            <p id="hormiga-tip" style="font-size: 0.85rem; color: var(--text-dark); background: rgba(255,255,255,0.7); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(231, 76, 60, 0.2); margin: 0;"></p>
+                        </div>
                     </div>
                 </div>
 

@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let transacciones = [];
     let misRolesEnGrupos = {};
     let chartMensualInstance = null;
+    let isPremium = false;
     const miIdUsuario = usuarioId.toString();
     
     let sortColumn = 'dia';
@@ -125,6 +126,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return dMes === currentMonth && dAnio === currentYear && matchesGroup;
         });
 
+        // --- Calcular Gasto del Mes Anterior ---
+        let prevMonth = currentMonth - 1;
+        let prevYear = currentYear;
+        if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
+        
+        const filtradasPrev = transacciones.filter(t => {
+            const partes = t.fecha.split('/');
+            const dMes = parseInt(partes[1]) - 1;
+            const dAnio = parseInt(partes[2]);
+            const matchesGroup = idGrupo ? t.id_grupo == idGrupo : true;
+            return dMes === prevMonth && dAnio === prevYear && matchesGroup;
+        });
+        const totalPrevMes = filtradasPrev.reduce((sum, t) => sum + t.monto, 0);
+
         filtradas.sort((a, b) => {
             let valA = sortColumn === 'dia' ? parseInt(a.fecha.split('/')[0]) : a[sortColumn];
             let valB = sortColumn === 'dia' ? parseInt(b.fecha.split('/')[0]) : b[sortColumn];
@@ -185,10 +200,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const lblGastado = document.getElementById('lbl-gastado');
         const lblLimite = document.getElementById('lbl-limite');
         const lblPorcentaje = document.getElementById('lbl-porcentaje');
+        const lblComparacion = document.getElementById('lbl-comparacion');
 
         if (lblGastado && lblLimite && barra && lblPorcentaje) {
             lblGastado.textContent = `${moneda}${totalGastadoMes.toFixed(2)}`;
             lblLimite.textContent = `${moneda}${presupuesto.toFixed(2)}`;
+
+            if (lblComparacion) {
+                if (isPremium) {
+                    if (totalPrevMes > 0) {
+                        const diff = totalGastadoMes - totalPrevMes;
+                        const pct = Math.abs((diff / totalPrevMes) * 100).toFixed(1);
+                        if (diff > 0) {
+                            lblComparacion.innerHTML = `<span style="color: var(--danger-color); font-size: 0.8rem; font-weight: bold;" title="Gastaste ${moneda}${diff.toFixed(2)} más que el mes pasado">↑ ${pct}%</span>`;
+                        } else if (diff < 0) {
+                            lblComparacion.innerHTML = `<span style="color: var(--secondary-emerald); font-size: 0.8rem; font-weight: bold;" title="Ahorraste ${moneda}${Math.abs(diff).toFixed(2)} respecto al mes pasado">↓ ${pct}%</span>`;
+                        } else {
+                            lblComparacion.innerHTML = `<span style="color: var(--text-muted); font-size: 0.8rem; font-weight: bold;" title="Mismo gasto que el mes pasado">= 0%</span>`;
+                        }
+                    } else {
+                        lblComparacion.innerHTML = ``; // No hay datos del mes anterior
+                    }
+                } else {
+                    lblComparacion.innerHTML = `<a href="historial.html" title="Compara con el mes anterior (Exclusivo Premium)" style="color: #f1c40f; text-decoration: none; font-size: 0.9rem; cursor: pointer; margin-left: 0.2rem;">🔒</a>`;
+                }
+            }
 
             if (presupuesto > 0) {
                 let porcentaje = (totalGastadoMes / presupuesto) * 100;

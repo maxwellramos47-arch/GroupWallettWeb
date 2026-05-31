@@ -63,7 +63,8 @@ router.post('/checkout', verificarToken, async (req, res) => {
             }
         });
 
-        res.json({ url: result.init_point });
+        // Usar sandbox_init_point para forzar el entorno de pruebas si está disponible
+        res.json({ url: result.sandbox_init_point || result.init_point });
     } catch (error) { console.error('Error MercadoPago Checkout:', error); res.status(500).json({ error: 'Error al generar link de pago.' }); }
 });
 

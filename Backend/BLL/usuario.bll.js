@@ -6,6 +6,7 @@ const { JWT_SECRET, safeEncrypt, safeDecrypt, generarFirmaHMAC } = require('../M
 const twilio = require('twilio');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const webpush = require('web-push');
+const nodemailer = require('nodemailer');
 
 class UsuarioBLL {
     static async generarTokenVerificacion(telefono) {
