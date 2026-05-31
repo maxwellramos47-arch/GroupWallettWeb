@@ -1150,16 +1150,7 @@ cron.schedule('50 23 * * *', async () => {
     if (tomorrow.getDate() === 1) {
         console.log('\n[CRON] Último día del mes detectado. Generando y enviando reportes de gastos...');
         try {
-            const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
-            const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: smtpPort,
-                secure: smtpPort === 465,
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            });
+            const transporter = EmailTemplates.getTransporter();
 
             const usuarios = await prisma.usuarios.findMany({
                 include: {
@@ -1199,13 +1190,7 @@ cron.schedule('50 23 * * *', async () => {
 cron.schedule('0 8 * * 1', async () => {
     console.log('\n[CRON] Iniciando envío de recordatorios semanales de deudas pendientes...');
     try {
-        const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: smtpPort,
-            secure: smtpPort === 465,
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        });
+        const transporter = EmailTemplates.getTransporter();
 
         const usuariosDeudores = await prisma.usuarios.findMany({
             where: { transacciones_participa: { some: { estado_pago: 'Pendiente' } } },

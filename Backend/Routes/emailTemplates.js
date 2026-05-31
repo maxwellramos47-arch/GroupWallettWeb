@@ -35,6 +35,22 @@ const templateBase = (titulo, contenido) => `
 `;
 
 class EmailTemplates {
+    // Generador centralizado de Transporter para prevenir "Silent Hangs" en toda la app
+    static getTransporter() {
+        const nodemailer = require('nodemailer');
+        const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
+        return nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+            tls: { rejectUnauthorized: false }, // Fundamental: Previene cuelgues por validación estricta de SSL en proxys Cloud
+            connectionTimeout: 8000, // 8 segundos límite para conectar (Falla rápido, no se cuelga)
+            greetingTimeout: 8000,
+            socketTimeout: 8000
+        });
+    }
+
     static bienvenida(nombre) {
         const contenido = `
             <h2>¡Hola ${nombre}!</h2>

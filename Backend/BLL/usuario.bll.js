@@ -7,6 +7,7 @@ const twilio = require('twilio');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const webpush = require('web-push');
 const nodemailer = require('nodemailer');
+const EmailTemplates = require('../Routes/emailTemplates');
 
 class UsuarioBLL {
     static async generarTokenVerificacion(telefono) {
@@ -51,13 +52,7 @@ class UsuarioBLL {
         const codeHash = generarFirmaHMAC(codigoVerificacion);
         const token = jwt.sign({ correo: correoNormalizado, codeHash, type: 'email_verification' }, JWT_SECRET, { expiresIn: '10m' });
 
-        const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
-        const transporter = nodemailer.createTransport({ 
-            host: process.env.SMTP_HOST || 'smtp.gmail.com', 
-            port: smtpPort, 
-            secure: smtpPort === 465, 
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } 
-        });
+        const transporter = EmailTemplates.getTransporter();
         
         await transporter.sendMail({
             from: `"GroupWallet" <${process.env.SMTP_USER}>`,

@@ -61,13 +61,7 @@ class GrupoBLL {
         if (correo) {
             const nodemailer = require('nodemailer');
             const EmailTemplates = require('../Routes/emailTemplates');
-            const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
-            const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: smtpPort,
-                secure: smtpPort === 465,
-                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-            });
+            const transporter = EmailTemplates.getTransporter();
             const mailOptions = {
                 from: `"GroupWallet" <${process.env.SMTP_USER}>`,
                 to: correo,
