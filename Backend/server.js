@@ -589,7 +589,7 @@ app.post('/api/suscripciones/checkout', verificarToken, async (req, res) => {
                 },
                 back_url: `${req.protocol}://${req.get('host')}/dashboard.html?upgrade=success`,
                 payer_email: correo_payer,
-                external_reference: id_usuario.toString()
+                external_reference: id_usuario.toString(),
                 status: 'pending'
             }
         });
