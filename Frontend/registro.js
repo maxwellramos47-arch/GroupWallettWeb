@@ -104,40 +104,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Validar formato del teléfono (si fue ingresado)
-            const regexTelefono = /^\+[1-9]\d{7,14}$/;
-            if (telefono && telefono.trim() !== '' && !regexTelefono.test(telefono.trim())) {
-                showToast('El teléfono debe incluir el código de país (Ej: +56912345678).', 'error');
-                return;
+            if (selectedMethod === 'sms') {
+                const regexTelefono = /^\+[1-9]\d{7,14}$/;
+                if (!telefono || !regexTelefono.test(telefono.trim())) {
+                    showToast('El teléfono debe incluir el código de país (Ej: +56912345678).', 'error');
+                    return;
+                }
+            } else if (selectedMethod === 'email') {
+                if (!correo || correo.trim() === '') {
+                    showToast('Por favor, ingresa un correo electrónico válido.', 'error');
+                    return;
+                }
             }
 
-            pendingRegistrationData = { nombre, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual };
+            pendingRegistrationData = { nombre, metodo: selectedMethod, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual };
 
-            if (telefono && telefono.trim() !== '') {
-                showSpinner();
-                try {
-                    const res = await fetch('/api/usuarios/enviar-codigo-registro', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            telefono, 
-                            oldToken: currentVerificationToken 
-                        })
-                    });
-                    const data = await res.json();
+            const isEmail = selectedMethod === 'email';
+            showSpinner();
+            try {
+                const url = isEmail ? '/api/usuarios/enviar-codigo-email' : '/api/usuarios/enviar-codigo-registro';
+                const payload = isEmail ? { correo, oldToken: currentVerificationToken } : { telefono, oldToken: currentVerificationToken };
+                
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    currentVerificationToken = data.verificationToken;
+                    showToast(isEmail ? 'Código enviado a tu correo.' : 'Código SMS enviado.', 'success');
                     
-                    if (res.ok) {
-                        currentVerificationToken = data.verificationToken;
-                        showToast('Código SMS enviado. Verifica tu teléfono.', 'success');
-                        const modal = document.getElementById('modal-verificacion-telefono');
-                        if (modal) modal.style.display = 'flex';
-                    } else {
-                        showToast(data.error, 'error');
-                        cargarCaptcha();
-                        if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
+                    const modal = document.getElementById('modal-verificacion');
+                    if (modal) {
+                        const titleEl = document.getElementById('modal-verif-title');
+                        const textEl = document.getElementById('modal-verif-text');
+                        if(titleEl) titleEl.textContent = isEmail ? '✉️ Verificar Correo' : '📱 Verificar Teléfono';
+                        if(textEl) textEl.innerHTML = isEmail 
+                            ? `Hemos enviado un código a <strong>${correo}</strong>.` 
+                            : `Hemos enviado un SMS a <strong>${telefono}</strong>.`;
+                        modal.style.display = 'flex';
                     }
-                } catch (error) { showToast('Error de conexión al solicitar SMS.', 'error'); } 
-                finally { hideSpinner(); }
+                } else {
+                    showToast(data.error, 'error');
+                    cargarCaptcha();
+                    if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
+                }
+            } catch (error) { showToast('Error de conexión al solicitar el código.', 'error'); } 
+            finally { hideSpinner(); }
         });
     }
 
