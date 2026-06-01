@@ -283,7 +283,7 @@ router.post('/recuperar-password', async (req, res) => {
                 subject: 'Restablecer Contraseña - GroupWallet',
                 html: EmailTemplates.recuperacionPassword(recoveryLink)
             }).catch(err => {
-                console.error('\n[🚨 ERROR DE CORREO] Resend falló. Enlace de recuperación de prueba:');
+                console.error('\n[🚨 ERROR DE CORREO] Nodemailer falló. Enlace de recuperación de prueba:');
                 console.error(recoveryLink + '\n');
             });
         }

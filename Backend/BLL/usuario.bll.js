@@ -58,7 +58,7 @@ class UsuarioBLL {
                 html: `<h2>Código de Verificación</h2><p>Tu código es: <strong style="font-size: 24px;">${codigoVerificacion}</strong></p>`
             });
         } catch (error) {
-            console.error(`\n[🚨 ERROR DE CORREO] Resend falló. Usa este código de prueba: ${codigoVerificacion}\n`, error.message);
+            console.error(`\n[🚨 ERROR DE CORREO] Nodemailer falló. Usa este código de prueba: ${codigoVerificacion}\n`, error.message);
             throw new Error('No se pudo enviar el correo de verificación. Revisa la consola para el código de prueba.');
         }
         return { token };
