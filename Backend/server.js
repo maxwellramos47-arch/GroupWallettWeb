@@ -35,6 +35,9 @@ const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
+// Utilidad para evitar bloqueos por ráfaga (Spam rate limit) en envíos masivos
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 
 // --- Métricas de Uso del Servidor ---
@@ -1150,6 +1153,7 @@ cron.schedule('50 23 * * *', async () => {
         console.log('\n[CRON] Último día del mes detectado. Generando y enviando reportes de gastos...');
         try {
             const usuarios = await prisma.usuarios.findMany({
+                    where: { recibe_correos: true },
                 include: {
                     transacciones_pagadas: {
                         where: { fecha_gasto: { gte: startOfMonth, lt: startOfNextMonth } },
@@ -1175,6 +1179,9 @@ cron.schedule('50 23 * * *', async () => {
                     html: EmailTemplates.resumenMensual(row.nombre, row.total_gastado, row.total_hormiga, tip)
                 });
                 console.log(`[CRON] Email real enviado a: ${row.correo}`);
+                
+                // Esperar 1.5 segundos entre correos para evitar ser marcado como Spam por Gmail
+                await delay(1500); 
             }
             console.log(`[CRON] Proceso de envíos reales completado (${usuariosConGastos.length} usuarios).`);
         } catch (error) { console.error('[CRON] Error al generar reportes mensuales:', error); }
@@ -1185,7 +1192,7 @@ cron.schedule('0 8 * * 1', async () => {
     console.log('\n[CRON] Iniciando envío de recordatorios semanales de deudas pendientes...');
     try {
         const usuariosDeudores = await prisma.usuarios.findMany({
-            where: { transacciones_participa: { some: { estado_pago: 'Pendiente' } } },
+                where: { recibe_correos: true, transacciones_participa: { some: { estado_pago: 'Pendiente' } } },
             select: {
                 id_usuario: true, nombre: true, correo: true,
                 transacciones_participa: {
@@ -1214,6 +1221,9 @@ cron.schedule('0 8 * * 1', async () => {
                 subject: 'Recordatorio: Tienes cuotas pendientes en GroupWallet',
                 html: EmailTemplates.recordatorioDeudas(row.nombre, row.cantidad_cuotas, row.deuda_total)
             });
+            
+            // Esperar 1.5 segundos entre correos
+            await delay(1500);
         }
         console.log(`[CRON] Se enviaron ${deudasPorUsuario.length} recordatorios de deuda.`);
     } catch (error) { console.error('[CRON] Error al enviar recordatorios semanales:', error); }

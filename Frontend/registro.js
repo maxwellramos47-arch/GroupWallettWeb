@@ -1,7 +1,6 @@
 // registro.js
 document.addEventListener('DOMContentLoaded', () => {
     const formRegister = document.getElementById('form-register');
-    let captchaTokenActual = '';
     let pendingRegistrationData = null;
     let currentVerificationToken = null;
     let selectedMethod = null;
@@ -13,35 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const refInput = document.getElementById('registro-codigo-referido');
         if (refInput) refInput.value = decodeURIComponent(refCode);
     }
-
-    const cargarCaptcha = async () => {
-        try {
-            const res = await fetch('/api/usuarios/captcha');
-            if (res.ok) {
-                const data = await res.json();
-                captchaTokenActual = data.token;
-                
-                let captchaDiv = document.getElementById('captcha-container');
-                const btnSubmit = formRegister.querySelector('button[type="submit"]');
-                
-                if (!captchaDiv && btnSubmit) {
-                    captchaDiv = document.createElement('div');
-                    captchaDiv.id = 'captcha-container';
-                    captchaDiv.style.marginBottom = '1rem';
-                    btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
-                }
-                
-                if (captchaDiv) {
-                    captchaDiv.innerHTML = `
-                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">CAPTCHA: ${data.question}</label>
-                        <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                    `;
-                }
-            }
-        } catch (e) { console.error('Error cargando CAPTCHA', e); }
-    };
-
-    if (formRegister) cargarCaptcha();
 
     const methodSelection = document.getElementById('method-selection');
     const btnMethodEmail = document.getElementById('btn-method-email');
@@ -138,8 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const password = document.getElementById('registro-password').value;
             const confirmPassword = document.getElementById('registro-password-confirm').value;
             const tosCheckbox = document.getElementById('registro-tos');
-            const captchaInput = document.getElementById('registro-captcha');
-            const captchaAnswer = captchaInput ? captchaInput.value : null;
             const codigoReferidoInput = document.getElementById('registro-codigo-referido');
             const codigo_referido = codigoReferidoInput ? codigoReferidoInput.value.trim() : null;
 
@@ -168,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            pendingRegistrationData = { nombre, metodo: selectedMethod, correo, telefono, password, captchaAnswer, captchaToken: captchaTokenActual, codigo_referido };
+            pendingRegistrationData = { nombre, metodo: selectedMethod, correo, telefono, password, codigo_referido };
 
             const isEmail = selectedMethod === 'email';
             showSpinner();
@@ -199,8 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     showToast(data.error, 'error');
-                    cargarCaptcha();
-                    if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
                 }
             } catch (error) { showToast('Error de conexión al solicitar el código.', 'error'); } 
             finally { hideSpinner(); }
@@ -210,7 +176,20 @@ document.addEventListener('DOMContentLoaded', () => {
     async function ejecutarRegistroFinal(codigo = null) {
         showSpinner();
         try {
-            const payload = { ...pendingRegistrationData };
+            let recaptchaToken = '';
+            if (typeof grecaptcha !== 'undefined') {
+                recaptchaToken = await new Promise((resolve) => {
+                    grecaptcha.ready(() => {
+                        grecaptcha.execute('6Lf6GActAAAAAOK8xSJmk3wi_5hWt8bkNpxOGK6g', {action: 'registro'}).then(resolve);
+                    });
+                });
+            } else {
+                hideSpinner();
+                showToast('Para crear tu cuenta, por favor pausa tu bloqueador de anuncios (AdBlocker).', 'error');
+                return;
+            }
+
+            const payload = { ...pendingRegistrationData, recaptchaToken };
             if (codigo) {
                 payload.verificationToken = currentVerificationToken;
                 payload.codigoVerificacion = codigo;
@@ -228,8 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => { window.location.href = `login.html?correo=${encodeURIComponent(payload.correo || payload.telefono)}`; }, 1500);
             } else {
                 showToast(data.error || 'Error al registrar', 'error');
-                cargarCaptcha();
-                if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
             }
         } catch (error) { showToast('Error de conexión al registrarse.', 'error'); } 
         finally { hideSpinner(); }

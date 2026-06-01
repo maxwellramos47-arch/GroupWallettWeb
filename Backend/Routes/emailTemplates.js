@@ -1,7 +1,7 @@
-const { Resend } = require('resend');
-let resendInstance = null; // Patrón Singleton para optimizar memoria en Render
+const nodemailer = require('nodemailer');
+let transporterInstance = null; // Patrón Singleton para optimizar memoria en Render
 
-const templateBase = (titulo, contenido) => `
+const templateBase = (titulo, contenido, unsubscribeLink = null) => `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -31,6 +31,7 @@ const templateBase = (titulo, contenido) => `
         <div class="footer">
             <p>&copy; ${new Date().getFullYear()} GroupWallet. Todos los derechos reservados.</p>
             <p>Si no solicitaste este correo, por favor ignóralo o contáctanos.</p>
+            ${unsubscribeLink ? `<p style="margin-top: 10px;"><a href="${unsubscribeLink}" style="color: #7f8c8d; text-decoration: underline;">Haz clic aquí para dejar de recibir correos automáticos</a></p>` : ''}
         </div>
     </div>
 </body>
@@ -38,22 +39,43 @@ const templateBase = (titulo, contenido) => `
 `;
 
 class EmailTemplates {
-    // Enviar correos usando la API REST de Resend (Evita bloqueos de puertos en Render)
+    // Enviar correos usando Nodemailer con puerto 465 (Previene bloqueos SMTP en Render)
     static async sendEmail({ to, subject, html }) {
-        if (!resendInstance) {
-            resendInstance = new Resend(process.env.RESEND_API_KEY);
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            throw new Error('Las credenciales de correo (EMAIL_USER / EMAIL_PASS) no están configuradas en el servidor.');
         }
-        const fromEmail = process.env.RESEND_FROM_EMAIL || 'GroupWallet <onboarding@resend.dev>';
-        
-        const { data, error } = await resendInstance.emails.send({
-            from: fromEmail,
-            to,
-            subject,
-            html
-        });
-        
-        if (error) throw new Error(error.message);
-        return data;
+
+        if (!transporterInstance) {
+            transporterInstance = nodemailer.createTransport({
+                service: 'gmail', // O usar host/port dinámico desde el .env
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true, // true para puerto 465, previene bloqueos en entornos cloud
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
+                }
+            });
+        }
+
+        // Generar una versión de texto plano eliminando las etiquetas HTML
+        // Esto reduce drásticamente las posibilidades de caer en Spam
+        const plainText = html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+        try {
+            const info = await transporterInstance.sendMail({
+                from: `"GroupWallet" <${process.env.EMAIL_USER}>`,
+                replyTo: process.env.EMAIL_USER,
+                to,
+                subject,
+                html,
+                text: plainText
+            });
+            return info;
+        } catch (error) {
+            console.error('[🚨 ERROR DE NODEMAILER]', error.message);
+            throw new Error('Error al enviar el correo a través del servicio SMTP.');
+        }
     }
 
     static bienvenida(nombre) {
@@ -104,7 +126,7 @@ class EmailTemplates {
         return templateBase('Recuperación de Cuenta', contenido);
     }
 
-    static resumenMensual(nombre, total_gastado, total_hormiga, tip) {
+    static resumenMensual(nombre, total_gastado, total_hormiga, tip, unsubscribeLink) {
         const contenido = `
             <h2>Hola ${nombre},</h2>
             <p>Aquí tienes tu resumen mensual de finanzas en <strong>GroupWallet</strong>:</p>
@@ -117,10 +139,10 @@ class EmailTemplates {
                 ${tip}
             </div>
         `;
-        return templateBase('Tu Resumen Mensual', contenido);
+        return templateBase('Tu Resumen Mensual', contenido, unsubscribeLink);
     }
 
-    static recordatorioDeudas(nombre, cantidad_cuotas, deuda_total) {
+    static recordatorioDeudas(nombre, cantidad_cuotas, deuda_total, unsubscribeLink) {
         const contenido = `
             <h2>Hola ${nombre},</h2>
             <p>Este es un recordatorio amigable de que actualmente tienes <strong class="highlight">${cantidad_cuotas} cuota(s) pendiente(s)</strong> en tus grupos.</p>
@@ -133,7 +155,7 @@ class EmailTemplates {
                 <a href="${process.env.FRONTEND_URL || 'https://groupwallettweb.onrender.com'}/dashboard.html" class="btn">Ir a GroupWallet</a>
             </div>
         `;
-        return templateBase('Recordatorio de Deudas', contenido);
+        return templateBase('Recordatorio de Deudas', contenido, unsubscribeLink);
     }
 }
 

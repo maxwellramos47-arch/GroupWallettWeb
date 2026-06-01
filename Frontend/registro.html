@@ -6,6 +6,10 @@
     <title>Registro - GroupWallet</title>
     <link rel="stylesheet" href="styles.css">
     <script>
+        // Validación Estricta de Sesión con el Servidor (Base de Datos)
+        fetch('/api/usuarios/validate-session')
+            .then(res => res.json())
+            .then(data => {
                 if (data.valid) {
                     const pendingJoin = localStorage.getItem('pendingJoinToken');
                     window.location.href = pendingJoin ? 'join.html?token=' + pendingJoin : 'dashboard.html';
@@ -20,6 +24,7 @@
       gtag('js', new Date());
       gtag('config', 'G-XXXXXXXXXX');
     </script>
+    <script src="https://www.google.com/recaptcha/api.js?render=6Lf6GActAAAAAOK8xSJmk3wi_5hWt8bkNpxOGK6g"></script>
 </head>
 <body class="login-body">
     <div class="login-container card">

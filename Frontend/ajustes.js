@@ -91,6 +91,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const selectMoneda = document.getElementById('perfil-moneda');
             if (selectMoneda) selectMoneda.value = perfil.moneda || '$';
             
+            const checkCorreos = document.getElementById('perfil-recibe-correos');
+            if (checkCorreos) checkCorreos.checked = perfil.recibe_correos !== false; // True por defecto
+            
             const btnEmail = document.getElementById('btn-agregar-correo');
             const btnPhone = document.getElementById('btn-agregar-telefono');
             if (!perfil.correo || !perfil.correo_verificado) btnEmail.style.display = 'block';
@@ -125,6 +128,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (error) { console.error('Error al cargar perfil:', error); } finally { hideSpinner(); }
 
+    // --- Manejo de redirección desde correo electrónico ---
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('unsubscribed') === 'true') {
+        showToast('Te has desuscrito de los correos automáticos exitosamente.', 'success');
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('unsubscribed') === 'error') {
+        showToast('El enlace de desuscripción es inválido o ha expirado.', 'error');
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     const perfilFotoInput = document.getElementById('perfil-foto');
     const perfilFotoPreview = document.getElementById('perfil-foto-preview');
     if (perfilFotoInput && perfilFotoPreview) {
@@ -149,11 +162,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Preferencias Locales ---
     const inputUmbralHormiga = document.getElementById('ajustes-umbral-hormiga');
     const inputCompresion = document.getElementById('ajustes-compresion');
+    const inputPrivacidad = document.getElementById('ajustes-modo-privacidad');
+    const inputInicio = document.getElementById('ajustes-pagina-inicio');
     if (inputUmbralHormiga) {
         inputUmbralHormiga.value = localStorage.getItem(`umbralHormiga_${usuarioId}`) || 15;
     }
     if (inputCompresion) {
         inputCompresion.value = localStorage.getItem(`compresion_${usuarioId}`) || 'medium';
+    }
+    if (inputPrivacidad) {
+        inputPrivacidad.checked = localStorage.getItem(`privacidad_${usuarioId}`) === 'true';
+    }
+    if (inputInicio) {
+        inputInicio.value = localStorage.getItem(`inicio_${usuarioId}`) || 'dashboard.html';
     }
     
     const btnGuardarPreferencias = document.getElementById('btn-guardar-preferencias');
@@ -164,6 +185,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!isNaN(val) && val > 0) {
                 localStorage.setItem(`umbralHormiga_${usuarioId}`, val);
                 localStorage.setItem(`compresion_${usuarioId}`, compresionVal);
+                if (inputPrivacidad) localStorage.setItem(`privacidad_${usuarioId}`, inputPrivacidad.checked);
+                if (inputInicio) localStorage.setItem(`inicio_${usuarioId}`, inputInicio.value);
                 showToast('Preferencia guardada exitosamente.', 'success');
             } else { showToast('Ingresa un monto válido para el umbral.', 'error'); }
         });
@@ -241,6 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const password_actual = document.getElementById('perfil-password-actual').value;
         const password = document.getElementById('perfil-password').value;
         const moneda = document.getElementById('perfil-moneda')?.value || '$';
+        const recibe_correos = document.getElementById('perfil-recibe-correos')?.checked;
 
         if (password && password.trim() !== '') {
             const regexSeguridad = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -289,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/api/usuarios/perfil', {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password, eliminar_foto: eliminarFotoFlag, moneda })
+                body: JSON.stringify({ nombre, telefono, foto_url: foto_url_final, password_actual, nueva_password: password, eliminar_foto: eliminarFotoFlag, moneda, recibe_correos })
             });
             if (res.ok) {
                 showToast('Perfil actualizado exitosamente.', 'success');

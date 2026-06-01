@@ -52,6 +52,10 @@
                         <option value="£">£ (Libras)</option>
                     </select>
                 </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                    <input type="checkbox" id="perfil-recibe-correos" style="width: auto; margin: 0; transform: scale(1.2); cursor: pointer;">
+                    <label for="perfil-recibe-correos" style="margin: 0; font-size: 0.9rem; color: var(--text-dark); cursor: pointer; font-weight: normal;">Recibir correos automáticos (Resúmenes y Recordatorios)</label>
+                </div>
             <div class="form-group">
                 <label id="label-correo">Correo Electrónico</label>
                 <div style="display: flex; gap: 0.5rem;">
@@ -111,6 +115,23 @@
                     <option value="low">Baja (Ahorro de datos, ~200 KB)</option>
                 </select>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Ajusta la calidad con la que se guardan tus fotos de recibos. Usa "Baja" si tienes mala conexión.</p>
+            </div>
+            <div class="form-group mt-2">
+                <label>Modo Privacidad (Ocultar Saldos)</label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="ajustes-modo-privacidad" style="width: auto; margin: 0; transform: scale(1.2); cursor: pointer;">
+                    <label for="ajustes-modo-privacidad" style="margin: 0; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; font-weight: normal;">Mostrar asteriscos (***) en el Dashboard</label>
+                </div>
+            </div>
+            <div class="form-group mt-2">
+                <label>Página de Inicio Predeterminada</label>
+                <select id="ajustes-pagina-inicio" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                    <option value="dashboard.html">Panel de Control (Dashboard)</option>
+                    <option value="mensual.html">Vista Mensual</option>
+                    <option value="historial.html">Análisis de Finanzas</option>
+                    <option value="grupos.html">Mis Grupos</option>
+                </select>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Pantalla a la que irás automáticamente después de iniciar sesión.</p>
             </div>
             <button type="button" id="btn-guardar-preferencias" class="btn-primary mt-2" style="width: auto;">Guardar Preferencia</button>
         </div>

@@ -19,16 +19,6 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-router.get('/captcha', (req, res) => {
-    // Generar un CAPTCHA Matemático protegido por el servidor
-    const num1 = Math.floor(Math.random() * 10) + 1;
-    const num2 = Math.floor(Math.random() * 10) + 1;
-    const answer = num1 + num2;
-    
-    // Firmamos la respuesta correcta en un token que caduca en 10 minutos
-    const token = jwt.sign({ answer, type: 'captcha' }, JWT_SECRET, { expiresIn: '10m' });
-    res.json({ question: `¿Cuánto es ${num1} + ${num2}?`, token });
-});
 
 const smsLimiter = rateLimit({
     windowMs: 10 * 60 * 1000,
@@ -86,8 +76,6 @@ const registroSchema = z.object({
         .min(8, "La contraseña debe tener mínimo 8 caracteres")
         .regex(/[A-Z]/, "La contraseña debe contener al menos una letra mayúscula")
         .regex(/[0-9]/, "La contraseña debe contener al menos un número"),
-    captchaAnswer: z.string().min(1, "Debes resolver el CAPTCHA"),
-    captchaToken: z.string().min(1, "Falta el token del CAPTCHA"),
     verificationToken: z.string().min(1, "Falta el token de verificación"),
     codigoVerificacion: z.string().min(1, "Falta el código de validación"),
     codigo_referido: z.string().optional().nullable()
@@ -103,16 +91,7 @@ router.post('/registro', async (req, res) => {
         }
         
         // 3. Usar los datos ya validados y limpios (sanitizados)
-        const { nombre, metodo, correo, telefono, password, captchaAnswer, captchaToken, verificationToken, codigoVerificacion, codigo_referido } = validacion.data;
-        
-        // --- Validación Estricta de CAPTCHA en Backend ---
-        if (!captchaToken || !captchaAnswer) return res.status(400).json({ error: 'Falta la verificación de seguridad (CAPTCHA).' });
-        try {
-            const decoded = jwt.verify(captchaToken, JWT_SECRET);
-            if (decoded.type !== 'captcha' || decoded.answer !== parseInt(captchaAnswer)) {
-                return res.status(400).json({ error: 'Respuesta de seguridad (CAPTCHA) incorrecta.' });
-            }
-        } catch (err) { return res.status(400).json({ error: 'El CAPTCHA expiró o es inválido. Por favor, recarga la página.' }); }
+        const { nombre, metodo, correo, telefono, password, verificationToken, codigoVerificacion, codigo_referido } = validacion.data;
 
         // --- Validación Estricta de Código Invalidado ---
         if (verificationToken) {
@@ -223,8 +202,16 @@ router.get('/perfil', verificarToken, async (req, res) => {
 
 router.put('/perfil', verificarToken, async (req, res) => {
     try {
-        const { nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto, moneda } = req.body;
+        const { nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto, moneda, recibe_correos } = req.body;
         await UsuarioBLL.actualizarPerfil(req.usuarioLogueado.id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto, moneda);
+
+        if (recibe_correos !== undefined) {
+            await prisma.usuarios.update({
+                where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) },
+                data: { recibe_correos: Boolean(recibe_correos) }
+            });
+        }
+
         res.json({ message: 'Perfil actualizado exitosamente' });
     } catch (error) { 
         res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 
@@ -298,6 +285,24 @@ router.post('/reset-password', async (req, res) => {
         });
         res.json({ message: 'Contraseña actualizada. Ya puedes iniciar sesión.' });
     } catch (error) { res.status(error.message.includes('Token') ? 400 : 500).json({ error: error.message }); }
+});
+
+// --- Desuscripción de Correos Automáticos (1 Clic) ---
+router.get('/desuscribirse', async (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token) return res.status(400).send('Token no proporcionado.');
+        
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.action !== 'unsubscribe') return res.status(400).send('Token inválido.');
+        
+        await prisma.usuarios.update({
+            where: { id_usuario: decoded.id_usuario },
+            data: { recibe_correos: false }
+        });
+        
+        res.redirect(302, '/ajustes.html?unsubscribed=true');
+    } catch (error) { res.redirect(302, '/ajustes.html?unsubscribed=error'); }
 });
 
 router.post('/logout', verificarToken, async (req, res, next) => {

@@ -31,10 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showSpinner();
         try {
+            let recaptchaToken = '';
+            if (typeof grecaptcha !== 'undefined') {
+                recaptchaToken = await new Promise((resolve) => {
+                    grecaptcha.ready(() => {
+                        grecaptcha.execute('6Lf6GActAAAAAOK8xSJmk3wi_5hWt8bkNpxOGK6g', {action: 'login'}).then(resolve);
+                    });
+                });
+            } else {
+                hideSpinner();
+                showToast('Para iniciar sesión, por favor pausa tu bloqueador de anuncios (AdBlocker) para cargar el sistema de seguridad.', 'error');
+                return;
+            }
+
             const response = await fetch('/api/usuarios/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identificador, password, rememberMe })
+                body: JSON.stringify({ identificador, password, rememberMe, recaptchaToken })
             });
 
             const data = await response.json();
@@ -52,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pendingJoinToken) {
                     window.location.href = `/join.html?token=${pendingJoinToken}`;
                 } else {
-                    window.location.href = '/dashboard.html';
+                    const paginaInicio = localStorage.getItem(`inicio_${data.id_usuario}`) || 'dashboard.html';
+                    window.location.href = paginaInicio;
                 }
             } else {
                 showToast(data.error || 'Error al iniciar sesión', 'error');
@@ -109,10 +123,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const correo = document.getElementById('recovery-correo').value;
         showSpinner();
         try {
+            let recaptchaToken = '';
+            if (typeof grecaptcha !== 'undefined') {
+                recaptchaToken = await new Promise((resolve) => {
+                    grecaptcha.ready(() => {
+                        grecaptcha.execute('6Lf6GActAAAAAOK8xSJmk3wi_5hWt8bkNpxOGK6g', {action: 'recuperar'}).then(resolve);
+                    });
+                });
+            } else {
+                hideSpinner();
+                showToast('Para recuperar tu contraseña, por favor pausa tu bloqueador de anuncios (AdBlocker).', 'error');
+                return;
+            }
+
             const res = await fetch('/api/usuarios/recuperar-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ correo })
+                body: JSON.stringify({ correo, recaptchaToken })
             });
             const data = await res.json();
             if (res.ok) {
@@ -131,10 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const new_password = document.getElementById('reset-password').value;
         showSpinner();
         try {
+            let recaptchaToken = '';
+            if (typeof grecaptcha !== 'undefined') {
+                recaptchaToken = await new Promise((resolve) => {
+                    grecaptcha.ready(() => {
+                        grecaptcha.execute('6Lf6GActAAAAAOK8xSJmk3wi_5hWt8bkNpxOGK6g', {action: 'reset'}).then(resolve);
+                    });
+                });
+            } else {
+                hideSpinner();
+                showToast('Sistema de seguridad bloqueado. Pausa tu AdBlocker para continuar.', 'error');
+                return;
+            }
+
             const res = await fetch('/api/usuarios/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, new_password })
+                body: JSON.stringify({ token, new_password, recaptchaToken })
             });
             const data = await res.json();
             if (res.ok) { 
@@ -153,36 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const formRegister = document.getElementById('form-register');
     const linkRegister = document.getElementById('link-register') || document.getElementById('btn-register');
     const linkLogin = document.getElementById('link-login') || document.getElementById('btn-login');
-    let captchaTokenActual = '';
     let pendingRegistrationData = null;
     let currentVerificationToken = null;
-
-    const cargarCaptcha = async () => {
-        try {
-            const res = await fetch('/api/usuarios/captcha');
-            if (res.ok) {
-                const data = await res.json();
-                captchaTokenActual = data.token;
-                
-                let captchaDiv = document.getElementById('captcha-container');
-                const btnSubmit = formRegister.querySelector('button[type="submit"]');
-                
-                if (!captchaDiv && btnSubmit) {
-                    captchaDiv = document.createElement('div');
-                    captchaDiv.id = 'captcha-container';
-                    captchaDiv.style.marginBottom = '1rem';
-                    btnSubmit.parentNode.insertBefore(captchaDiv, btnSubmit);
-                }
-                
-                if (captchaDiv) {
-                    captchaDiv.innerHTML = `
-                        <label style="font-weight: bold; margin-bottom: 0.5rem; display: block;">CAPTCHA: ${data.question}</label>
-                        <input type="number" id="registro-captcha" required placeholder="Tu respuesta" style="width: 100%; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
-                    `;
-                }
-            }
-        } catch (e) { console.error('Error cargando CAPTCHA', e); }
-    };
 
     // Cambiar al formulario de registro
     if (linkRegister && formRegister) {
@@ -228,9 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Cargar CAPTCHA dinámico desde Backend
-            cargarCaptcha();
-
             const btnSubmit = formRegister.querySelector('button[type="submit"]');
             if (btnSubmit) btnSubmit.textContent = 'Registrarse';
         });
@@ -254,8 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const password = document.getElementById('registro-password').value;
             const confirmPassword = document.getElementById('registro-password-confirm') ? document.getElementById('registro-password-confirm').value : null;
             const tosCheckbox = document.getElementById('registro-tos');
-            const captchaInput = document.getElementById('registro-captcha');
-            const captchaAnswer = captchaInput ? captchaInput.value : null;
 
             // Validar que aceptó los Términos
             if (tosCheckbox && !tosCheckbox.checked) {
@@ -269,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            pendingRegistrationData = { nombre, correo, telefono: null, password, captchaAnswer, captchaToken: captchaTokenActual };
+            pendingRegistrationData = { nombre, correo, telefono: null, password };
             ejecutarRegistroFinal();
         });
     }
@@ -277,7 +284,20 @@ document.addEventListener('DOMContentLoaded', () => {
     async function ejecutarRegistroFinal(codigoSms = null) {
         showSpinner();
         try {
-            const payload = { ...pendingRegistrationData };
+            let recaptchaToken = '';
+            if (typeof grecaptcha !== 'undefined') {
+                recaptchaToken = await new Promise((resolve) => {
+                    grecaptcha.ready(() => {
+                        grecaptcha.execute('6Lf6GActAAAAAOK8xSJmk3wi_5hWt8bkNpxOGK6g', {action: 'registro'}).then(resolve);
+                    });
+                });
+            } else {
+                hideSpinner();
+                showToast('Para crear tu cuenta, por favor pausa tu bloqueador de anuncios (AdBlocker).', 'error');
+                return;
+            }
+
+            const payload = { ...pendingRegistrationData, recaptchaToken };
             if (codigoSms) {
                 payload.verificationToken = currentVerificationToken;
                 payload.codigoSms = codigoSms;
@@ -300,8 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (modal) modal.style.display = 'none';
             } else {
                 showToast(data.error || 'Error al registrar', 'error');
-                cargarCaptcha();
-                if (document.getElementById('registro-captcha')) document.getElementById('registro-captcha').value = '';
             }
         } catch (error) { showToast('Error de conexión al registrarse.', 'error'); } 
         finally { hideSpinner(); }

@@ -23,6 +23,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const labelMontoGasto = document.querySelector('label[for="monto-gasto"]');
     if (labelMontoGasto) labelMontoGasto.textContent = `Monto (${moneda})`;
 
+    // --- Modo Privacidad ---
+    let isPrivacyMode = localStorage.getItem(`privacidad_${miIdUsuarioGlobal}`) === 'true';
+    const maskAmount = (monto) => isPrivacyMode ? '***' : `${moneda}${parseFloat(monto).toFixed(2)}`;
+    const btnTogglePrivacidad = document.getElementById('btn-toggle-privacidad');
+    if (btnTogglePrivacidad) {
+        btnTogglePrivacidad.textContent = isPrivacyMode ? '🙈' : '👁️';
+        btnTogglePrivacidad.addEventListener('click', () => {
+            isPrivacyMode = !isPrivacyMode;
+            localStorage.setItem(`privacidad_${miIdUsuarioGlobal}`, isPrivacyMode);
+            btnTogglePrivacidad.textContent = isPrivacyMode ? '🙈' : '👁️';
+            renderizarTabla();
+            calcularSaldos();
+        });
+    }
+
     // --- Mostrar aviso de suscripción vencida ---
     if (localStorage.getItem('mostrarAvisoVencido') === 'true') {
         showToast('Tu suscripción Premium ha expirado. Has vuelto al Plan Básico.', 'error');
@@ -346,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tr.innerHTML = `
             <td>${escapeHTML(nombreCol)} ${btnBanco}</td>
-            <td>${moneda}${monto.toFixed(2)}</td>
+            <td>${maskAmount(monto)}</td>
             <td>${estadoHtml}</td>
             <td>${botonesHtml}</td>
         `;
@@ -451,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span style="background-color: var(--bg-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${escapeHTML(t.categoria || 'General')}</span></td>
                 <td>${escapeHTML(t.descripcion)}${t.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(t.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${t.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td>
                 <td>${escapeHTML(t.pagador_nombre)}</td>
-                <td>${moneda}${t.monto.toFixed(2)}</td>
+                <td>${maskAmount(t.monto)}</td>
                 <td>${botonEditarHTML}${botonEliminarHTML}</td>
             `;
             listaGastos.appendChild(tr);
@@ -515,11 +530,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Actualizar el DOM según si el balance es a favor (positivo) o en contra (negativo)
         if (miBalance >= 0) {
-            saldoTeDeben.textContent = `${moneda}${miBalance.toFixed(2)}`;
-            saldoDebes.textContent = `${moneda}0.00`;
+            saldoTeDeben.textContent = maskAmount(miBalance);
+            saldoDebes.textContent = maskAmount(0);
         } else {
-            saldoTeDeben.textContent = `${moneda}0.00`;
-            saldoDebes.textContent = `${moneda}${Math.abs(miBalance).toFixed(2)}`;
+            saldoTeDeben.textContent = maskAmount(0);
+            saldoDebes.textContent = maskAmount(Math.abs(miBalance));
         }
     };
 

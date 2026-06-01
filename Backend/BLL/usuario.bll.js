@@ -213,7 +213,7 @@ class UsuarioBLL {
     static async obtenerPerfil(id_usuario) {
         const usuario = await UsuarioDAL.findById(id_usuario);
         if (!usuario) throw new Error('Usuario no encontrado');
-        return { nombre: usuario.nombre, correo: usuario.correo, correo_verificado: usuario.correo_verificado || false, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url, moneda: usuario.moneda, logros: await UsuarioDAL.getLogros(id_usuario) };
+        return { nombre: usuario.nombre, correo: usuario.correo, correo_verificado: usuario.correo_verificado || false, telefono: safeDecrypt(usuario.telefono), telefono_verificado: usuario.telefono_verificado || false, id_plan: usuario.id_plan, estado_suscripcion: usuario.estado_suscripcion, foto_url: usuario.foto_url, moneda: usuario.moneda, recibe_correos: usuario.recibe_correos, logros: await UsuarioDAL.getLogros(id_usuario) };
     }
 
     static async actualizarPerfil(id_usuario, nombre, telefono, foto_url, password_actual, nueva_password, eliminar_foto, moneda) {
