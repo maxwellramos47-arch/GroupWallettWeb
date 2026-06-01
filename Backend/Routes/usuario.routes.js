@@ -181,7 +181,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             }
         });
 
-        res.json({ message: 'Login exitoso', id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion, moneda: usuario.moneda });
+        res.json({ message: 'Login exitoso', id_usuario: usuario.id_usuario, nombre: usuario.nombre, estado_suscripcion: usuario.estado_suscripcion, moneda: usuario.moneda, tiene_pin: !!usuario.pin_seguridad });
     } catch (error) {
         const status = error.message.includes('encontrado') || error.message.includes('incorrecta') || error.message.includes('bloqueada') || error.message.includes('intento') ? 401 : 500;
         res.status(status).json({ error: error.message || 'Error en el servidor al intentar iniciar sesión' });
@@ -215,6 +215,32 @@ router.put('/perfil', verificarToken, async (req, res) => {
         res.json({ message: 'Perfil actualizado exitosamente' });
     } catch (error) { 
         res.status(error.message.includes('incorrecta') ? 401 : 500).json({ error: error.message || 'Error al actualizar el perfil' }); 
+    }
+});
+
+// --- Configuración de PIN de Seguridad (2FA) ---
+router.put('/perfil/pin', verificarToken, async (req, res) => {
+    try {
+        const { password_actual, nuevo_pin } = req.body;
+        const bcrypt = require('bcryptjs');
+        const user = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) } });
+        
+        const match = await bcrypt.compare(password_actual, user.password_hash);
+        if (!match) return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+
+        let pinHash = null;
+        if (nuevo_pin && nuevo_pin.length >= 4) {
+            pinHash = await bcrypt.hash(nuevo_pin, 10);
+        }
+
+        await prisma.usuarios.update({
+            where: { id_usuario: user.id_usuario },
+            data: { pin_seguridad: pinHash }
+        });
+
+        res.json({ message: nuevo_pin ? 'PIN de seguridad activado exitosamente.' : 'PIN de seguridad desactivado.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al actualizar el PIN de seguridad.' });
     }
 });
 

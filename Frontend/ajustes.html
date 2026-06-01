@@ -101,6 +101,28 @@
         </div>
 
         <div class="card mt-2">
+            <h3>Seguridad Avanzada (2FA / PIN)</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Protege las transferencias y confirmaciones de pago exigiendo un PIN numérico de 4 a 6 dígitos. Ideal si compartes tu dispositivo o deseas evitar toques accidentales.</p>
+            <form id="form-pin-seguridad">
+                <div class="form-group">
+                    <label>Contraseña de tu cuenta</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                        <input type="password" id="pin-password-actual" placeholder="Tu contraseña actual" required style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light);">
+                        <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nuevo PIN de Seguridad <span id="pin-status-badge"><span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;">Cargando...</span></span></label>
+                    <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                        <input type="password" id="pin-nuevo" placeholder="4 a 6 dígitos (Vacío para desactivar)" pattern="[0-9]{4,6}" style="flex: 1; padding: 0.8rem; font-size: 1.05rem; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: var(--bg-light); letter-spacing: 0.5rem; text-align: center;">
+                        <button type="button" class="toggle-password" style="background-color: var(--bg-light); border: 1px solid var(--border-color); border-radius: 6px; padding: 0 1rem; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;" title="Mostrar/Ocultar">👁️</button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary mt-2">Guardar Configuración de PIN</button>
+            </form>
+        </div>
+
+        <div class="card mt-2">
             <h3>Preferencias de la Interfaz</h3>
             <div class="form-group mt-2">
                 <label>Umbral de "Gastos Hormiga"</label>
@@ -168,6 +190,27 @@
             </div>
         </div>
         
+        <div class="card mt-2">
+            <h3>Dispositivos Conectados (Sesiones)</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Revisa desde dónde has iniciado sesión. Si ves actividad sospechosa, desconecta el dispositivo.</p>
+            <div class="table-responsive">
+                <table class="gastos-table">
+                    <thead>
+                        <tr>
+                            <th>Dispositivo</th>
+                            <th>IP</th>
+                            <th>Último Acceso</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-sesiones">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+            <button id="btn-logout-all" class="btn-primary mt-2" style="background-color: var(--danger-color); width: auto;">Cerrar sesión en todos los dispositivos</button>
+        </div>
+
         <div class="card mt-2" id="suscripcion-container" style="display: none;">
             <h3>Mi Suscripción</h3>
             <div style="background-color: var(--bg-light); padding: 1rem; border-radius: 4px; border: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">

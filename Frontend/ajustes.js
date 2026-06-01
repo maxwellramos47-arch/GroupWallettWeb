@@ -128,6 +128,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
+
+            if (perfil.tiene_pin) {
+                localStorage.setItem('tienePin', 'true');
+                document.getElementById('pin-status-badge').innerHTML = `<span style="color: var(--secondary-emerald); font-weight: bold; font-size: 0.8rem; margin-left: 0.5rem;">✔️ Activado</span>`;
+            } else {
+                localStorage.setItem('tienePin', 'false');
+                document.getElementById('pin-status-badge').innerHTML = `<span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;">Desactivado</span>`;
+            }
         }
     } catch (error) { console.error('Error al cargar perfil:', error); } finally { hideSpinner(); }
 
@@ -192,6 +200,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (inputInicio) localStorage.setItem(`inicio_${usuarioId}`, inputInicio.value);
                 showToast('Preferencia guardada exitosamente.', 'success');
             } else { showToast('Ingresa un monto válido para el umbral.', 'error'); }
+        });
+    }
+
+    // --- Configuración de PIN de Seguridad (2FA) ---
+    const formPin = document.getElementById('form-pin-seguridad');
+    if (formPin) {
+        formPin.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password_actual = document.getElementById('pin-password-actual').value;
+            const nuevo_pin = document.getElementById('pin-nuevo').value;
+
+            showSpinner();
+            try {
+                const res = await fetch('/api/usuarios/perfil/pin', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password_actual, nuevo_pin })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message, 'success');
+                    localStorage.setItem('tienePin', nuevo_pin ? 'true' : 'false');
+                    formPin.reset();
+                    document.getElementById('pin-status-badge').innerHTML = nuevo_pin 
+                        ? `<span style="color: var(--secondary-emerald); font-weight: bold; font-size: 0.8rem; margin-left: 0.5rem;">✔️ Activado</span>` 
+                        : `<span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;">Desactivado</span>`;
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (err) { showToast('Error de conexión', 'error'); } finally { hideSpinner(); }
         });
     }
 

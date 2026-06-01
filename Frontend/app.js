@@ -1131,6 +1131,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('pago-monto-esperado').value = montoEsperado;
                     const lblMonto = document.getElementById('monto-esperado-label');
                     if(lblMonto) lblMonto.textContent = `${moneda}${parseFloat(montoEsperado).toFixed(2)}`;
+                    
+                    const containerPin = document.getElementById('container-pago-pin');
+                    const inputPin = document.getElementById('pago-pin');
+                    if (localStorage.getItem('tienePin') === 'true') {
+                        containerPin.style.display = 'block';
+                        inputPin.required = true;
+                        inputPin.value = '';
+                    } else {
+                        containerPin.style.display = 'none';
+                        inputPin.required = false;
+                    }
                     modalPago.style.display = 'flex';
                 }
             }
@@ -1245,6 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const idUsuario = document.getElementById('pago-id-usuario').value;
             const montoEsperado = parseFloat(document.getElementById('pago-monto-esperado').value);
             const fileInput = document.getElementById('pago-comprobante');
+            const pin = document.getElementById('pago-pin')?.value;
             
             let comprobante_url = null;
             if (fileInput && fileInput.files.length > 0) {
@@ -1283,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/api/cuotas/pagar', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_transaccion: idTransaccion, id_usuario: idUsuario, comprobante_url })
+                    body: JSON.stringify({ id_transaccion: idTransaccion, id_usuario: idUsuario, comprobante_url, pin })
                 });
 
                 if (response.ok) {

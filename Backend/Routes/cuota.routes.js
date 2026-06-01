@@ -9,7 +9,17 @@ const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKE
 
 router.put('/pagar', verificarToken, async (req, res) => {
     try {
-        const { id_transaccion, id_usuario } = req.body;
+        const { id_transaccion, id_usuario, pin } = req.body;
+
+        // --- VERIFICACIÓN DE PIN 2FA ---
+        const user = await prisma.usuarios.findUnique({ where: { id_usuario: parseInt(req.usuarioLogueado.id_usuario) } });
+        if (user.pin_seguridad) {
+            if (!pin) return res.status(403).json({ error: 'Debes ingresar tu PIN de seguridad para confirmar esta acción.' });
+            const bcrypt = require('bcryptjs');
+            const match = await bcrypt.compare(pin, user.pin_seguridad);
+            if (!match) return res.status(403).json({ error: 'El PIN de seguridad es incorrecto.' });
+        }
+
         const archivado = await GastoBLL.pagarCuota(id_transaccion, id_usuario, req.usuarioLogueado.id_usuario);
         
         // Emitir evento en tiempo real a todos los clientes conectados

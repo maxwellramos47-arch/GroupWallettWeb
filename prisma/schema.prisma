@@ -51,6 +51,7 @@ model Usuarios {
   referidos_count               Int?      @default(0)
   logros                        String[]  @default([])
   recibe_correos                Boolean?  @default(true)
+  pin_seguridad                 String?   @db.VarChar(255)
 
   plan                          Planes_Suscripcion? @relation(fields: [id_plan], references: [id_plan])
   grupos_creados                Grupos[]

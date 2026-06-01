@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('usuarioId', data.id_usuario); // Guardamos ID en lugar del Token vulnerable
                 localStorage.setItem('usuarioNombre', data.nombre);
                 localStorage.setItem(`moneda_${data.id_usuario}`, data.moneda || '$');
+                localStorage.setItem('tienePin', data.tiene_pin ? 'true' : 'false');
                 
                 if (data.estado_suscripcion === 'vencido') {
                     localStorage.setItem('mostrarAvisoVencido', 'true');
