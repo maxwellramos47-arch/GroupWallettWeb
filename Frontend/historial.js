@@ -12,6 +12,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const miIdUsuarioGlobal = usuarioId.toString();
     const moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
 
+    // --- Modo Privacidad ---
+    let isPrivacyMode = localStorage.getItem(`privacidad_${miIdUsuarioGlobal}`) === 'true';
+    const maskAmount = (monto) => isPrivacyMode ? '***' : `${moneda}${parseFloat(monto).toFixed(2)}`;
+    const btnTogglePrivacidad = document.getElementById('btn-toggle-privacidad');
+    if (btnTogglePrivacidad) {
+        btnTogglePrivacidad.textContent = isPrivacyMode ? '🙈' : '👁️';
+        btnTogglePrivacidad.addEventListener('click', () => {
+            isPrivacyMode = !isPrivacyMode;
+            localStorage.setItem(`privacidad_${miIdUsuarioGlobal}`, isPrivacyMode);
+            btnTogglePrivacidad.textContent = isPrivacyMode ? '🙈' : '👁️';
+            renderizarHistorial();
+            cargarAnalisis();
+        });
+    }
+
     // --- Función de Escape HTML para prevenir inyecciones XSS ---
     const escapeHTML = (str) => {
         if (str === null || str === undefined) return '';
@@ -72,10 +87,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const catFrecuente = document.getElementById('cat-frecuente');
                 if (catFrecuente) {
                     catFrecuente.textContent = datosAnalisis.categoria_frecuente;
-                    document.getElementById('ahorro-proyectado').textContent = `${moneda}${datosAnalisis.ahorro_proyectado.toFixed(2)}`;
-                    document.getElementById('gasto-mayor').textContent = `${moneda}${datosAnalisis.mayor_gasto.toFixed(2)}`;
-                    document.getElementById('gasto-promedio').textContent = `${moneda}${datosAnalisis.gasto_promedio.toFixed(2)}`;
-                    document.getElementById('total-gastado').textContent = `${moneda}${datosAnalisis.total_gastado.toFixed(2)}`;
+                    document.getElementById('ahorro-proyectado').textContent = maskAmount(datosAnalisis.ahorro_proyectado);
+                    document.getElementById('gasto-mayor').textContent = maskAmount(datosAnalisis.mayor_gasto);
+                    document.getElementById('gasto-promedio').textContent = maskAmount(datosAnalisis.gasto_promedio);
+                    document.getElementById('total-gastado').textContent = maskAmount(datosAnalisis.total_gastado);
 
                     const chartContainer = document.getElementById('chart-container');
                     const canvas = document.getElementById('premiumChart');
@@ -106,6 +121,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                             premiumChartInstance.config.type = e.target.value;
                             premiumChartInstance.update();
                         });
+
+                        const btnDownloadPremium = document.getElementById('btn-download-premium-chart');
+                        if (btnDownloadPremium) {
+                            const newBtn = btnDownloadPremium.cloneNode(true);
+                            btnDownloadPremium.replaceWith(newBtn);
+                            newBtn.addEventListener('click', () => {
+                                const link = document.createElement('a');
+                                link.download = 'analisis_gastos.png';
+                                link.href = canvas.toDataURL('image/png', 1.0);
+                                link.click();
+                            });
+                        }
                     }
                 }
             } else {
@@ -222,7 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         datosFiltrados.forEach(h => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${escapeHTML(h.fecha_gasto)}</td><td>${escapeHTML(h.fecha_archivado)}</td><td><span style="font-weight: 500;">${escapeHTML(h.nombre_grupo)}</span></td><td>${escapeHTML(h.descripcion)}${h.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(h.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${h.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td><td>${escapeHTML(h.pagador_nombre)}</td><td>${moneda}${h.monto.toFixed(2)}</td>`;
+            tr.innerHTML = `<td>${escapeHTML(h.fecha_gasto)}</td><td>${escapeHTML(h.fecha_archivado)}</td><td><span style="font-weight: 500;">${escapeHTML(h.nombre_grupo)}</span></td><td>${escapeHTML(h.descripcion)}${h.comprobante_url ? \` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('\${escapeHTML(h.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>\` : \` <button class="btn-subir-comprobante" data-id="\${h.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>\`}</td><td>${escapeHTML(h.pagador_nombre)}</td><td>${maskAmount(h.monto)}</td>`;
             listaHistorial.appendChild(tr);
         });
 
@@ -247,8 +274,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                         backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e']
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, animation: false } // animation: false es vital para el PDF
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    animation: false,
+                    plugins: { tooltip: { callbacks: { label: (context) => context.label + ': ' + maskAmount(context.raw) } } }
+                } 
             });
+
+                const btnDownloadHistorial = document.getElementById('btn-download-historial-chart');
+                if (btnDownloadHistorial) {
+                    const newBtn = btnDownloadHistorial.cloneNode(true);
+                    btnDownloadHistorial.replaceWith(newBtn);
+                    newBtn.addEventListener('click', () => {
+                        const link = document.createElement('a');
+                        link.download = 'distribucion_por_pagador.png';
+                        link.href = ctx.toDataURL('image/png', 1.0);
+                        link.click();
+                    });
+                }
         } else if (chartContainer) {
             chartContainer.style.display = 'none';
         }

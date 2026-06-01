@@ -29,6 +29,37 @@ const { logError } = require('./Middleware/logger.util');
 const GastoBLL = require('./BLL/gasto.bll');
 const EmailTemplates = require('./Routes/emailTemplates');
 
+// ==========================================
+// Validación Estricta de Variables de Entorno (Fail-Fast)
+// ==========================================
+const requiredEnvVars = [
+    'DATABASE_URL',
+    'JWT_SECRET',
+    'HMAC_SECRET',
+    'ENCRYPTION_KEY',
+    'MP_ACCESS_TOKEN',
+    'MP_WEBHOOK_SECRET',
+    'AWS_ACCESS_KEY_ID',
+    'AWS_SECRET_ACCESS_KEY',
+    'AWS_BUCKET_NAME',
+    'EMAIL_USER',
+    'EMAIL_PASS'
+];
+
+const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+if (missingVars.length > 0) {
+    console.error('🚨 ERROR CRÍTICO DE ARRANQUE: Faltan las siguientes variables de entorno obligatorias:');
+    missingVars.forEach(v => console.error(`   - ${v}`));
+    console.error('El servidor se ha detenido. Por favor, configúralas en tu archivo .env o en el panel de Render.');
+    process.exit(1); // Código 1 indica una terminación por error fatal
+}
+
+// Validación estricta de la llave criptográfica
+if (process.env.ENCRYPTION_KEY.length !== 64) {
+    console.error(`🚨 ERROR CRÍTICO DE ARRANQUE: La variable ENCRYPTION_KEY debe tener exactamente 64 caracteres hexadecimales (Tiene ${process.env.ENCRYPTION_KEY.length}).`);
+    process.exit(1);
+}
+
 const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;

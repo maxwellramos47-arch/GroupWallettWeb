@@ -42,6 +42,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartMensualInstance = null;
     let isPremium = false;
     const miIdUsuario = usuarioId.toString();
+    const moneda = localStorage.getItem(`moneda_${miIdUsuario}`) || '$';
+
+    // --- Modo Privacidad ---
+    let isPrivacyMode = localStorage.getItem(`privacidad_${miIdUsuario}`) === 'true';
+    const maskAmount = (monto) => isPrivacyMode ? '***' : `${moneda}${parseFloat(monto).toFixed(2)}`;
+    const btnTogglePrivacidad = document.getElementById('btn-toggle-privacidad');
+    if (btnTogglePrivacidad) {
+        btnTogglePrivacidad.textContent = isPrivacyMode ? '🙈' : '👁️';
+        btnTogglePrivacidad.addEventListener('click', () => {
+            isPrivacyMode = !isPrivacyMode;
+            localStorage.setItem(`privacidad_${miIdUsuario}`, isPrivacyMode);
+            btnTogglePrivacidad.textContent = isPrivacyMode ? '🙈' : '👁️';
+            renderMonth();
+        });
+    }
     
     let sortColumn = 'dia';
     let sortAsc = true;
@@ -116,7 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
         listaGastosMensual.innerHTML = '';
 
         const idGrupo = document.getElementById('filtro-grupo-mensual')?.value;
-        const moneda = localStorage.getItem(`moneda_${miIdUsuario}`) || '$';
         
         let filtradas = transacciones.filter(t => {
             const partes = t.fecha.split('/'); // Postgres devuelve DD/MM/YYYY
@@ -170,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span style="background-color: var(--bg-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-color);">${t.categoria || 'General'}</span></td>
                 <td>${escapeHTML(t.descripcion)}${t.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(t.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${t.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td>
                 <td>${t.pagador_nombre}</td>
-                <td>${moneda}${t.monto.toFixed(2)}</td>
+                <td>${maskAmount(t.monto)}</td>
                 <td>${botones}</td>
             `;
             listaGastosMensual.appendChild(tr);
@@ -185,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filtradas.forEach(t => {
             if (t.monto <= umbralHormiga) { hormigaSuma += t.monto; hormigaCount++; }
         });
-        document.getElementById('hormiga-total').textContent = `${moneda}${hormigaSuma.toFixed(2)}`;
+        document.getElementById('hormiga-total').textContent = maskAmount(hormigaSuma);
         document.getElementById('hormiga-cantidad').textContent = `${hormigaCount} transacciones`;
         const tipEl = document.getElementById('hormiga-tip');
         if (hormigaSuma > 50) tipEl.textContent = '💡 Tip: ¡Cuidado! Estás perdiendo bastante dinero en compras pequeñas. Podrías invertir ese dinero.';
@@ -203,8 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const lblComparacion = document.getElementById('lbl-comparacion');
 
         if (lblGastado && lblLimite && barra && lblPorcentaje) {
-            lblGastado.textContent = `${moneda}${totalGastadoMes.toFixed(2)}`;
-            lblLimite.textContent = `${moneda}${presupuesto.toFixed(2)}`;
+            lblGastado.textContent = maskAmount(totalGastadoMes);
+            lblLimite.textContent = maskAmount(presupuesto);
 
             if (lblComparacion) {
                 if (isPremium) {
@@ -259,7 +273,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     labels: Array.from({length: daysInMonth}, (_, i) => i + 1),
                     datasets: [{ label: 'Total Acumulado ($)', data: cumulativeTotals, borderColor: '#2ecc71', backgroundColor: 'rgba(46, 204, 113, 0.2)', fill: true, tension: 0.3 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (context) => 'Total Acumulado: ' + maskAmount(context.raw) } }
+                    }, 
+                    scales: { y: { beginAtZero: true, ticks: { callback: (value) => maskAmount(value) } } } 
+                }
             });
         }
 

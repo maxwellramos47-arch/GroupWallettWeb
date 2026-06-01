@@ -49,11 +49,14 @@
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
                     <span style="font-weight: 500; font-size: 0.9rem;">Distribución de Gastos</span>
-                    <select id="tipo-grafico" style="max-width: 150px; padding: 0.3rem; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-light); color: var(--text-dark);">
-                        <option value="doughnut">Gráfico de Anillo</option>
-                        <option value="bar">Gráfico de Barras</option>
-                        <option value="pie">Gráfico Circular</option>
-                    </select>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select id="tipo-grafico" style="max-width: 150px; padding: 0.3rem; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-light); color: var(--text-dark);">
+                            <option value="doughnut">Gráfico de Anillo</option>
+                            <option value="bar">Gráfico de Barras</option>
+                            <option value="pie">Gráfico Circular</option>
+                        </select>
+                        <button id="btn-download-premium-chart" class="btn-primary" style="width: auto; padding: 0.3rem 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald);" title="Descargar como PNG">⬇️ PNG</button>
+                    </div>
                 </div>
                 <div class="fake-chart" id="chart-container" style="height: 250px; display: flex; align-items: center; justify-content: center;">
                     <canvas id="premiumChart" style="display: none; max-height: 250px; margin: 0 auto;"></canvas>
@@ -69,7 +72,10 @@
         </article>
 
         <div class="card">
-            <h3>Historial de Gastos Archivados</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0; border: none; padding: 0;">Historial de Gastos Archivados</h3>
+                <button id="btn-toggle-privacidad" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);" title="Ocultar/Mostrar Saldos">👁️</button>
+            </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
                 <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Aquí aparecen todos los gastos que ya fueron pagados al 100%.</p>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -81,7 +87,10 @@
             </div>
             <div class="table-responsive" id="pdf-export-area">
                 <div style="margin-bottom: 2rem; display: none;" id="chart-historial-container">
-                    <h4 style="text-align: center; margin-bottom: 1rem; color: var(--primary-slate);">Distribución de Gastos por Pagador</h4>
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0; color: var(--primary-slate);">Distribución de Gastos por Pagador</h4>
+                        <button id="btn-download-historial-chart" data-html2canvas-ignore="true" class="btn-primary" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.8rem; background-color: var(--secondary-emerald);" title="Descargar gráfico como PNG">⬇️ PNG</button>
+                    </div>
                     <canvas id="historialChart" style="max-height: 250px; margin: 0 auto;"></canvas>
                 </div>
                 <table class="gastos-table">
