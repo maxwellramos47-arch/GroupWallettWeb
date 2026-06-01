@@ -47,13 +47,15 @@ class EmailTemplates {
 
         if (!transporterInstance) {
             transporterInstance = nodemailer.createTransport({
-                service: 'gmail', // O usar host/port dinámico desde el .env
                 host: 'smtp.gmail.com',
                 port: 465,
                 secure: true, // true para puerto 465, previene bloqueos en entornos cloud
                 auth: {
                     user: process.env.EMAIL_USER,
                     pass: process.env.EMAIL_PASS
+                },
+                tls: {
+                    rejectUnauthorized: false // Previene bloqueos por certificados estrictos en ciertos nodos cloud
                 }
             });
         }
