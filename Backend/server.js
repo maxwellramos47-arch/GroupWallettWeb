@@ -38,7 +38,6 @@ const requiredEnvVars = [
     'HMAC_SECRET',
     'ENCRYPTION_KEY',
     'MP_ACCESS_TOKEN',
-    'MP_WEBHOOK_SECRET',
     'AWS_ACCESS_KEY_ID',
     'AWS_SECRET_ACCESS_KEY',
     'AWS_BUCKET_NAME',

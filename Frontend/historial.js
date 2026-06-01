@@ -250,7 +250,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         datosFiltrados.forEach(h => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${escapeHTML(h.fecha_gasto)}</td><td>${escapeHTML(h.fecha_archivado)}</td><td><span style="font-weight: 500;">${escapeHTML(h.nombre_grupo)}</span></td><td>${escapeHTML(h.descripcion)}${h.comprobante_url ? \` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('\${escapeHTML(h.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>\` : \` <button class="btn-subir-comprobante" data-id="\${h.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>\`}</td><td>${escapeHTML(h.pagador_nombre)}</td><td>${maskAmount(h.monto)}</td>`;
+            tr.innerHTML = `<td>${escapeHTML(h.fecha_gasto)}</td><td>${escapeHTML(h.fecha_archivado)}</td><td><span style="font-weight: 500;">${escapeHTML(h.nombre_grupo)}</span></td><td>${escapeHTML(h.descripcion)}${h.comprobante_url ? ` <a href="#" onclick="event.preventDefault(); window.openReceiptModal('${escapeHTML(h.comprobante_url)}')" title="Ver Comprobante" style="text-decoration: none; font-size: 1.1rem; margin-left: 0.3rem;">📎</a>` : ` <button class="btn-subir-comprobante" data-id="${h.id_transaccion}" title="Subir comprobante" style="background: none; border: none; font-size: 1.1rem; margin-left: 0.3rem; cursor: pointer;">📤</button>`}</td><td>${escapeHTML(h.pagador_nombre)}</td><td>${maskAmount(h.monto)}</td>`;
             listaHistorial.appendChild(tr);
         });
 
