@@ -89,7 +89,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('perfil-correo').value = perfil.correo || 'No registrado';
             document.getElementById('perfil-telefono').value = perfil.telefono || 'No registrado';
             const selectMoneda = document.getElementById('perfil-moneda');
-            if (selectMoneda) selectMoneda.value = perfil.moneda || '$';
+            
+            let moneda = perfil.moneda || '$';
+            if (moneda === 'CLP') moneda = 'CLP$'; // Migración silenciosa de datos antiguos
+            if (selectMoneda) selectMoneda.value = moneda;
             
             const checkCorreos = document.getElementById('perfil-recibe-correos');
             if (checkCorreos) checkCorreos.checked = perfil.recibe_correos !== false; // True por defecto

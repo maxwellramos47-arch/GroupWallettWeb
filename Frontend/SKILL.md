@@ -1,28 +1,26 @@
 ---
-name: groupwallet-frontend-standards
-description: GroupWallet standard practices for Vanilla JS security, XSS prevention, and streamlined DOM manipulation. Use this skill when creating new frontend files, reviewing PRs, or modifying DOM injections.
+name: currency-formatting
+description: Standard for formatting the Chilean Peso currency symbol across the application UI and messages.
 license: MIT
 author: GroupWalletWeb Team
 version: "1.0.0"
 ---
 
-# GroupWallet Frontend Standards
+# Chilean Peso (CLP) Formatting Standard
 
-Comprehensive security and structure guide for Vanilla JS DOM manipulation within the GroupWallet app. Follow these rules to prevent XSS (Cross-Site Scripting), manage authentication securely, and maintain a clean architecture.
+When displaying or referencing the Chilean Peso in the GroupWallet application, always use the combined symbol **`CLP$`**.
 
-## When to Apply
+## Rule
+Never use `CLP` alone without the peso sign, and never use `$` alone when specifically differentiating the Chilean currency from USD or generic pesos in the UI. The correct ISO-compliant format for UI display in this project is `CLP$`.
 
-- Creating new `.html` and `.js` files in the `Frontend/` folder.
-- Injecting data from the database into the DOM using `innerHTML` or template literals.
-- Setting up authentication checks for new private routes.
+**Incorrect:**
+- `CLP 5000`
+- `5000 CLP`
+- `$ 5000 CLP`
 
-## Core Verifications & Streamline
+**Correct:**
+- `CLP$5000`
+- `CLP$ 5000.00`
 
-1. **Escape HTML**: Never trust user data. Always wrap dynamic variables with the `escapeHTML` utility function before using `innerHTML`.
-2. **Auth Verification**: Ensure `usuarioId` is checked at the top of every protected JS file and the user is booted out if absent.
-3. **Global Fetch Interceptor**: Always implement the standard `window.fetch` interceptor to handle 401 Unauthorized responses seamlessly across all API calls.
-
-## References
-
-- `references/xss-prevention.md` (How to apply DOM security)
-- `references/auth-streamline.md` (How to setup a protected file)
+### Important Exceptions
+When interacting with third-party payment gateways (like MercadoPago's `preference.create`) or external APIs that require the strict 3-letter ISO 4217 code, you must continue to use the exact string `'CLP'` (e.g., `currency_id: 'CLP'`).

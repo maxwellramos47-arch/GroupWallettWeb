@@ -42,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartMensualInstance = null;
     let isPremium = false;
     const miIdUsuario = usuarioId.toString();
-    const moneda = localStorage.getItem(`moneda_${miIdUsuario}`) || '$';
+    let moneda = localStorage.getItem(`moneda_${miIdUsuario}`) || '$';
+    if (moneda === 'CLP') moneda = 'CLP$'; // Migración silenciosa de datos antiguos
 
     // --- Modo Privacidad ---
     let isPrivacyMode = localStorage.getItem(`privacidad_${miIdUsuario}`) === 'true';

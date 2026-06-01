@@ -49,8 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     data: {
                         labels: data.labels,
                         datasets: [
-                            { label: 'MRR ($ CLP)', data: data.mrr, borderColor: '#2ecc71', backgroundColor: 'rgba(46, 204, 113, 0.2)', fill: true, tension: 0.4, yAxisID: 'y' },
-                            { label: 'CAC ($ CLP)', data: data.cac, borderColor: '#e67e22', backgroundColor: '#e67e22', type: 'bar', borderRadius: 4, yAxisID: 'y1' }
+                            { label: 'MRR (CLP$)', data: data.mrr, borderColor: '#2ecc71', backgroundColor: 'rgba(46, 204, 113, 0.2)', fill: true, tension: 0.4, yAxisID: 'y' },
+                            { label: 'CAC (CLP$)', data: data.cac, borderColor: '#e67e22', backgroundColor: '#e67e22', type: 'bar', borderRadius: 4, yAxisID: 'y1' }
                         ]
                     },
                     options: {

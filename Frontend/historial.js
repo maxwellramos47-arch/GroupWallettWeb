@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Extraer configuración de moneda ---
     const miIdUsuarioGlobal = usuarioId.toString();
-    const moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
+    let moneda = localStorage.getItem(`moneda_${miIdUsuarioGlobal}`) || '$';
+    if (moneda === 'CLP') moneda = 'CLP$'; // Migración silenciosa de datos antiguos
 
     // --- Modo Privacidad ---
     let isPrivacyMode = localStorage.getItem(`privacidad_${miIdUsuarioGlobal}`) === 'true';
