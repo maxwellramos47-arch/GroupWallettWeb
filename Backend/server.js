@@ -133,7 +133,7 @@ app.use(helmet({
 const dominiosPermitidos = [
     process.env.FRONTEND_URL,
     'http://localhost:3000',
-    'https://groupwallettweb.onrender.com' // Tu dominio activo en Render
+    'https://groupwallettweb-1.onrender.com' // Tu dominio activo en Render
 ].filter(Boolean); // Filtra valores vacíos
 
 // ==========================================
