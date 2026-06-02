@@ -167,6 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     showToast(data.error, 'error');
+                    if (data.error.includes('registrado') || data.error.includes('Redirigiendo')) {
+                        setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+                    }
                 }
             } catch (error) { showToast('Error de conexión al solicitar el código.', 'error'); } 
             finally { hideSpinner(); }
@@ -207,6 +210,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => { window.location.href = `login.html?correo=${encodeURIComponent(payload.correo || payload.telefono)}`; }, 1500);
             } else {
                 showToast(data.error || 'Error al registrar', 'error');
+                
+                // Si el error es que ya está registrado o el token expiró, cerrar el modal
+                if (data.error && (data.error.includes('registrado') || data.error.includes('expirado') || data.error.includes('invalidado'))) {
+                    const modal = document.getElementById('modal-verificacion');
+                    if (modal) modal.style.display = 'none';
+                    if (data.error.includes('registrado') || data.error.includes('Redirigiendo')) {
+                        setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+                    }
+                }
             }
         } catch (error) { showToast('Error de conexión al registrarse.', 'error'); } 
         finally { hideSpinner(); }

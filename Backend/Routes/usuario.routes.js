@@ -33,6 +33,12 @@ router.post('/enviar-codigo-registro', smsLimiter, async (req, res) => {
         const { telefono, oldToken } = req.body;
         if (!telefono) return res.status(400).json({ error: 'Falta el número de teléfono.' });
 
+        // Pre-validación: Evitar enviar SMS y abrir el modal si ya existe
+        const checkUser = await prisma.usuarios.findFirst({ where: { telefono } });
+        if (checkUser) {
+            return res.status(400).json({ error: 'Este número de teléfono ya está registrado. Redirigiendo...' });
+        }
+
         // Invalidar el token anterior si existe
         if (oldToken) {
             try {
