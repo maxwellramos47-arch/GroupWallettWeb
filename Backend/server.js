@@ -11,7 +11,6 @@ if (fs.existsSync(path.resolve(__dirname, envPath))) {
 
 const http = require('http');
 const express = require('express');
-const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const cron = require('node-cron');
 const helmet = require('helmet');
