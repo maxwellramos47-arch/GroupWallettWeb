@@ -1,5 +1,14 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const fs = require('fs');
+
+// Cargar entorno dinámicamente: .env.development si existe en modo dev, sino el .env normal
+const envPath = process.env.NODE_ENV === 'development' ? '../.env.development' : '../.env';
+if (fs.existsSync(path.resolve(__dirname, envPath))) {
+    require('dotenv').config({ path: path.resolve(__dirname, envPath) });
+} else {
+    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+}
+
 const http = require('http');
 const express = require('express');
 const fs = require('fs');
