@@ -76,6 +76,8 @@ core.*
 .project
 .classpath
 .settings/
+.agents/
+agent/
 
 # 8. Archivos Basura del Sistema Operativo (Persistencia Local)
 # -------------------------------------------------------------------------
