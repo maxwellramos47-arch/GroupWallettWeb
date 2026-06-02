@@ -1327,14 +1327,14 @@ async function inicializarDatosBase() {
         ];
 
         for (const plan of planes) {
-            // Inserción directa por SQL para forzar IDs manuales en un campo SERIAL/autoincrement
-            await prisma.$executeRaw`
-                INSERT INTO planes_suscripcion (id_plan, nombre_plan, precio, limite_grupos, limite_miembros_por_grupo, beneficios)
-                VALUES (${plan.id_plan}, ${plan.nombre_plan}, ${plan.precio}, ${plan.limite_grupos}, ${plan.limite_miembros_por_grupo}, ${plan.beneficios})
-                ON CONFLICT (id_plan) DO UPDATE 
-                SET limite_miembros_por_grupo = EXCLUDED.limite_miembros_por_grupo,
-                    beneficios = EXCLUDED.beneficios
-            `;
+            await prisma.planes_Suscripcion.upsert({
+                where: { id_plan: plan.id_plan },
+                update: {
+                    limite_miembros_por_grupo: plan.limite_miembros_por_grupo,
+                    beneficios: plan.beneficios
+                },
+                create: plan
+            });
         }
         console.log('[DB] Planes de suscripción verificados y sincronizados correctamente.');
     } catch (error) {
