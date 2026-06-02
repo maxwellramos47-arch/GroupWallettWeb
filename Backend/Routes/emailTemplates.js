@@ -56,7 +56,8 @@ class EmailTemplates {
                 },
                 tls: {
                     rejectUnauthorized: false // Previene bloqueos por certificados estrictos en ciertos nodos cloud
-                }
+                },
+                family: 4 // Fuerza a usar IPv4 para evitar el error ENETUNREACH (IPv6) en Render
             });
         }
 
